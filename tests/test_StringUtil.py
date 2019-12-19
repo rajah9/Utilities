@@ -13,6 +13,23 @@ class TestStringUtil(unittest.TestCase):
         self.su = StringUtil()
 
     @logit()
+    def test_capitalize_dict(self):
+        d = StringUtil.capitalize_dict()
+        f_expected = StringUtil.capitalize_as_title
+        self.assertEqual(f_expected, d['title'])
+
+    @logit()
+    def test_capitalize_func(self):
+        f_expected = StringUtil.capitalize_all_caps
+        f_actual = StringUtil.capitalize_func('allcaps')
+        self.assertEqual(f_expected, f_actual)
+        original = "This is a string"
+        f_actual = StringUtil.capitalize_func('altallcaps')
+        expected = f_actual(original)
+        actual = self.su.capitalize_all_caps(original)
+        self.assertEqual(expected, actual)
+
+    @logit()
     def test_capitalize_first_letter(self):
         test1 = "this is a string"
         exp1 = "This is a string"
@@ -29,6 +46,22 @@ class TestStringUtil(unittest.TestCase):
         exp1 = "This Is A String"
         self.assertEqual(exp1, self.su.capitalize_as_title(test1))
 
+    @logit()
+    def test_capitalize_all_lower(self):
+        test = "For Whom the Bell Tolls"
+        expected = "for whom the bell tolls"
+        self.assertEqual(expected, self.su.capitalize_all_lower(test))
+
+    @logit()
+    def test_capitalize_all_caps(self):
+        original = "for whom the bell tolls"
+        expected = "FOR WHOM THE BELL TOLLS"
+        self.assertEqual(expected, self.su.capitalize_all_caps(original))
+
+    @logit()
+    def test_capitalize_as_is(self):
+        expected = "For Whom the bell tolls"
+        self.assertEqual(expected, self.su.capitalize_as_is(expected))
     @logit()
     def test_first_non_blank_letter(self):
         test1 = "this is a string"
@@ -112,16 +145,6 @@ class TestStringUtil(unittest.TestCase):
         self.assertEqual("117", self.su.leading_2_places(117))
         self.assertEqual("99", self.su.leading_2_places(99))
 
-    @logit()
-    def test_all_caps(self):
-        original = "for whom the bell tolls"
-        expected = "FOR WHOM THE BELL TOLLS"
-        self.assertEqual(expected, self.su.all_caps(original))
-
-    @logit()
-    def test_capitalize_as_is(self):
-        expected = "For Whom the bell tolls"
-        self.assertEqual(expected, self.su.capitalize_as_is(expected))
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':

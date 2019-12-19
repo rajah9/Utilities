@@ -1,13 +1,14 @@
 import logging
 import ftfy
 import phonenumbers
+from typing import Callable, List, Union
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 """
 Interesting Python features:
 * Uses a generator in find_first_substring_in_list to find an element in a list.
-
+* tests to see if something is a string with isinstance(field, str) in truncate.
 """
 class StringUtil:
     def __init__(self, myString:str='Uninitialized'):
@@ -21,6 +22,67 @@ class StringUtil:
     @string.setter
     def string(self, s:str):
         self._string = s
+    """
+    Following classmethods can be called in lambda and apply functions.
+    Example:
+        f_str = StringUtil.capitalize_func('title') # could also be 'all-caps'
+        self._df_inv = self.pu.replace_col_using_func(df=self._df_inv, column='Author', func=f_str)
+
+    """
+
+    @classmethod
+    def capitalize_dict(cls) -> dict:
+        """
+        Return a dictionary whose keys are capitalization styles and whose values are string functions.
+        :return:
+        """
+        str_funcs = {'title': cls.capitalize_as_title,
+                     'all-caps': cls.all_caps,
+                     'as-is': cls.capitalize_as_is,
+                     'all-lower': cls.capitalize_all_lower}
+        return str_funcs
+
+    @classmethod
+    def capitalize_func(cls, cap_style:str='as-is') -> Callable:
+        try:
+            f_str = cls.capitalize_dict()[cap_style]
+        except KeyError:
+            logger.warning(f'Unable to find capitalization style: {cap_style}')
+            f_str = cls.capitalize_as_is
+        return f_str
+
+    @classmethod
+    def all_caps(cls, myString:str) -> str:
+        return myString.upper()
+
+    @classmethod
+    def capitalize_as_title(cls, myString:str) -> str:
+        """
+        capitalize as a title, so "for whom the bell tolls" -> "For Whom The Bell Tolls."
+        :param myString: string to capitalize
+        :return: First letter of each word capitalized
+        """
+        return myString.title()
+
+    @classmethod
+    def capitalize_as_is(cls, myString:str) -> str:
+        """
+        capitalize as is (basically a no-op). So "For Whom the bell tolls" -> "For Whom the bell tolls"
+        :param myString: string to capitalize
+        :return: as is.
+        """
+        return myString
+
+    @classmethod
+    def capitalize_all_lower(cls, myString:str) -> str:
+        """
+        make myString all lowercase, so "For Whom the Bell Tolls" -> "for whom the bell tolls"
+
+        :param myString:
+        :return: all lowercase
+        """
+        return myString.lower()
+
 
     def capitalize_first_letter(self, myString:str=None) -> str:
         """
@@ -32,26 +94,9 @@ class StringUtil:
         self.string = myString or self.string
         return self.string.capitalize()
 
-    def capitalize_as_title(self, myString:str=None) -> str:
-        """
-        capitalize as a title, so "for whom the bell tolls" -> "For Whom The Bell Tolls."
-        :param myString: string to capitalize
-        :return: First letter capitalized
-        """
-        self.string = myString or self.string
-        return self.string.title()
-
-    def capitalize_as_is(self, myString:str=None) -> str:
-        """
-        capitalize as is (basically a no-op). So "For Whom the bell tolls" -> "For Whom the bell tolls"
-        :param myString: string to capitalize
-        :return: as is.
-        """
-        self.string = myString or self.string
-        return self.string
 
 
-    def all_caps(self, myString:str=None) -> str:
+    def capitalize_all_caps(self, myString:str=None) -> str:
         """
         make myString all capitals, so "for whom the bell tolls" -> "FOR WHOM THE BELL TOLLS"
 
@@ -187,10 +232,14 @@ class StringUtil:
         :param max: length to truncate to
         :return:
         """
-        if len(field) < max:
-            return field
-        logger.warning(f'Truncating field: {field} to {max} characters.')
-        return field[:max]
+        if isinstance(field, str):
+            if len(field) < max:
+                return field
+            logger.warning(f'Truncating field: {field} to {max} characters.')
+            return field[:max]
+        else:
+            logger.warning(f'Cannot truncate {field} because it is not a string.')
+            return f'{field}'
 
     def leading_2_places(self, n:int) -> str:
         """
