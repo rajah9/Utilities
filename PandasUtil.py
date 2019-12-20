@@ -105,7 +105,7 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {csv_file_name}.')
         return True
 
-    def read_df_from_excel(self,excelFileName=None, excelWorksheet=None, header=0, index_col=None):
+    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col=None):
         param_dict = {'header': header}
         if excelFileName:
             self.filename = excelFileName
@@ -133,7 +133,7 @@ class PandasUtil:
             logger.error(f'Cannot find Excel file: {self.filename}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col=None) -> pd.DataFrame:
+    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None) -> pd.DataFrame:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
@@ -144,7 +144,7 @@ class PandasUtil:
         :return:
         """
         param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding':enc,}
-        if index_col:
+        if index_col is not None:
             param_dict['index_col'] = index_col
         ans = pd.read_csv(**param_dict)
         return ans
@@ -157,7 +157,7 @@ class PandasUtil:
         :param self:
         :return: list of headers
         """
-        if not df.empty:
+        if not self.is_empty(df):
             self.df = df
             return list(self.df.columns)
         else:
@@ -197,9 +197,9 @@ class PandasUtil:
         :return: df of the duplicates
         """
         if fieldList:
-            ans = df[df.duplicated(fieldList)]
+            ans = df[df.duplicated(fieldList, keep=keep)]
         else:
-            ans = df[df.duplicated()]
+            ans = df[df.duplicated(keep=keep)]
         return ans
 
 

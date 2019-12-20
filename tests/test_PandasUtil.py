@@ -12,6 +12,15 @@ from FileUtil import FileUtil
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+"""
+Interesting Python features:
+* Does some dict comprehension in test_replace_col_names. 
+* Uses mocking.
+** Uses self.assertLogs to ensure that an error message is logged in the calling routine.
+* Uses next to figure out if it found expected_log_message in cm.output:
+** self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+"""
+
 class Test_PandasUtil(unittest.TestCase):
     def setUp(self):
         self.pu = PandasUtil()
@@ -87,6 +96,8 @@ class Test_PandasUtil(unittest.TestCase):
         df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         first_entry = self.list_of_dicts[0]
         self.assertListEqual(list(first_entry.keys()), self.pu.get_df_headers(df))
+        df2 = self.pu.empty_df()
+        self.assertIsNone(self.pu.get_df_headers(df2))
 
     @logit()
     def test_without_null_rows2(self):
@@ -111,12 +122,28 @@ class Test_PandasUtil(unittest.TestCase):
     def test_write_df_to_csv(self):
         df = self.my_test_df()
         self.pu.write_df_to_csv(df=df, csv_file_name=self.csv_name, write_index=False)
-        df2 = self.pu.read_df_from_csv(csv_file_name=self.csv_name, index_col=0)
+        df2 = self.pu.read_df_from_csv(csv_file_name=self.csv_name, index_col=None)
         assert_frame_equal(df, df2)
 
+    @logit()
+    def test_write_df_to_csv_empty(self):
+        empty_df = PandasUtil.empty_df()
+        expected_log_message = 'Empty dataframe will not be written.'
+        with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
+            self.pu.write_df_to_csv(df=empty_df, csv_file_name=self.csv_name, write_index=False)
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+
+    @logit()
     def test_read_df_from_csv(self):
         df = self.my_test_df()
         self.pu.write_df_to_csv(df=df, csv_file_name=self.csv_name, write_index=False)
+        df2 = self.pu.read_df_from_csv(csv_file_name=self.csv_name)
+        assert_frame_equal(df, df2)
+
+    @logit()
+    def test_read_df_from_csv_with_index(self):
+        df = self.my_test_df()
+        self.pu.write_df_to_csv(df=df, csv_file_name=self.csv_name, write_index=True)
         df2 = self.pu.read_df_from_csv(csv_file_name=self.csv_name, index_col=0)
         assert_frame_equal(df, df2)
 
@@ -129,6 +156,13 @@ class Test_PandasUtil(unittest.TestCase):
         assert_frame_equal(df,df2)
         df3 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet='noSuchWorksheet')
         assert_frame_equal(PandasUtil.empty_df(), df3)
+        # test for missing spreadsheet
+        expected_log_message = 'Cannot find Excel file'
+        with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
+            df4 = self.pu.read_df_from_excel(excelFileName='NoSuchSpreadsheet.xls', excelWorksheet='noSuchWorksheet')
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+            self.assertTrue(self.pu.is_empty(df4))
+
 
     @logit()
     def test_get_rowCount_colCount(self):
@@ -272,12 +306,55 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(ans, mark.tolist())
 
     @logit()
+    def test_masked_df(self):
+        df = self.my_test_df()
+        mask = [x >= 21 for x in df['Age']]
+        expected = df[mask]
+        actual = self.pu.masked_df(df=df, mask=mask, invert_mask=False)
+        logger.debug(f'masked rows are: {actual.head()}')
+        assert_frame_equal(expected, actual)
+
+    @logit()
     def test_is_empty(self):
         df = self.my_test_df()
         self.assertFalse(self.pu.is_empty(df))
         df2 = self.pu.empty_df()
         self.assertTrue(self.pu.is_empty(df2))
 
+    @logit()
+    def test_duplicate_rows(self):
+        list_with_dups = self.list_of_dicts
+        orig_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        first_el = self.list_of_dicts[0]
+        logger.debug(f'First element in list of dicts is: {first_el}')
+        list_with_dups.append(first_el) # list has dup of first and last element
+        expected = self.pu.convert_dict_to_dataframe([first_el])
+        self.pu.reset_index(expected, True)
+        logger.debug(f'Expected DF: {expected.head()}')
+        df = self.pu.convert_dict_to_dataframe(list_with_dups)
+        logger.debug(f'df with dupes is: {df.head()}')
+        actual = self.pu.duplicate_rows(df)
+        self.assertEqual(1, len(actual))
+
+    @logit()
+    def test_drop_duplicates(self):
+        list_with_dups = self.list_of_dicts
+        original_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        first_el = self.list_of_dicts[0]
+        list_with_dups.append(first_el) # list has dup of first and last element
+        extra_df = self.pu.convert_dict_to_dataframe(list_with_dups)
+        actual = self.pu.drop_duplicates(extra_df)
+        assert_frame_equal(original_df, actual)
+
+    @logit()
+    def test_replace_col_names(self):
+        df = self.my_test_df()
+        orig_cols = self.pu.get_df_headers(df)
+        new_cols = [f'{x}_new' for x in orig_cols]
+        mapping_dict = dict(zip(orig_cols, new_cols))
+        df2 = self.pu.replace_col_names(df=df, replace_dict=mapping_dict, is_in_place=False)
+        actual_cols = self.pu.get_df_headers(df2)
+        self.assertListEqual(new_cols, actual_cols)
 
 from PandasUtil import DataFrameSplit
 

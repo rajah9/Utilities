@@ -6,6 +6,11 @@ from StringUtil import StringUtil
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+"""
+Interesting Python features:
+* Binds a class function in test_capitalize_func. See answer at https://stackoverflow.com/a/114289/509840
+"""
+
 
 class TestStringUtil(unittest.TestCase):
     def setUp(self):
@@ -20,14 +25,24 @@ class TestStringUtil(unittest.TestCase):
 
     @logit()
     def test_capitalize_func(self):
-        f_expected = StringUtil.capitalize_all_caps
-        f_actual = StringUtil.capitalize_func('allcaps')
-        self.assertEqual(f_expected, f_actual)
         original = "This is a string"
-        f_actual = StringUtil.capitalize_func('altallcaps')
+        f_expected = StringUtil.capitalize_all_caps
+        f_actual = StringUtil.capitalize_func('all-caps')
+        # Following bound_function because f_actual is unbound.
+        c = StringUtil()
+        bound_function = StringUtil.__dict__[f_actual.__name__].__get__(c, StringUtil)
+        logger.debug(f'Bound function is: {bound_function}')
+        self.assertEqual(bound_function, f_actual, 'Should point to same function')
+
+        f_actual = StringUtil.capitalize_func('nosuchfeature') # should give as-is
         expected = f_actual(original)
-        actual = self.su.capitalize_all_caps(original)
-        self.assertEqual(expected, actual)
+        self.assertEqual(expected, original)
+
+    def test_all_caps(self):
+        original = "for whom the bell tolls"
+        expected = "FOR WHOM THE BELL TOLLS"
+        self.assertEqual(expected, StringUtil.all_caps(original))
+
 
     @logit()
     def test_capitalize_first_letter(self):
@@ -145,6 +160,12 @@ class TestStringUtil(unittest.TestCase):
         self.assertEqual("117", self.su.leading_2_places(117))
         self.assertEqual("99", self.su.leading_2_places(99))
 
+    @logit()
+    def test_truncate(self):
+        longer = '*' * 50
+        my_max = 24
+        truncated = '*' * my_max
+        self.assertEqual(truncated, self.su.truncate(longer, max=my_max))
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':
