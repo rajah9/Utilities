@@ -40,6 +40,10 @@ class TestPlotUtil(unittest.TestCase):
         self.plt.count_plot(df=self.df, xlabel='Weight', return_function_do_not_plot=False)
 
     @logit()
+    def test_histogram_plot(self):
+        self.plt.historgram_plot(df=self.df, xlabel='Age', bins=5, return_function_do_not_plot=False)
+
+    @logit()
     def test_figure_plots(self):
         f1 = self.plt.count_plot(df=self.df, xlabel='Age', return_function_do_not_plot=True)
         f2 = self.plt.count_plot(df=self.df, xlabel='Weight', return_function_do_not_plot=True)

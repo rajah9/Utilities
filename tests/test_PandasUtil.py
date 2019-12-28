@@ -19,6 +19,10 @@ Interesting Python features:
 ** Uses self.assertLogs to ensure that an error message is logged in the calling routine.
 * Uses next to figure out if it found expected_log_message in cm.output:
 ** self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+* test_aggregates uses some numpy aggregates, such as sum, min, max, and mean.
+* in test_select_blanks, found the first element in a Series with .iloc[0]
+* in test_select_blanks, set an element within a dataframe using df.at
+* in test_mark_isnull, used an iloc[-1] to get the last record
 """
 
 class Test_PandasUtil(unittest.TestCase):
@@ -45,6 +49,7 @@ class Test_PandasUtil(unittest.TestCase):
         # Example dataframe from https://www.geeksforgeeks.org/python-pandas-dataframe-dtypes/
         df = pd.DataFrame({'Weight': [45, 88, 56, 15, 71],
                            'Name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+                           'Sex' : ['male', 'female', 'male', 'female', 'male'],
                            'Age': [14, 25, 55, 8, 21]})
 
         # Create and set the index
@@ -163,7 +168,6 @@ class Test_PandasUtil(unittest.TestCase):
             self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
             self.assertTrue(self.pu.is_empty(df4))
 
-
     @logit()
     def test_get_rowCount_colCount(self):
         df = self.my_test_df()
@@ -182,6 +186,20 @@ class Test_PandasUtil(unittest.TestCase):
         el = row1[second_key].item()              # should be 42
         logger.debug(f'el2 is of type {type(el)} and contains {el}')
         self.assertEqual(first_dict[second_key], el)
+
+    @logit()
+    def test_select_blanks(self):
+        df = self.my_test_df()
+        record = 3
+        df.at[record, 'Sex'] = '' # Change Robin's sex to blank
+        expected_weight = df.at[record, 'Weight']
+        expected_age = df.at[record, 'Age']
+        logger.debug(f'Modified df with blank: {df.head()}')
+        actual = self.pu.select_blanks(df, 'Sex')
+        logger.debug(f'got dataframe with blanks: {actual.head()}')
+        self.assertEqual(expected_weight, actual['Weight'].iloc[0])
+        self.assertEqual(expected_age, actual['Age'].iloc[0])
+
 
     def my_f(self, x:int) -> int:
         return x * x
@@ -298,12 +316,31 @@ class Test_PandasUtil(unittest.TestCase):
         return age >= 21
 
     @logit()
-    def test_mark_rows(self):
+    def test_mark_rows_by_func(self):
         df = self.my_test_df()
-        mark = self.pu.mark_rows(df, 'Age', self.is_adult)
+        mark = self.pu.mark_rows_by_func(df, 'Age', self.is_adult)
         logger.debug(f'marked rows are: {mark}')
         ans = [x >= 21 for x in df['Age']]
         self.assertListEqual(ans, mark.tolist())
+
+    @logit()
+    def test_mark_rows_by_criterion(self):
+        df = self.my_test_df()
+        mark = self.pu.mark_rows_by_criterion(df, 'Sex', 'female')
+        logger.debug(f'marked rows are: {mark}')
+        expected = [x == 'female' for x in df['Sex']]
+        self.assertListEqual(expected, mark.tolist())
+
+    @logit()
+    def test_mark_isnull(self):
+        df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        expected_dict = self.list_of_dicts[-1]   # should be {name: '', number: -1}
+        logger.debug(f'The expected entry is {expected_dict}')
+        actual = self.pu.mark_isnull(df, 'name')
+        logger.debug(f'mask of isnull: {actual}')
+        self.assertTrue(actual.iloc[-1])
+        for i in range(len(actual)-1):
+            self.assertFalse(actual.iloc[i])
 
     @logit()
     def test_masked_df(self):
@@ -345,6 +382,8 @@ class Test_PandasUtil(unittest.TestCase):
         extra_df = self.pu.convert_dict_to_dataframe(list_with_dups)
         actual = self.pu.drop_duplicates(extra_df)
         assert_frame_equal(original_df, actual)
+        actual2 = self.pu.drop_duplicates(extra_df, fieldList=['name'])
+        assert_frame_equal(original_df, actual2)
 
     @logit()
     def test_replace_col_names(self):
@@ -355,6 +394,25 @@ class Test_PandasUtil(unittest.TestCase):
         df2 = self.pu.replace_col_names(df=df, replace_dict=mapping_dict, is_in_place=False)
         actual_cols = self.pu.get_df_headers(df2)
         self.assertListEqual(new_cols, actual_cols)
+
+    @logit()
+    def test_aggregates(self):
+        df = self.my_test_df()
+        results_df = self.pu.aggregates(df, group_by=['Sex'], col='Weight')
+        logger.debug(f'Results are: {results_df.head()}')
+        df_female = self.pu.select(df, 'Sex', 'female')
+        df_male = self.pu.select(df, 'Sex', 'male')
+        expected_female_avg = df_female.agg("mean")['Weight']
+        logger.debug(f'female mean weight is {expected_female_avg}')
+        actual_female_row = results_df.loc[results_df['Sex'] == 'female']
+        logger.debug(f'Results df for female row: {actual_female_row.head()}')
+        actual_female_avg = actual_female_row['mean'].iloc[0]
+        self.assertAlmostEqual(expected_female_avg, actual_female_avg)
+        male_weights = df_male.Weight
+        logger.debug(f'male weights are: {male_weights}')
+        self.assertEqual(male_weights.max(), df_male.agg("max")["Weight"])
+        self.assertEqual(male_weights.min(), df_male.agg("min")["Weight"])
+        self.assertEqual(male_weights.sum(), df_male.agg("sum")["Weight"])
 
 from PandasUtil import DataFrameSplit
 

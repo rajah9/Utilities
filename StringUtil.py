@@ -5,6 +5,7 @@ from typing import Callable, List, Union
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
 """
 Interesting Python features:
 * Uses a generator in find_first_substring_in_list to find an element in a list.
@@ -22,11 +23,12 @@ class StringUtil:
     @string.setter
     def string(self, s:str):
         self._string = s
+
     """
     Following classmethods can be called in lambda and apply functions.
     Example:
         f_str = StringUtil.capitalize_func('title') # could also be 'all-caps'
-        self._df_inv = self.pu.replace_col_using_func(df=self._df_inv, column='Author', func=f_str)
+        self._df_inv = self.pu.replace_col_using_func(df=self._df_inv, column_name='Author', func=f_str)
 
     """
 
@@ -93,8 +95,6 @@ class StringUtil:
         """
         self.string = myString or self.string
         return self.string.capitalize()
-
-
 
     def capitalize_all_caps(self, myString:str=None) -> str:
         """

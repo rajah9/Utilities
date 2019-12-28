@@ -43,7 +43,6 @@ class TestStringUtil(unittest.TestCase):
         expected = "FOR WHOM THE BELL TOLLS"
         self.assertEqual(expected, StringUtil.all_caps(original))
 
-
     @logit()
     def test_capitalize_first_letter(self):
         test1 = "this is a string"

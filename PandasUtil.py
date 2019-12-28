@@ -166,7 +166,7 @@ class PandasUtil:
 
     def get_rowCount_colCount(self, df:pd.DataFrame):
         """
-        Return the row and column count of the df.
+        Return the row and column_name count of the df.
         :param df:
         :return: row count, col count
         """
@@ -222,7 +222,7 @@ class PandasUtil:
 
     def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
         """
-        Return a DataFrame without the rows that are null in the given column.
+        Return a DataFrame without the rows that are null in the given column_name.
         :param df: source DataFrame
         :param column_name: Column name to remove.
         :return: new DataFrame
@@ -231,19 +231,47 @@ class PandasUtil:
             mask = pd.notnull(df[column_name])
             return df[mask]
         except KeyError:
-            logger.error(f'Unable to find column name: {column_name}. Returning empty df.')
+            logger.error(f'Unable to find column_name name: {column_name}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def select(self, df:pd.DataFrame, column_name:str, match_me:str) -> pd.DataFrame:
+    def select(self, df:pd.DataFrame, column_name:str, match_me:Union[str, int]) -> pd.DataFrame:
         """
         Return a DataFrame that selects on the column_name that is equal to match_me.
         Similar to a SELECT * WHERE clause in SQL.
         :param df:
         :param column_name:
         :param match_me:
-        :return: df with the column matching the selected clause (possibly empty)
+        :return: df with the column_name matching the selected clause (possibly empty)
         """
         return df.loc[df[column_name] == match_me]
+
+    def mask_blanks(self, df:pd.DataFrame, column_name:str) -> list:
+        """
+        Return a boolean list with a True in the rows that have a blank column_name.
+        :param df:
+        :param column_name:
+        :return:
+        """
+        # ans = df.loc[df[column_name] == '']
+        ans = df[column_name] == ''
+        return ans
+
+    def select_blanks(self, df:pd.DataFrame, column_name:str) -> list:
+        return df[self.mask_blanks(df, column_name)]
+
+    def mask_non_blanks(self, df:pd.DataFrame, column_name:str) -> list:
+        """
+        Return a boolean list with a True in the rows that have a nonblank column_name.
+        :param df:
+        :param column_name:
+        :return:
+        """
+        blanks = self.mask_blanks(df, column_name)
+        non_blanks_mask = [not x for x in blanks]
+        return non_blanks_mask
+
+    def select_non_blanks(self, df: pd.DataFrame, column_name: str) -> list:
+        return df[self.mask_non_blanks(df, column_name)]
 
     def unique_values(self, df:pd.DataFrame, column_name:str) -> list:
         """
@@ -256,7 +284,7 @@ class PandasUtil:
 
     def add_new_col(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> pd.DataFrame:
         """
-        Call the func with no args to assign a new column to the dataframe.
+        Call the func with no args to assign a new column_name to the dataframe.
         func should return a list comprehension.
         Here's an example of what the function should do.
             def my_func(self) -> list:
@@ -276,21 +304,36 @@ class PandasUtil:
         df[column_name] = func()
         return df
 
-    def mark_rows(self, df:pd.DataFrame, column:str, func: Callable[[], list]) -> Bools:
+    def mark_rows_by_func(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> Bools:
         """
         Return a list of bools depending on the func.
         Here's a func (which takes a list as a parameter):
             def is_adult(self, age:list):
                 return age >= 21
         Here's how to invoke it:
-            mark = self.pu.mark_rows(df, 'Age', self.is_adult)
+            mark = self.pu.mark_rows_by_func(df, 'Age', self.is_adult)
 
         :param df: dataframe under scrutiny
-        :param column: name of the column
+        :param column_name: name of the column
         :param func:   function that is to be invoked. Takes a list and returns a list of booleans.
         :return:
         """
-        mask = func(df[column])
+        mask = func(df[column_name])
+        return mask
+
+    def mark_rows_by_criterion(self, df:pd.DataFrame, column_name:str, criterion:Union[str,int,float]) -> Bools:
+        """
+        Return a list of bools when column_name meets the criterion.
+        :param df:
+        :param column_name:
+        :param criterion:
+        :return:
+        """
+        mask = df[column_name] == criterion
+        return mask
+
+    def mark_isnull(self, df:pd.DataFrame, column_name:str) -> Bools:
+        mask = df[column_name].isnull()
         return mask
 
     def masked_df(self, df:pd.DataFrame, mask:Bools, invert_mask:bool=False):
@@ -305,7 +348,7 @@ class PandasUtil:
         Set the index of df.
 
         :param df: Dataframe under scrutiny.
-        :param columns: Can be a str (=single column) or a List of strings.
+        :param columns: Can be a str (=single column_name) or a List of strings.
         :param is_in_place: True to add the index in place / False to create a new df
         :return: df or None (if is_in_place is true)
         """
@@ -323,11 +366,11 @@ class PandasUtil:
 
     def drop_col(self, df:pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
         """
-        Drop the given column.
+        Drop the given column_name.
         :param df:
-        :param columns: Can be a str (=single column) or a List of strings.
-        :param is_in_place: if true, column is dropped from df in place. Otherwise, a new df is returned.
-        :return: None if is_in_place is True. Else df with the column dropped.
+        :param columns: Can be a str (=single column_name) or a List of strings.
+        :param is_in_place: if true, column_name is dropped from df in place. Otherwise, a new df is returned.
+        :return: None if is_in_place is True. Else df with the column_name dropped.
         """
         return df.drop(columns=columns, inplace=is_in_place)
 
@@ -342,29 +385,44 @@ class PandasUtil:
 
     def replace_col(self, df:pd.DataFrame, column: str, replace_dict: dict) -> pd.DataFrame:
         """
-        Replace the values of column using replace_dict.
+        Replace the values of column_name using replace_dict.
         :param df:
         :param column:
         :param replace_dict: {'origA':'replA', 'origB':'replB'}
-        :return: df with column replaced
+        :return: df with column_name replaced
         """
         try:
             df[column] = df[column].map(replace_dict)
         except KeyError:
-            logger.warning(f'Value found outside of: {replace_dict.keys()} or column {column} not found. Returning empty df.')
+            logger.warning(f'Value found outside of: {replace_dict.keys()} or column_name {column} not found. Returning empty df.')
             return self.empty_df()
         return df
+
 
     def replace_col_using_func(self, df:pd.DataFrame, column: str, func: Callable[[], list]) -> pd.DataFrame:
         """
         Replace the colun contents by each element's value, as determined by func.
         :param df: Dataframe under scrutiny.
-        :param column: (single column) name
+        :param column: (single column_name) name
         :param func: Function operates on whatever element it is presented, and returns the changed element.
         :return: df
         """
         df[column] = df[column].apply(func)
         return df
+
+    def replace_col_with_scalar(self, df:pd.DataFrame, column_name: str, replace_with: Union[str, int], mask: Bools=None) -> pd.DataFrame:
+        """
+        Replace the all column_name with replace_with. If a mask of bools is used, only replace those elements with a True.
+        :param df:
+        :param column_name:
+        :param replace_with:
+        :param mask:
+        :return:
+        """
+        if mask:
+            df[column_name] = replace_with
+        else:
+            df[column_name] = replace_with
 
     def replace_col_names(self, df:pd.DataFrame, replace_dict: dict, is_in_place:bool = True) -> pd.DataFrame:
         """
@@ -375,10 +433,10 @@ class PandasUtil:
 
     def coerce_to_string(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
         """
-        Coerce the given column name to a string.
+        Coerce the given column_name name to a string.
         :param df:
-        :param column:
-        :return: new df with column coerced to str.
+        :param column_name:
+        :return: new df with column_name coerced to str.
         """
         if isinstance(columns, str):
             # Make the single str columns into a list with just that one element.
@@ -391,10 +449,10 @@ class PandasUtil:
 
     def coerce_to_numeric(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
         """
-        Coerce the given column name to ints or floats.
+        Coerce the given column_name name to ints or floats.
         :param df:
-        :param column:
-        :return: new df with column coerced to a numeric.
+        :param column_name:
+        :return: new df with column_name coerced to a numeric.
         """
         if isinstance(columns, str):
             # Make the single str columns into a list with just that one element.
@@ -432,11 +490,24 @@ class PandasUtil:
         """
         return df.empty
 
+    def aggregates(self, df:pd.DataFrame, group_by:Strings, col:str) -> pd.DataFrame:
+        """
+        Return the average, min, max, and sum of the dataframe when grouped by the given strings.
+        Reference: https://jamesrledoux.com/code/group-by-aggregate-pandas .
+        :param df:
+        :param group_by:
+        :return:
+        """
+        grouped_multiple = df.groupby(group_by).agg({col: ['mean', 'min', 'max', 'sum']})
+        grouped_multiple.columns = ['mean', 'min', 'max', 'sum']
+        self.reset_index(grouped_multiple, is_in_place=True)
+        return grouped_multiple
+
 class DataFrameSplit():
     """
     Class to implement an iterator to divide a dataframe.
     """
-    def __init__(self, my_df:pd.DataFrame, interval:int = 5):
+    def __init__(self, my_df:pd.DataFrame, interval:int = 500):
         logger.debug(f'Initializing with df of length {len(my_df)} and interval of {interval}.')
         self.df = my_df
         self.interval = interval

@@ -28,14 +28,28 @@ class PlotUtil:
             return sns.countplot(**param_dict)
         sns.countplot(**param_dict)
         plt.show()
-        
+
+    def historgram_plot(self, df:pd.DataFrame, xlabel:str, bins:int=10, return_function_do_not_plot:bool=True):
+        if return_function_do_not_plot:
+            return df[xlabel].hist(bins=bins)
+        df[xlabel].hist(bins=bins)
+        plt.show()
+
+    def null_heatmap(self, df:pd.DataFrame, color_scheme:str='Blues'):
+        sns.heatmap(df.isnull(), yticklabels=True, cbar=False, cmap=color_scheme)
+        plt.show()
+
+    def boxplot(self, df:pd.DataFrame, xlabel:str, ylabel:str):
+        sns.boxplot(x=xlabel, y=ylabel, data=df)
+        plt.show()
+
     def figure_plots(self, plots:list, rows:int, cols:int, dims:list=[6,12]):
         """
-        Put the given plots list into a single figure.
-        :param plots:
-        :param rows:
-        :param cols:
-        :param dims:
+        Put the given plots list into a single figure. Goes left to right, top to bottom.
+        :param plots: list of sns plots to be invoked.
+        :param rows: how many rows in the figure
+        :param cols: how many columns in the figure
+        :param dims: height, width in inches as a list.
         :return:
         """
         plt.figure(figsize=dims)
