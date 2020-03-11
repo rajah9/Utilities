@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 import logging
 from unittest import mock, TestCase, main
 from ExecUtil import ExecUtil
@@ -32,6 +33,27 @@ class Test_ExecUtil(TestCase):
     def test_exec_file_path(self, mock_obj):
         mock_obj.return_value = self.mock_file
         self.assertEqual(self.mock_file, self.eu.exec_file_path())
+
+    @logit()
+    @mock.patch('ExecUtil.Path')
+    def test_parent_folder(self, mock_path):
+        parent = r'c:\mock'
+        path = parent + r'\sub'
+        mock_path.return_value = Path(path)
+        logger.debug(f'calling parent_folder with mock path of: {path}')
+        actual = self.eu.parent_folder()
+        logger.debug(f'got actual parent folder of: {actual}')
+        self.assertEqual(parent, str(actual))
+
+    @logit()
+    @mock.patch('ExecUtil.Path')
+    def test_parent_folder_at_root(self, mock_path):
+        path = 'c:\\'
+        mock_path.return_value = Path(path)
+        logger.debug(f'calling parent_folder with mock path of: {path}')
+        actual = self.eu.parent_folder()
+        logger.debug(f'got actual parent folder of: {actual}')
+        self.assertEqual(path, str(actual)) # "parent" of root is still the parent.
 
     @logit()
     @mock.patch('ExecUtil.abspath')

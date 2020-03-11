@@ -133,7 +133,7 @@ class PandasUtil:
             logger.error(f'Cannot find Excel file: {self.filename}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None) -> pd.DataFrame:
+    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None, separator:str = ',') -> pd.DataFrame:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
@@ -143,7 +143,7 @@ class PandasUtil:
         :param enc:
         :return:
         """
-        param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding':enc,}
+        param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding': enc, 'sep': separator}
         if index_col is not None:
             param_dict['index_col'] = index_col
         ans = pd.read_csv(**param_dict)
@@ -422,7 +422,37 @@ class PandasUtil:
         if mask:
             df[column_name] = replace_with
         else:
+<<<<<<< Updated upstream
             df[column_name] = replace_with
+=======
+            logger.warning(f'mask must be None, a series, or a list, but it is: {type(mask)}')
+            return self.empty_df()
+
+    def join_dfs_on_index(self, df1:pd.DataFrame, df2:pd.DataFrame) -> pd.DataFrame:
+        """
+        return the join of these two dataframes on their index.
+        :param df1:
+        :param df2:
+        :return:
+        """
+        pass # TODO Return an error if they don't both have indexes
+        return pd.concat([df1, df2], axis=1)
+
+    def dummy_var_df(self, df:pd.DataFrame, columns: Union[Strings, str], drop_first:bool=True) -> pd.DataFrame:
+        """
+        create a dummy variable based on the given column
+        :param df:
+        :param columns: a single column name or a list of column names.
+        :return:
+        """
+        if isinstance(columns, str):
+            my_columns = [columns]
+        else:
+            my_columns = columns
+        df = pd.get_dummies(data=df, columns=my_columns, drop_first=drop_first)
+        return df
+
+>>>>>>> Stashed changes
 
     def replace_col_names(self, df:pd.DataFrame, replace_dict: dict, is_in_place:bool = True) -> pd.DataFrame:
         """
@@ -503,6 +533,46 @@ class PandasUtil:
         self.reset_index(grouped_multiple, is_in_place=True)
         return grouped_multiple
 
+<<<<<<< Updated upstream
+=======
+    def stats(self, df: pd.DataFrame, xlabel_col_name: str, ylabel_col_name: str):
+        """
+        Calculate the main statistics
+        :param df: dataframe under scrutiny
+        :param xlabel_col_name: x column label
+        :param ylabel_col_name: y column label
+        :return: slope, intercept, and r (correlation)
+        """
+        slope, intercept, r, p, epsilon = linregress(df[xlabel_col_name], df[ylabel_col_name])
+        logger.info('Main equation: y = %.3f x + %.3f' % (slope, intercept))
+        logger.info('r^2 = %.4f' % (r * r))
+        logger.info('p = %.4f' % (p))
+        logger.info('std err: %.4f' % (epsilon))
+        return slope, intercept, r
+
+    def head(self, df: pd.DataFrame, how_many_rows:int=10) -> pd.DataFrame:
+        """
+        Return the first how_many_rows. This works well if called as the last line of an immediate, as in:
+          pu.head(df)
+        :param df:
+        :param how_many_rows:
+        :return:
+        """
+        self.df = df
+        return self.df.head(how_many_rows)
+
+    def tail(self, df: pd.DataFrame, how_many_rows:int=10) -> pd.DataFrame:
+        """
+        Return the last how_many_rows. This works well if called as the last line of an immediate, as in:
+          pu.tail(df)
+        :param df:
+        :param how_many_rows:
+        :return:
+        """
+        self.df = df
+        return self.df.tail(how_many_rows)
+
+>>>>>>> Stashed changes
 class DataFrameSplit():
     """
     Class to implement an iterator to divide a dataframe.

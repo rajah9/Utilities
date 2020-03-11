@@ -66,6 +66,42 @@ class Test_PandasUtil(unittest.TestCase):
         actual = self.pu.unique_values(df, column_name=col_name)
         self.assertListEqual(expected, actual)
 
+<<<<<<< Updated upstream
+=======
+    @logit()
+    def test_count_by_column(self):
+        col_name = 'age'
+        def small_df() -> pd.DataFrame:
+            d = [
+                {'name': 'Alice', 'flip': 'T', 'age': 13},
+                {'name': 'Bill', 'flip': 'H', 'age': 13},
+                {'name': 'Cory', 'flip': 'H', 'age': 15},
+            ]
+            return self.pu.convert_dict_to_dataframe(list_of_dicts=d)
+        df = small_df()
+        unique, counts = np.unique(df[col_name], return_counts=True)
+        zip_obj = zip(unique, counts)
+        expected = list(zip_obj)[:]
+        a = self.pu.count_by_column(df, column_name=col_name)
+        actual = list(zip(a.index, a))
+        self.assertListEqual(expected, actual)
+
+    @logit()
+    def test_join_dfs_on_index(self):
+        df1 = self.my_test_df()
+
+        def my_test_df2():
+            df = pd.DataFrame({'Shoe_size': [4.0, 5.5, 5.5, 10.5, 8.0]})
+            # Create and set the index
+            index_ = [0, 1, 2, 3, 4]
+            df.index = index_
+            return df
+        df2 = my_test_df2()
+        actual = self.pu.join_dfs_on_index(df1, df2)
+        for index, row in actual.iterrows():
+            self.assertEqual(row["Shoe_size"], df2.iloc[index]["Shoe_size"])
+            self.assertEqual(row["Name"], df1.iloc[index]["Name"])
+>>>>>>> Stashed changes
 
     @logit()
     def test_filename(self):
@@ -290,12 +326,18 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_coerce_to_string(self):
+        # Test 1. Single column (by name)
         df = self.my_test_df()
         age_series = df['Age']
         df2 = self.pu.coerce_to_string(df, 'Age')
         age_str_series = df2['Age']
-        expected = [str(age) for age in age_series]
+        expected = list(df['Age'])
         actual = list(age_str_series)
+        self.assertListEqual(expected, actual)
+        # Test 2. Several columns (as a list)
+        df3 = self.pu.coerce_to_string(df, ['Age', 'Name'])
+        actual = list(df3['Name'])
+        expected = list(df['Name'])
         self.assertListEqual(expected, actual)
 
     @logit()
@@ -414,6 +456,93 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertEqual(male_weights.min(), df_male.agg("min")["Weight"])
         self.assertEqual(male_weights.sum(), df_male.agg("sum")["Weight"])
 
+<<<<<<< Updated upstream
+=======
+    @logit()
+    def test_round(self):
+        costs = [6.526666667, 5.332222222, 4.55, 6.3, 3, 5.330666667, 2.6128]
+        for places in range(5):
+            expected = [round(c, places) for c in costs]
+            df = pd.DataFrame({'cost': costs})
+            actual = self.pu.round(df, {'cost': places})
+            logger.debug(f"testing rounding to {places} places. {expected} versus {actual['cost'].tolist()}")
+            for exp, act in zip(expected, actual['cost']):
+                appropriate_delta = pow(10.0, 0 - places) # Needed for the borderline case where 4.55 => 4.5 for round(4.5,2) and 4.6 for pd.round
+                self.assertAlmostEqual(exp, act, msg=f'Numbers not within {appropriate_delta}', delta=appropriate_delta)
+
+    @logit()
+    def test_replace_vals(self):
+        df = self.my_test_df()
+        expected = ['M' if x == 'male' else 'F' for x in df['Sex']]
+        self.pu.replace_vals(df=df, replace_me='male', new_val='M', is_in_place=True)
+        self.pu.replace_vals(df=df, replace_me='female', new_val='F', is_in_place=True)
+        self.assertListEqual(expected, df['Sex'].tolist())
+
+    @logit()
+    def test_stats(self):
+        df = pd.DataFrame({'Weight': [45, 98, 113, 140, 165],
+                           'Age': [8, 12, 14, 25, 55]})
+        actual_slope, actual_intercept, actual_r = self.pu.stats(df, 'Age', 'Weight')
+
+        def estimate_coeff(x:list, y:list):
+            n = np.size(x)
+            n2 = np.size(y)
+            if n == n2:
+                s_x = np.sum(x)
+                s_y = np.sum(y)
+                m_x = s_x * 1.0 / n
+                m_y = s_y * 1.0 / n
+                s_xy = np.sum(x*y)
+                s_xx = np.sum(x*x)
+                s_yy = np.sum(y*y)
+
+                SS_xy = s_xy - n * m_x * m_y
+                SS_xx = s_xx - n * m_x * m_x
+
+                slope = SS_xy / SS_xx
+                intercept = m_y - slope * m_x
+
+                r = (n * s_xy - s_x * s_y) / (math.sqrt((1.0 * n * s_xx - s_x * s_x) * (1.0 * n * s_yy - s_y * s_y)))
+                logger.debug(f'I think r-squared is: {r * r}')
+
+                return slope, intercept, r
+            else:
+                logger.error(f'Sizes of x and y vectors do not match. x is of size {n}. y is of size {n2}. Returning None')
+                return None
+        x = df['Age']
+        y = df['Weight']
+        expected_slope, expected_intercept, expected_r = estimate_coeff(x, y)
+        logger.debug(f'slope, intercept are: {expected_slope}, {expected_intercept}')
+        self.assertAlmostEqual(expected_slope, actual_slope, delta=0.001)
+        self.assertAlmostEqual(expected_intercept, actual_intercept, delta=0.001)
+        self.assertAlmostEqual(expected_r, actual_r, delta=0.001)
+
+    def test_head(self):
+        df = self.my_test_df()
+        head_len = 3
+        actual = self.pu.head(df, head_len)
+        logger.debug(f'Returned: \n{actual}')
+        expected = df[:head_len]
+        assert_frame_equal(expected, actual)
+
+    def test_tail(self):
+        # Test 1; tail is a subset of the df.
+        df = self.my_test_df()
+        row_count, col_count = self.pu.get_rowCount_colCount(df)
+        tail_len = row_count - 1
+        actual = self.pu.tail(df, tail_len)
+        logger.debug(f'Returned: \n{actual}')
+        expected = df[-tail_len:]
+        assert_frame_equal(expected, actual)
+        # test 2; tail attempts at a superset of the df (but gets just the df itself)
+        tail_len = row_count + 10
+        actual = self.pu.tail(df, tail_len)
+        logger.debug(f'Returned: \n{actual}')
+        expected = df
+        assert_frame_equal(expected, actual)
+
+
+>>>>>>> Stashed changes
 from PandasUtil import DataFrameSplit
 
 class Test_DataFrameSplit(unittest.TestCase):
