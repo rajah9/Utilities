@@ -271,6 +271,10 @@ class FileUtil:
             copy2(srcFile, dst)
             self.logger.debug(f'Copied file {srcFile} to {dst}.')
             return True
+        except (FileNotFoundError) as err:
+            self.logger.error('Exception message: {msg}'.format(msg=err))
+            self.logger.error(f'File {srcFile} not found.')
+            return False
         except (IOError, error) as err:
             self.logger.error('Exception message: {msg}'.format(msg=err))
             return False

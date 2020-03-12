@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import unittest
 import logging
+from math import sqrt
 from pandas.util.testing import assert_frame_equal
 
 from PandasUtil import PandasUtil
@@ -23,6 +24,8 @@ Interesting Python features:
 * in test_select_blanks, found the first element in a Series with .iloc[0]
 * in test_select_blanks, set an element within a dataframe using df.at
 * in test_mark_isnull, used an iloc[-1] to get the last record
+* test_replace_col_using_mult_cols uses an inner method to distinguish calculation of the expected value
+* test_select_non_blanks deletes rows based on criteria.
 """
 
 class Test_PandasUtil(unittest.TestCase):
@@ -55,7 +58,6 @@ class Test_PandasUtil(unittest.TestCase):
         # Create and set the index
         index_ = [0, 1, 2, 3, 4]
         df.index = index_
-
         return df
 
     @logit()
@@ -66,8 +68,6 @@ class Test_PandasUtil(unittest.TestCase):
         actual = self.pu.unique_values(df, column_name=col_name)
         self.assertListEqual(expected, actual)
 
-<<<<<<< Updated upstream
-=======
     @logit()
     def test_count_by_column(self):
         col_name = 'age'
@@ -81,7 +81,7 @@ class Test_PandasUtil(unittest.TestCase):
         df = small_df()
         unique, counts = np.unique(df[col_name], return_counts=True)
         zip_obj = zip(unique, counts)
-        expected = list(zip_obj)[:]
+        expected = list(zip_obj)[:] # should be: [(13, 2), (15, 1)]
         a = self.pu.count_by_column(df, column_name=col_name)
         actual = list(zip(a.index, a))
         self.assertListEqual(expected, actual)
@@ -101,7 +101,6 @@ class Test_PandasUtil(unittest.TestCase):
         for index, row in actual.iterrows():
             self.assertEqual(row["Shoe_size"], df2.iloc[index]["Shoe_size"])
             self.assertEqual(row["Name"], df1.iloc[index]["Name"])
->>>>>>> Stashed changes
 
     @logit()
     def test_filename(self):
@@ -123,6 +122,23 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertEqual(len(self.list_of_dicts), len(df))
 
     @logit()
+    def test_convert_list_to_dataframe(self):
+        expected_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        self.pu.drop_index(expected_df, True)
+
+        def list_of_dicts_to_lists(df: pd.DataFrame) -> list:
+            ans = []
+            for row in df.itertuples(index=False):
+                data = list(row)
+                ans.append(data)  # Append because I'm creating a list of lists.
+            return ans
+
+        lists = list_of_dicts_to_lists(expected_df)
+        actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=self.pu.get_df_headers(expected_df))
+        # self.pu.set_index(df=actual_df, columns=[0])
+        assert_frame_equal(expected_df, actual_df)
+
+    @logit()
     def test_without_null_rows(self):
         df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         col_to_nullify = 'name'
@@ -134,9 +150,11 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_get_df_headers(self):
+        # Test 1
         df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         first_entry = self.list_of_dicts[0]
         self.assertListEqual(list(first_entry.keys()), self.pu.get_df_headers(df))
+        # Test 2
         df2 = self.pu.empty_df()
         self.assertIsNone(self.pu.get_df_headers(df2))
 
@@ -155,7 +173,7 @@ class Test_PandasUtil(unittest.TestCase):
         logger.debug(f'my test df: {df.head()}')
         logger.debug(f'returned from read_df: {df2.head()}')
         assert_frame_equal(df,df2)
-        # Now test that an empty df does not write
+        # Test 2. Now test that an empty df does not write
         empty_df = PandasUtil.empty_df()
         self.assertFalse(self.pu.write_df_to_excel(df=empty_df))
 
@@ -195,9 +213,10 @@ class Test_PandasUtil(unittest.TestCase):
         df2 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name)
 
         assert_frame_equal(df,df2)
+        # Test 2
         df3 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet='noSuchWorksheet')
         assert_frame_equal(PandasUtil.empty_df(), df3)
-        # test for missing spreadsheet
+        # Test 3. Test for missing spreadsheet
         expected_log_message = 'Cannot find Excel file'
         with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
             df4 = self.pu.read_df_from_excel(excelFileName='NoSuchSpreadsheet.xls', excelWorksheet='noSuchWorksheet')
@@ -236,22 +255,41 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertEqual(expected_weight, actual['Weight'].iloc[0])
         self.assertEqual(expected_age, actual['Age'].iloc[0])
 
+    @logit()
+    def test_select_non_blanks(self):
+        df = self.my_test_df()
+        record = 3
+        df.at[record, 'Sex'] = '' # Change Robin's sex to blank
+        actual = self.pu.select_non_blanks(df, 'Sex')
+        logger.debug(f'original df: {df.head()}')
+        logger.debug(f'returned non-blank df: {actual.head()}')
+        df_exp = df[df.Sex != '']
+        logger.debug(f'expected df: {df_exp.head()}')
+        assert_frame_equal(df_exp, actual)
 
     def my_f(self, x:int) -> int:
         return x * x
 
-    def my_func(self) -> list:
-        df = self.pu.df
-        col_of_interest = df['number']
-        return [self.my_f(x) for x in col_of_interest]
-
-    def test_add_new_col(self):
+    def test_add_new_col_with_func(self):
+        def my_func() -> list:
+            df = self.pu.df
+            col_of_interest = df['number']
+            return [self.my_f(x) for x in col_of_interest]
         df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         new_col_name = 'squared'
-        df = self.pu.add_new_col(df, new_col_name, self.my_func)
-        expected = self.my_func()
+        df = self.pu.add_new_col_with_func(df, new_col_name, my_func)
+        expected = my_func()
         actual = df[new_col_name].tolist()
         self.assertListEqual(actual, expected)
+
+    @logit()
+    def test_add_new_col_from_array(self):
+        # Test 1. No index needed.
+        df = self.my_test_df() # len 5
+        new_vals = [x for x in range(94,115,5)] # also len 5
+        actual = self.pu.add_new_col_from_array(df, 'IQ', new_vals)
+        self.assertListEqual(new_vals, actual.IQ.tolist())
+
 
     @logit()
     def test_drop_col(self):
@@ -325,6 +363,71 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(actual, expected)
 
     @logit()
+    def test_replace_col_using_mult_cols(self):
+        cols = ['Sex', 'Weight']
+        df = self.my_test_df()
+        def boys_gain_girls_lose(cols: list):
+            sex = cols[0]
+            weight = cols[1]
+            if sex == 'male':
+                return 1.10 * weight
+            else:
+                return 0.90 * weight
+        expected_weights = df[cols].apply(boys_gain_girls_lose, axis=1)
+        logger.debug(f'expected weights: {expected_weights}')
+        df2 = self.pu.replace_col_using_mult_cols(df, column_to_replace='Weight', cols=cols, func=boys_gain_girls_lose)
+        logger.debug(f'new weights: {df2.head()}')
+        self.assertListEqual(expected_weights.tolist(), df2['Weight'].tolist())
+
+
+    @logit()
+    def test_replace_col_with_scalar(self):
+        df = self.my_test_df()
+        # Test 1. First, replace all ages.
+        target_age = 30
+        self.pu.replace_col_with_scalar(df, 'Age', target_age)
+        for age in df['Age']:
+            self.assertEqual(target_age, age)
+        # Test 2. Using a Series mask.
+        mask_series = self.pu.mark_rows_by_criterion(df, 'Sex', 'female')
+        logger.debug(f'marked rows are: {mask_series}')
+        new_target_age = 21
+        self.pu.replace_col_with_scalar(df, 'Age', new_target_age, mask_series)
+        logger.debug(f'replaced ages df: {df.head()}. tested mask_series of type {type(mask_series)}')
+        def expected_ages(female_age:int) -> list:
+            ans = [target_age if x == 'male' else female_age for x in df['Sex']]
+            logger.debug(f'returning expected ages vector of: {ans}')
+            return ans
+        self.assertListEqual(expected_ages(new_target_age), df['Age'].tolist())
+        # Test 3. using a list mask.
+        newer_target_age = 22
+        mask_list = mask_series.tolist()
+        self.pu.replace_col_with_scalar(df, 'Age', newer_target_age, mask_list)
+        self.assertListEqual(expected_ages(newer_target_age), df['Age'].tolist())
+        logger.debug(f'replaced ages df: {df.head()}. tested mask_list of type {type(mask_list)}')
+        # Test 4. Using a wrong type of mask.
+        with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
+            expected_log_message = 'mask must be None, a series, or a list'
+            mask_wrong = {}
+            self.pu.replace_col_with_scalar(df, 'Age', newer_target_age, mask_wrong)
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+
+    @logit()
+    def test_dummy_var_df(self):
+        df = self.my_test_df()
+        col_to_dummy = 'Sex'
+        dummy_df = self.pu.dummy_var_df(df, col_to_dummy)
+        logger.debug(f'Here is the dummy series: {dummy_df.head()}')
+        cols = self.pu.get_df_headers(dummy_df)
+        new_col = cols[-1]
+        expected = col_to_dummy + '_'
+        self.assertTrue(next((True for col in cols if expected in col), False)) # must find a Sex_male or Sex_female column
+        def expected_male() -> list:
+            ans = [1 if x == 'male' else 0 for x in df['Sex']]
+            return ans
+        self.assertListEqual(expected_male(), dummy_df[new_col].tolist())
+
+    @logit()
     def test_coerce_to_string(self):
         # Test 1. Single column (by name)
         df = self.my_test_df()
@@ -386,12 +489,18 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_masked_df(self):
+        # Test 1
         df = self.my_test_df()
         mask = [x >= 21 for x in df['Age']]
         expected = df[mask]
         actual = self.pu.masked_df(df=df, mask=mask, invert_mask=False)
         logger.debug(f'masked rows are: {actual.head()}')
         assert_frame_equal(expected, actual)
+        # Test 2. Test inverted mask
+        df_male = self.pu.select(df, 'Sex', 'male')
+        mask_series = self.pu.mark_rows_by_criterion(df, 'Sex', 'female')
+        actual = self.pu.masked_df(df=df, mask=mask_series, invert_mask=True)
+        assert_frame_equal(df_male, actual)
 
     @logit()
     def test_is_empty(self):
@@ -456,8 +565,6 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertEqual(male_weights.min(), df_male.agg("min")["Weight"])
         self.assertEqual(male_weights.sum(), df_male.agg("sum")["Weight"])
 
-<<<<<<< Updated upstream
-=======
     @logit()
     def test_round(self):
         costs = [6.526666667, 5.332222222, 4.55, 6.3, 3, 5.330666667, 2.6128]
@@ -502,7 +609,7 @@ class Test_PandasUtil(unittest.TestCase):
                 slope = SS_xy / SS_xx
                 intercept = m_y - slope * m_x
 
-                r = (n * s_xy - s_x * s_y) / (math.sqrt((1.0 * n * s_xx - s_x * s_x) * (1.0 * n * s_yy - s_y * s_y)))
+                r = (n * s_xy - s_x * s_y) / (sqrt((1.0 * n * s_xx - s_x * s_x) * (1.0 * n * s_yy - s_y * s_y)))
                 logger.debug(f'I think r-squared is: {r * r}')
 
                 return slope, intercept, r
@@ -542,7 +649,6 @@ class Test_PandasUtil(unittest.TestCase):
         assert_frame_equal(expected, actual)
 
 
->>>>>>> Stashed changes
 from PandasUtil import DataFrameSplit
 
 class Test_DataFrameSplit(unittest.TestCase):

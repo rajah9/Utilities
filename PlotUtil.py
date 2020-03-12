@@ -1,27 +1,72 @@
+import logging
+import string
+from typing import List
+
+import numpy as np
 import pandas as pd
 import seaborn as sns
-from scipy.stats import linregress
-import logging
-from LogitUtil import logit
-from FileUtil import FileUtil
 from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix
+from matplotlib.colors import ListedColormap
+
+"""
+Helpful references:
+  Python Data Science Handbook by Jake VanderPlas: https://www.oreilly.com/library/view/python-data-science/9781491912126/ch04.html
+  * "The plt.show() command does a lot under the hood, as it must interact with your system’s interactive graphical backend."
+  * "any plt plot command will cause a figure window to open, and further commands can be run to update the plot."
+  * "Plotting interactively within an IPython notebook can be done with the %matplotlib command"
+    * %matplotlib notebook will lead to interactive plots embedded within the notebook
+    * %matplotlib inline will lead to static images of your plot embedded in the notebook
+  * "You can save a figure using the savefig()" e.g., fig.savefig('my_figure.png')
+  * Matplotlib has dual interfaces: a convenient MATLAB-style state-based interface, and a more powerful object-oriented interface.
+  In[10]: # First create a grid of plots
+        # ax will be an array of two Axes objects
+        fig, ax = plt.subplots(2)
+        x = np.linspace(0, 10, 100)
+        # Call plot() method on the appropriate object
+        ax[0].plot(x, np.sin(x))
+        ax[1].plot(x, np.cos(x));
+        
+  * In Matplotlib, the figure (an instance of the class plt.Figure) can be thought of as a single container that contains all the objects representing axes, graphics, text, and labels.
+  * The axes (an instance of the class plt.Axes) is: a bounding box with ticks and labels, which will eventually contain the plot elements that make up our visualization.
+  * Throughout this book, we’ll commonly use the variable name fig to refer to a figure instance, and ax to refer to an axes instance or group of axes instances.
+
+    In[3]: fig = plt.figure()
+           ax = plt.axes()
+    
+           x = np.linspace(0, 10, 1000)
+           ax.plot(x, np.sin(x));
+        
+  * Alternatively, we can use the pylab interface and let the figure and axes be created for us in the background
+
+    In[4]: plt.plot(x, np.sin(x));
+  * If we want to create a single figure with multiple lines, we can simply call the plot function multiple times:
+
+    In[5]: plt.plot(x, np.sin(x))
+           plt.plot(x, np.cos(x));  
+           
+    
+           
+Interesting Python features:
+* In confusion_matrix_plot, uses a all function to help determine if a matrix is square.
+* Uses typing create Strings (= a list of strings).
+"""
+
+Strings = List[str]
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
 class PlotUtil:
-    def plot_and_stats(self, df:pd.DataFrame, xlabel:str, ylabel:str, color:str='r'):
-        sns.regplot(x=xlabel, y=ylabel, data=df, robust=True, color=color, x_jitter=1.0, y_jitter=1.0)
+    def __init__(self, myplt: plt=plt):
+        self.plt = myplt
 
-<<<<<<< Updated upstream
-        slope, intercept, r, p, epsilon = linregress(df[xlabel], df[ylabel])
-        logger.info('Main equation: y = %.3f x + %.3f' % (slope, intercept))
-        logger.info('r^2 = %.4f' % (r * r))
-        logger.info('p = %.4f' % (p))
-        logger.info('std err: %.4f' % (epsilon))
+    # Getters and setters for plt
+    @property
+    def plt(self):
+        return self._p
 
-    def count_plot(self, df:pd.DataFrame, xlabel:str, hue:str=None, return_function_do_not_plot:bool=True):
-=======
     # Setter for plt
     @plt.setter
     def plt(self, p: plt) -> plt:
@@ -85,7 +130,6 @@ class PlotUtil:
         :param return_function_do_not_plot:
         :return:
         """
->>>>>>> Stashed changes
         param_dict = {'x': xlabel, 'data': df}
         if hue:
             param_dict['hue'] = hue
@@ -93,42 +137,37 @@ class PlotUtil:
         if return_function_do_not_plot:
             return sns.countplot(**param_dict)
         sns.countplot(**param_dict)
-<<<<<<< Updated upstream
-        plt.show()
-=======
         self.plt.show()
 
-    def histogram_plot(self, df: pd.DataFrame, xlabel: str, bins: int = 10, color: str = 'b', range = None, return_function_do_not_plot: bool = True):
+    def histogram_plot(self, df: pd.DataFrame, xlabel: str, bins: int = 10, color: str = 'b', return_function_do_not_plot: bool = True):
         def plot_histogram():
-            return df[xlabel].hist(bins=bins, color=color, range=range)
->>>>>>> Stashed changes
+            return df[xlabel].hist(bins=bins, color=color)
 
-    def historgram_plot(self, df:pd.DataFrame, xlabel:str, bins:int=10, return_function_do_not_plot:bool=True):
         if return_function_do_not_plot:
-            return df[xlabel].hist(bins=bins)
-        df[xlabel].hist(bins=bins)
-        plt.show()
+            return plot_histogram()
+        plot_histogram()
+        self.plt.show()
 
-<<<<<<< Updated upstream
-    def null_heatmap(self, df:pd.DataFrame, color_scheme:str='Blues'):
-=======
     def historgram_plot(self, df: pd.DataFrame, xlabel: str, bins: int = 10, return_function_do_not_plot: bool = True):
         logger.warning('deprecated.')
         self.histogram_plot(df, xlabel, bins, return_function_do_not_plot)
 
 
     def null_heatmap(self, df: pd.DataFrame, color_scheme: str = 'Blues'):
->>>>>>> Stashed changes
         sns.heatmap(df.isnull(), yticklabels=True, cbar=False, cmap=color_scheme)
-        plt.show()
+        self.plt.show()
 
-    def boxplot(self, df:pd.DataFrame, xlabel:str, ylabel:str):
+    def heatmap(self, cm:confusion_matrix, is_annot:bool=True, format:str='d'):
+        sns.heatmap(cm, annot=is_annot, fmt=format)
+        self.plt.show()
+
+    def correlation_plot(self, df:pd.DataFrame):
+        self.heatmap(df.corr(), is_annot=True, format='.2g')
+
+    def boxplot(self, df: pd.DataFrame, xlabel: str, ylabel: str):
         sns.boxplot(x=xlabel, y=ylabel, data=df)
-        plt.show()
+        self.plt.show()
 
-<<<<<<< Updated upstream
-    def figure_plots(self, plots:list, rows:int, cols:int, dims:list=[6,12]):
-=======
     def figure_plots2(self, plots: list, rows: int = 1, cols: int = 1, dims: np.array = None):
         pass #TODO
         t = lambda x: exec(x)
@@ -142,7 +181,6 @@ class PlotUtil:
 
 
     def figure_plots(self, plots: list, rows: int = 1, cols: int = 1, dims: np.array = None):
->>>>>>> Stashed changes
         """
         Put the given plots list into a single figure. Goes left to right, top to bottom.
         :param plots: list of sns plots to be invoked.
@@ -151,19 +189,6 @@ class PlotUtil:
         :param dims: height, width in inches as a list.
         :return:
         """
-<<<<<<< Updated upstream
-        plt.figure(figsize=dims)
-        subplot_count = len(plots)
-
-        for f in plots:
-            for r in range(rows):
-                for c in range(cols):
-                    which_subplot = subplot_count * 100 + (r+1) * 10 + c+1
-                    plt.subplot(which_subplot)
-                    logger.debug(f'About to create subplot {which_subplot}')
-                    f
-        plt.show()
-=======
         size = dims or np.array([10,10])
         plt.figure(figsize=size)
 
@@ -210,12 +235,13 @@ class PlotUtil:
         if not is_square(square_matrix):
             logger.warning('Matrix is not square. Returning')
             return
->>>>>>> Stashed changes
 
+        if return_function_do_not_plot:
+            return confusion_matrix()
+        else:
+            confusion_matrix()
+            self.plt.show()
 
-<<<<<<< Updated upstream
-    
-=======
     @staticmethod
     def visualize_results(X_set, y_set, classifier, title:str=None, x_label:str=None, y_label:str=None):
         """
@@ -251,4 +277,3 @@ class PlotUtil:
             plt.ylabel(y_label)
         plt.legend()
         plt.show()
->>>>>>> Stashed changes

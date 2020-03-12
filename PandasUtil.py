@@ -1,8 +1,10 @@
 import pandas as pd
+import numpy as np
 from typing import Callable, List, Union
 import logging
 from LogitUtil import logit
 from FileUtil import FileUtil
+from scipy.stats import linregress
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -14,6 +16,10 @@ Bools = List[bool]
 Interesting Python features:
 * Uses a parameter dictionary to send arguments to a member.
 * Uses typing to Union a string or a list.
+* In replace_col_with_scalar, uses two different methods to replace a masked array with a scalar.
+* In replace_col_using_func, I pass in a function to be executed by it.
+* In stats, provided an independent way to find slope, intercept, and r.
+* In the init, set the display options to show head() better.
 """
 
 class PandasUtil:
@@ -24,6 +30,10 @@ class PandasUtil:
         self.worksheetName = None
         self._df = None
         self._fu = FileUtil()
+        # make the df display look better: https://stackoverflow.com/questions/11707586/how-do-i-expand-the-output-display-to-see-more-columns-of-a-pandas-dataframe
+        pd.set_option('display.max_rows', 100)
+        pd.set_option('display.max_columns', 50)
+        pd.set_option('display.width', 800)
 
     # Getters and setters for filename, worksheetname, and df
     @property
@@ -133,17 +143,17 @@ class PandasUtil:
             logger.error(f'Cannot find Excel file: {self.filename}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None, separator:str = ',') -> pd.DataFrame:
+    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None, sep:str = ',') -> pd.DataFrame:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
         :param df:
         :param csv_file_name:
         :param header: Where the headers live (0 means first line of the file)
-        :param enc:
+        :param enc: try 'latin-1' or 'ISO-8859-1' if you are getting encoding errors
         :return:
         """
-        param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding': enc, 'sep': separator}
+        param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding':enc,}
         if index_col is not None:
             param_dict['index_col'] = index_col
         ans = pd.read_csv(**param_dict)
@@ -173,7 +183,6 @@ class PandasUtil:
         rows, cols = df.shape
         logger.debug(f'df has {rows} rows and {cols} columns.')
         return rows, cols
-
 
     @logit(showRetVal=True)
     def get_worksheets(self, excelFileName=None):
@@ -218,7 +227,21 @@ class PandasUtil:
         return df.drop_duplicates(**param_dict)
 
     def convert_dict_to_dataframe(self, list_of_dicts: list) -> pd.DataFrame:
+        """
+        Convert a list of dictionaries to a dataframe.
+        :param list_of_dicts:
+        :return:
+        """
         return pd.DataFrame(list_of_dicts)
+
+    def convert_list_to_dataframe(self, lists: list, column_names: List) -> pd.DataFrame:
+        """
+        Convert a list of lists to a dataframe. Add the column names.
+        :param lists:
+        :param column_names:
+        :return:
+        """
+        return pd.DataFrame(data=lists, columns=column_names)
 
     def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
         """
@@ -282,7 +305,16 @@ class PandasUtil:
         """
         return self.drop_duplicates(df=df[column_name]).tolist()
 
-    def add_new_col(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> pd.DataFrame:
+    def count_by_column(self, df:pd.DataFrame, column_name:str=None) -> pd.DataFrame:
+        """
+        Return a count by value of the given column.
+        :param df:
+        :param column_name:
+        :return:
+        """
+        return df[column_name].value_counts()
+
+    def add_new_col_with_func(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> pd.DataFrame:
         """
         Call the func with no args to assign a new column_name to the dataframe.
         func should return a list comprehension.
@@ -293,7 +325,7 @@ class PandasUtil:
                 return [self.my_f(x) for x in col_of_interest]
 
         It gets called with:
-            df = self.pu.add_new_col(df, 'new_col_name', self.my_func)
+            df = self.pu.add_new_col_with_func(df, 'new_col_name', self.my_func)
 
         :param df:
         :param column_name:
@@ -303,6 +335,20 @@ class PandasUtil:
         self.df = df
         df[column_name] = func()
         return df
+
+    def add_new_col_from_array(self, df:pd.DataFrame, column_name:str, new_col:np.array) -> pd.DataFrame:
+        """
+        Use the values in new_col to create a new column.
+        Limitations: this is not as sophisticated as https://stackoverflow.com/questions/12555323/adding-new-column-to-existing-dataframe-in-python-pandas .
+        The length of new_col must be the same as the length of df.
+        :param df:
+        :param column_name:
+        :param new_col: If this really is a Series, it will try to match indexes with the existing df (probably a good thing).
+        :return:
+        """
+        df[column_name] = new_col
+        return df
+
 
     def mark_rows_by_func(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> Bools:
         """
@@ -314,7 +360,7 @@ class PandasUtil:
             mark = self.pu.mark_rows_by_func(df, 'Age', self.is_adult)
 
         :param df: dataframe under scrutiny
-        :param column_name: name of the column
+        :param column_name: name of the column_name
         :param func:   function that is to be invoked. Takes a list and returns a list of booleans.
         :return:
         """
@@ -364,6 +410,16 @@ class PandasUtil:
         """
         return df.reset_index(drop=is_dropped, inplace=is_in_place)
 
+    def drop_index(self, df:pd.DataFrame, is_in_place:bool = True) -> pd.DataFrame:
+        """
+        Drop the index
+        :param df:
+        :param is_in_place:
+        :param is_dropped:
+        :return:
+        """
+        return self.reset_index(df=df, is_in_place=is_in_place, is_dropped=True)
+
     def drop_col(self, df:pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
         """
         Drop the given column_name.
@@ -373,6 +429,37 @@ class PandasUtil:
         :return: None if is_in_place is True. Else df with the column_name dropped.
         """
         return df.drop(columns=columns, inplace=is_in_place)
+
+    def drop_col_keeping(self, df:pd.DataFrame, cols_to_keep: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
+        """
+        Keep the given columns and drop the rest.
+        :param df:
+        :param cols_to_keep:
+        :param is_in_place:
+        :return:
+        """
+        headers_to_drop = self.get_df_headers(df)
+        exceptions = cols_to_keep
+        if isinstance(cols_to_keep, str):
+            exceptions = [cols_to_keep]
+        for col in exceptions:
+            headers_to_drop.remove(col)
+        return self.drop_col(df=df, columns=headers_to_drop, is_in_place=is_in_place)
+
+    def drop_row_by_criterion(self, df:pd.DataFrame, column_name: str, criterion: str, is_in_place:bool = True) -> pd.DataFrame:
+        """
+        Drop the rows that have criterion in the given column.
+        :param df:
+        :param column_name:
+        :param criterion:
+        :return:
+        """
+        ans = df[df[column_name] != criterion]
+        if is_in_place:
+            df = ans
+        else:
+            return ans
+
 
     def reorder_cols(self, df:pd.DataFrame, columns: Strings) -> pd.DataFrame:
         """
@@ -398,33 +485,47 @@ class PandasUtil:
             return self.empty_df()
         return df
 
-
-    def replace_col_using_func(self, df:pd.DataFrame, column: str, func: Callable[[], list]) -> pd.DataFrame:
+    def replace_col_using_func(self, df:pd.DataFrame, column_name: str, func: Callable[[], list]) -> pd.DataFrame:
         """
-        Replace the colun contents by each element's value, as determined by func.
+        Replace the column contents by each element's value, as determined by func.
         :param df: Dataframe under scrutiny.
-        :param column: (single column_name) name
+        :param column_name: (single column_name) name
         :param func: Function operates on whatever element it is presented, and returns the changed element.
         :return: df
         """
-        df[column] = df[column].apply(func)
+        df[column_name] = df[column_name].apply(func)
+        return df
+
+    def replace_col_using_mult_cols(self, df:pd.DataFrame, column_to_replace: str, cols: Strings, func: Callable[[], list]) -> pd.DataFrame:
+        """
+
+        :param df: Dataframe under scrutiny.
+        :param column_to_replace: (single column_name) name
+        :param cols: list of columns used for the following func
+        :param func:
+        :return: df with replaced column
+        """
+        df[column_to_replace] = df[cols].apply(func, axis=1)
         return df
 
     def replace_col_with_scalar(self, df:pd.DataFrame, column_name: str, replace_with: Union[str, int], mask: Bools=None) -> pd.DataFrame:
         """
         Replace the all column_name with replace_with. If a mask of bools is used, only replace those elements with a True.
+        Helpful reference at https://kanoki.org/2019/07/17/pandas-how-to-replace-values-based-on-conditions/
         :param df:
         :param column_name:
         :param replace_with:
         :param mask:
         :return:
         """
-        if mask:
+        if mask is None:
             df[column_name] = replace_with
+        elif isinstance(mask, pd.Series):
+            df[column_name].mask(mask.tolist(), replace_with, inplace=True)
+        elif isinstance(mask, list) :
+            # df[column_name].mask(mask, replace_with, inplace=True) # Method 1 and works
+            df.loc[mask, column_name] = replace_with                 # Method 2 at kanoki.
         else:
-<<<<<<< Updated upstream
-            df[column_name] = replace_with
-=======
             logger.warning(f'mask must be None, a series, or a list, but it is: {type(mask)}')
             return self.empty_df()
 
@@ -435,7 +536,6 @@ class PandasUtil:
         :param df2:
         :return:
         """
-        pass # TODO Return an error if they don't both have indexes
         return pd.concat([df1, df2], axis=1)
 
     def dummy_var_df(self, df:pd.DataFrame, columns: Union[Strings, str], drop_first:bool=True) -> pd.DataFrame:
@@ -451,8 +551,6 @@ class PandasUtil:
             my_columns = columns
         df = pd.get_dummies(data=df, columns=my_columns, drop_first=drop_first)
         return df
-
->>>>>>> Stashed changes
 
     def replace_col_names(self, df:pd.DataFrame, replace_dict: dict, is_in_place:bool = True) -> pd.DataFrame:
         """
@@ -495,6 +593,7 @@ class PandasUtil:
     def round(self, df:pd.DataFrame, rounding_dict:dict) -> pd.DataFrame:
         """
         Round the columns given in rounding_dict to the given number of decimal places.
+        Unexpected result found in testing: python function round(4.55, 2) yields 4.5 BUT this function returns 4.6
         :param df:
         :param rounding_dict: {'A': 2, 'B':3}
         :return: df rounded to the specified number of places.
@@ -533,11 +632,9 @@ class PandasUtil:
         self.reset_index(grouped_multiple, is_in_place=True)
         return grouped_multiple
 
-<<<<<<< Updated upstream
-=======
     def stats(self, df: pd.DataFrame, xlabel_col_name: str, ylabel_col_name: str):
         """
-        Calculate the main statistics
+        Calculate the main statistics.
         :param df: dataframe under scrutiny
         :param xlabel_col_name: x column label
         :param ylabel_col_name: y column label
@@ -572,7 +669,6 @@ class PandasUtil:
         self.df = df
         return self.df.tail(how_many_rows)
 
->>>>>>> Stashed changes
 class DataFrameSplit():
     """
     Class to implement an iterator to divide a dataframe.

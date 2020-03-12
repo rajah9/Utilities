@@ -144,6 +144,20 @@ class TestStringUtil(unittest.TestCase):
         self.assertEqual(l[0], self.su.find_first_substring_in_list('abc', l))
         self.assertEqual(l[2], self.su.find_first_substring_in_list('abc4', l))
 
+    @logit()
+    def test_find_substring_occurrences_in_list(self):
+        l = ['abc123', 'def234', 'abc456']
+        # Test 1, normal case
+        find_me = 'abc'
+        actual = StringUtil.find_substring_occurrences_in_list(my_string=find_me, my_list=l)
+        expected = []
+        for s in filter(lambda x: find_me in x, l): expected.append(s)
+        self.assertListEqual(expected, actual)
+        # Test 2, empty case
+        find_me = 'not in list'
+        actual = StringUtil.find_substring_occurrences_in_list(my_string=find_me, my_list=l)
+        expected = []
+        self.assertListEqual(expected, actual)
 
     @logit()
     def test_parse_phone(self):
@@ -165,6 +179,59 @@ class TestStringUtil(unittest.TestCase):
         my_max = 24
         truncated = '*' * my_max
         self.assertEqual(truncated, self.su.truncate(longer, max=my_max))
+
+    @logit()
+    def test_regex_found(self):
+        # test 1
+        text = "Financial crimes manager"
+        pattern = r'[Ff]inancial [Cc]rimes'
+        self.assertTrue(StringUtil.regex_found(text, pattern))
+        # test 2
+        should_not_find = "Financial manager"
+        self.assertFalse(StringUtil.regex_found(should_not_find, pattern))
+
+    @logit()
+    def test_regex_position(self):
+        # test 1
+        text = "Financial crimes manager"
+        pattern = "man"
+        actual_start, actual_end = StringUtil.regex_position(text, pattern)
+        expected_start = str.find(text, pattern)
+        self.assertEqual(expected_start, actual_start)
+        self.assertEqual(expected_start+ len(pattern), actual_end)
+        # test 2
+        should_not_find = "Wrong capitalization for Man"
+        actual_start, actual_end = StringUtil.regex_position(should_not_find, pattern)
+        self.assertEqual(-1, actual_start)
+        self.assertEqual(-1, actual_end)
+
+    @logit()
+    def test_surrounding_regex(self):
+        core = "found"
+        surround_5 = "12345" + core + "54321"
+        # test 1, normal
+        actual_0 = StringUtil.surrounding_regex(surround_5, core, before_chars=0, after_chars=0)
+        self.assertEqual(actual_0, core)
+        # test 2, normal
+        actual_5 = StringUtil.surrounding_regex(surround_5, core, before_chars=5, after_chars=5)
+        self.assertEqual(actual_5, surround_5)
+        # test 3, go beyond the bounds of a given string.
+        actual_9 = StringUtil.surrounding_regex(surround_5, core, before_chars=9, after_chars=12)
+        self.assertEqual(actual_9, surround_5)
+        # test 4, find a substring right at the beginning.
+        actual_begin = StringUtil.surrounding_regex(core, core)
+        self.assertEqual(actual_begin, core)
+
+    @logit()
+    def test_replace_all_regex(self):
+        # Test 1, remove white space and replace with !
+        text = " Some  extra  Spaces Jim "
+        pattern = r'\W+'
+        new = "!"
+        no_spaces = text.replace(' ', new)
+        expected = no_spaces.replace("!!", "!")
+        self.assertEqual(expected, StringUtil.replace_all_regex(my_string=text, regex=pattern, new=new))
+
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':

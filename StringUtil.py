@@ -2,6 +2,7 @@ import logging
 import ftfy
 import phonenumbers
 from typing import Callable, List, Union
+from re import match, search, sub
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -213,6 +214,16 @@ class StringUtil:
         """
         return next((s for s in my_list if my_string in s), None)
 
+    @staticmethod
+    def find_substring_occurrences_in_list(my_string:str, my_list:List) -> List:
+        """
+        Return a list (possibly empty) of the occurrences of the substring my_string within my_list.
+        :param my_string:
+        :param my_list:
+        :return: List of the occurrences of my_string within my_lsit.
+        """
+        return [s for s in my_list if my_string in s]
+
     def parse_phone(self, phone:str, should_remove_blanks:bool = True) -> str:
         try:
             num = phonenumbers.parse(phone, "US")
@@ -248,3 +259,55 @@ class StringUtil:
         :return:
         """
         return f"{n:02d}"
+
+    @staticmethod
+    def regex_found(my_string:str, pattern:str=r".*") -> bool:
+        """
+        Return a boolean as to whether pattern is found within my_string
+        :param my_string: Look inside me.
+        :param pattern: Pattern to look for, such as r"crime(s)?"
+        :return: True iff the pattern was found.
+        """
+        ans = match(pattern, my_string)
+        logger.debug(f'Results of {pattern} within {my_string} are: {ans}')
+        return ans is not None
+
+    @staticmethod
+    def regex_position(my_string:str, pattern:str=r".*") -> int:
+        """
+        Return the position of the pattern within my)string.
+        :param my_string: Look inside me.
+        :param pattern: Pattern to look for, such as r"crime(s)?"
+        :return: the start and end positions, or -1 if not found
+        """
+        s = search(pattern, my_string)
+        if s:
+            return s.start(), s.end()
+        else:
+            return -1, -1
+
+    @staticmethod
+    def surrounding_regex(my_string:str, pattern:str=r'.*', before_chars=5, after_chars=5) -> str:
+        """
+        Provide the regex found, plus or minus
+        :param my_string: Look inside me.
+        :param pattern: Pattern to look for, such as r"crime(s)?"
+        :param before_chars: How many characters before the start to include.
+        :param after_chars: How many characters after the end to include.
+        :return: a substring including the extra characters.
+        """
+        start, end = StringUtil.regex_position(my_string, pattern)
+        if start == -1:
+            return None
+        return my_string[max(start-before_chars, 0) : min(end+after_chars, len(my_string))]
+
+    @staticmethod
+    def replace_all_regex(my_string:str, regex:str, new:str) -> str:
+        """
+        Replace the regex pattern in my_string
+        :param my_string: original string, like "liking it"
+        :param regex: example "[Ll]iking" (may be nice to quote with an r with embedded blackslashes
+        :param new: new string to substitute, like "loving"
+        :return: new string
+        """
+        return sub(regex, new, my_string)

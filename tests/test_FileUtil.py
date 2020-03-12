@@ -357,7 +357,7 @@ class Test_FileUtil(TestCase):
         filename = self._fu.qualified_path(self.path, self.text_fn)
         with self.assertLogs(FileUtil.__name__, level='DEBUG') as cm:
             for i, line in enumerate(self._fu.read_generator(filename)):
-                x = line # TODO: Redirect stream and capture IOError message
+                x = line
                 logger.debug(f'Read in line {i}, which contains <{x}>.')
                 self.assertIsNone(x)
             logger.debug(f'Caught exception message: {cm.output}')

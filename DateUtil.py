@@ -5,6 +5,7 @@ import logging
 from datetime import timedelta, datetime
 from LogitUtil import logit
 from pytz import timezone
+from typing import Union
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -48,6 +49,21 @@ class DateUtil:
     def asFormattedStr(self, myDate, myFormat: str = '%Y-%m-%d') -> str:
         """
         Convert myDate (which could be a datetime or float) to a formatted string, defaulting to the form 2018-11-20.
+        Some formats I have used:
+
+            %d	Day of the month as a zero-padded decimal number.	30
+            %b	Month as locale’s abbreviated name.	Sep
+            %B	Month as locale’s full name.	September
+            %m	Month as a zero-padded decimal number.	09
+            %y	Year without century as a zero-padded decimal number.	13
+            %Y	Year with century as a decimal number.	2013
+            %H	Hour (24-hour clock) as a zero-padded decimal number.	07
+            %I	Hour (12-hour clock) as a zero-padded decimal number.	07
+            %p	Locale’s equivalent of either AM or PM.	AM
+            %M	Minute as a zero-padded decimal number.	06
+            %S	Second as a zero-padded decimal number.	05
+
+        For other formats, see https://strftime.org.
         """
         ans = None
         if type(myDate) == float:
@@ -70,7 +86,7 @@ class DateUtil:
         return ans
 
     @logit(showArgs=False, showRetVal=False)
-    def asDate(self, date_or_str_or_timestamp, myFormat: str = '%Y-%m-%d') -> datetime:
+    def asDate(self, date_or_str_or_timestamp:Union[str, float], myFormat: str = '%Y-%m-%d') -> datetime:
         """
         Convert a date or string or a timestamp (float) into a Python datetime.
         If it's a string or float, use myFormat to format it.
