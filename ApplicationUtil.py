@@ -22,13 +22,9 @@ class ApplicationUtil:
     def __init__(self, yaml_file:str):
         self.logger = self.init_logger()
         d = YamlUtil(yaml_file)
-        if d:
-            self._tuple = d.asnamedtuple
-            self._d = d
-            self.logger.debug(f'Read in yaml file {yaml_file} with fields: {self._d.fields}')
-        else:
-            self.logger.warning(f'Could not find yaml file {yaml_file}. Exiting.')
-            exit (-1)
+        self._tuple = d.asnamedtuple
+        self._d = d
+        self.logger.debug(f'Read in yaml file {yaml_file} with fields: {self._d.fields}')
 
     def init_logger(self):
         self.logger = logging.getLogger(__name__)

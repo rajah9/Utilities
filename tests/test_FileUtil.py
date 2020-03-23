@@ -45,7 +45,7 @@ class Test_FileUtil(TestCase):
 
     def __init__(self, *args, **kwargs):
         super(Test_FileUtil, self).__init__(*args, **kwargs)
-        self.path = r'c:\temp' if platform.system() == 'Windows' else r'\tmp'
+        self.path = r'c:\temp' if platform.system() == 'Windows' else r'/tmp'
         self._fu = FileUtil()
         self._du = DateUtil()
         self.features_dict = {'book': "Hitchhiker's Guide", 'characters': {'answer':42, 'name': 'Dent. Arthur Dent.'}}
@@ -145,27 +145,42 @@ class Test_FileUtil(TestCase):
 
     @logit()
     def test_qualified_path(self):
-        fn = 'test.txt'
-        shouldBe = self.path + sep + fn
-        actual = self._fu.qualified_path(self.path, fn)
-        logger.debug(f'Actual: {actual}. shouldBe: {shouldBe}.')
-        self.assertEqual(actual, shouldBe)
-        pathArray = ['c:', 'temp']
+        # Test 1. Normal case.
+        expected = self.path + sep + self.fn
+        actual = self._fu.qualified_path(self.path, self.fn)
+        self.assertEqual(actual, expected, "Test 1 failure")
+        # Test 2. Using an array.
+        dir_to_path = sep.join(['dir', 'to', 'path']) # should be dir\to\path for windows or dir/to/path for linux
+        pathArray = dir_to_path.split(sep)
+        logger.debug(f'Splitting {dir_to_path} into path array: {pathArray}')
+        expected = dir_to_path + sep + self.fn
+        actual = self._fu.fully_qualified_path(pathArray, self.fn, dir_path_is_array=True)
+        logger.debug(f'Actual: {actual}. expected: {expected}.')
+        self.assertEqual(actual, expected, "Test 2 failure")
 
     @logit()
     def test_split_qualified_path(self):
         fn = 'test.txt'
         qpath = self._fu.qualified_path(self.path, fn)
+        # Test 1. c:\temp for Windows or /tmp for Linux.
+        which_test = 1
         splitpath, splitfn = self._fu.split_qualified_path(qpath, makeArray=False)
-        self.assertEqual(splitpath, self.path)
-        self.assertEqual(splitfn, fn)
+        self.assertEqual(splitpath, self.path, f'Test {which_test}. Paths should be equal.')
+        self.assertEqual(splitfn, fn, f'Test {which_test}. File names should be equal.')
+        # Test 2. Split paths into arrays.
+        which_test = 2
         pathArray, splitfn = self._fu.split_qualified_path(qpath, makeArray=True)
-        self.assertEqual(pathArray, ['c:', 'temp'])
-        self.assertEqual(splitfn, fn)
-        path = r'C:\Users\Owners\Documents\Tickers.csv'
-        pathArray, splitfn = self._fu.split_qualified_path(path, makeArray=True)
-        self.assertEqual(pathArray, ['C:', 'Users', 'Owners', 'Documents'])
-        self.assertEqual(splitfn, 'Tickers.csv')
+        expected = self.path.split(sep)
+        self.assertEqual(pathArray, expected, f'Test {which_test}. Paths should be equal.')
+        self.assertEqual(splitfn, fn, f'Test {which_test}. File names should be equal.')
+        # Test 3. Try a more complex path.
+        which_test = 3
+        complex_path = r'C:\Users\Owners\Documents\Tickers.csv' if platform.system() == 'Windows' else r'/tmp/parent/child/Tickers.csv'
+        pathArray, splitfn = self._fu.split_qualified_path(complex_path, makeArray=True)
+        expected = complex_path.split(sep)
+        expected.pop() # Pop off the last el, which is the file name.
+        self.assertEqual(pathArray, expected, f'Test {which_test}. Paths should be equal.')
+        self.assertEqual(splitfn, 'Tickers.csv', f'Test {which_test}. File names should be equal.')
 
     @logit()
     def test_split_file_name(self):
@@ -219,12 +234,13 @@ class Test_FileUtil(TestCase):
     @logit()
     def test_copy_file(self):
         self.create_csv()
-        tmp_path = self._fu.qualified_path(self.path, 'tmp')
-        qualifiedPath = self._fu.qualified_path(self.path, self.fn)
-        self._fu.ensure_dir(tmp_path)
-        self._fu.copy_file(qualifiedPath, tmp_path)
-        self.assertTrue(self._fu.file_exists(qualifiedPath))
-        self._fu.rmdir_and_files(tmp_path)
+        copy_fn = self.fn + '.copy'
+        copied_file = self._fu.qualified_path(self.path, copy_fn)
+        source_path = self._fu.qualified_path(self.path, self.fn)
+        self._fu.copy_file(source_path, copied_file)
+        self.assertTrue(self._fu.file_exists(source_path))
+        self.assertTrue(self._fu.file_exists(copied_file))
+        self._fu.delete_file(copied_file)
 
     @logit()
     @mock.patch('FileUtil.copy2')
@@ -299,14 +315,13 @@ class Test_FileUtil(TestCase):
 
     @logit()
     def test_load_logs_and_subdir_names(self):
-        dir_name = r'\nosuchdir'
+        no_such_dir_name = r'\nosuchdir'
         file_list = ['filea.txt', 'fileb.csv', 'otherfile.txt']
-        actual = self._fu.load_logs_and_subdir_names(dir_name)
+        actual = self._fu.load_logs_and_subdir_names(no_such_dir_name)
         self.assertListEqual(actual, [])  # Since no such dir, should be empty list
+
         eu = ExecUtil()
-        exec_file = eu.exec_file_path()
-        dir_name, _ = self._fu.split_qualified_path(exec_file)
-        logger.debug(f'dir name is: {dir_name}')
+        dir_name = eu.executing_directory() # ensures that dir_name is real
 
         with mock.patch('FileUtil.listdir', return_value=file_list):
             # Test with neither prefix nor suffix

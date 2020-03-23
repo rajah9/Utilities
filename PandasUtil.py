@@ -143,7 +143,7 @@ class PandasUtil:
             logger.error(f'Cannot find Excel file: {self.filename}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None, sep:str = ',') -> pd.DataFrame:
+    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None, sep:str = None) -> pd.DataFrame:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
@@ -154,6 +154,8 @@ class PandasUtil:
         :return:
         """
         param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding':enc,}
+        if sep:
+            param_dict['sep'] = sep
         if index_col is not None:
             param_dict['index_col'] = index_col
         ans = pd.read_csv(**param_dict)
@@ -183,6 +185,10 @@ class PandasUtil:
         rows, cols = df.shape
         logger.debug(f'df has {rows} rows and {cols} columns.')
         return rows, cols
+
+    def get_basic_data_analysis(self, df:pd.DataFrame):
+        logger.info(f'info:\n{df.info()}')
+
 
     @logit(showRetVal=True)
     def get_worksheets(self, excelFileName=None):

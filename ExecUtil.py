@@ -38,7 +38,7 @@ class ExecUtil:
             logger.debug('Exception message: {msg}'.format(msg=err))
             return abspath('')
 
-    def executing_directory(self):
+    def executing_directory(self) -> str:
         """
         Get the current executing directory using executing_file and stripping off the filename.
         Note differences between Windows and Linux.

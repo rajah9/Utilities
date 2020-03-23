@@ -139,9 +139,12 @@ class PlotUtil:
         sns.countplot(**param_dict)
         self.plt.show()
 
-    def histogram_plot(self, df: pd.DataFrame, xlabel: str, bins: int = 10, color: str = 'b', return_function_do_not_plot: bool = True):
+    def histogram_plot(self, df: pd.DataFrame, xlabel: str, bins: int = 10, color: str = 'b', range=None, return_function_do_not_plot: bool = True):
         def plot_histogram():
-            return df[xlabel].hist(bins=bins, color=color)
+            param_dict = {'bins': bins, 'color': color}
+            if range:
+                param_dict['range'] = range
+            return df[xlabel].hist(**param_dict)
 
         if return_function_do_not_plot:
             return plot_histogram()
