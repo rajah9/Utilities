@@ -1,8 +1,14 @@
 import logging
 import ftfy
 import phonenumbers
-from typing import Callable, List, Union
-from re import match, search, sub
+from typing import List, Union, Callable
+from re import match, search, sub, split
+from string import ascii_letters
+
+Strings = List[str]
+
+_DOUBLE_QUOTE = '"'
+_SINGLE_QUOTE = "'"
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -86,6 +92,27 @@ class StringUtil:
         """
         return myString.lower()
 
+    @classmethod
+    def find(cls, my_string: str, find_me: str) -> int:
+        """
+        Find find_me within my_string. If not found, return -1.
+        :param my_string: (possibly empty) string to search
+        :param find_me:
+        :return: integer position (0-offset) of find_me, or -1 if not found.
+        """
+        ans = my_string.find(find_me) if my_string else -1
+        return ans
+
+    @classmethod
+    def reverse_find(cls, my_string: str, find_me: str, left_most: int = 0) -> int:
+        """
+        Find find_me within my_string, searching from the end and backwards. If not found, return -1.
+        :param my_string:
+        :param find_me:
+        :param left_most: left-most index (or the last one to look at with rfind).
+        :return: index of find_me (or -1 if not found)
+        """
+        return my_string.rfind(find_me, left_most)
 
     def capitalize_first_letter(self, myString:str=None) -> str:
         """
@@ -205,6 +232,32 @@ class StringUtil:
         ans = ftfy.fix_text(my_string)
         return ans
 
+
+    def split_on_delimiter(self, my_string: str = None, delim: str = ' ') -> list:
+        """
+        Split the given string up on the delimiter.
+        :param my_string: string to split, like "A2:A5"
+        :param delim: String with delimiter, like ":". Defaults to " "
+        :return: list of strings, for example ["A2", "A5"]
+        """
+        self.string = my_string or self.string
+        return self.string.split(delim)
+
+    def split_on_regex(self, my_string: str = None, delim_regex: str = ' ', is_trim: bool = True) -> list:
+        """
+        Split given string on the given regex delimiters.
+        :param my_string:
+        :param delim_regex:
+        :param is_trim: if true, trim leading and trailing blanks
+        :return: list of strings
+        """
+        self.string = my_string or self.string
+        ans = split(delim_regex, my_string)
+        if is_trim:
+            trimmed = [x.strip() for x in ans]
+            return list(filter(None, trimmed))
+        return ans
+
     def find_first_substring_in_list(self, my_string:str, my_list:list) -> str:
         """
         Search through my_list and return the first element containing my_string.
@@ -311,3 +364,213 @@ class StringUtil:
         :return: new string
         """
         return sub(regex, new, my_string)
+
+    def excel_col_to_int(self, my_string: str = None) -> int:
+        """
+        Convert excel column A or B or AA to 1, 2, and 27.
+        Modified from https://stackoverflow.com/a/12640614/509840
+        :param my_string: Can be single like A or mixed like AB24. Not case sensitive.
+        :return: integer representing the letter part
+        """
+        self.string = my_string or self.string
+        num = 0
+        for c in self.string:
+            if c in ascii_letters:
+                num = num * 26 + (ord(c.upper()) - ord('A')) + 1
+        return num
+
+    def digits_only(self, my_string: str = None) -> str:
+        """
+        convert the digits-only portion of a string like "AB14" to string "14" and "D32" to "32".
+        :param my_string:
+        :return:
+        """
+        self.string = my_string or self.string
+        # Extract the numbers only. From https://www.geeksforgeeks.org/python-extract-digits-from-given-string/
+        res = sub(r"\D", "", self.string)
+        return res
+
+    def digits_only_as_int(self, my_string = None) -> int:
+        """
+        Convert digits in myString to an int. If myString contains no digits, issue a warning and return 0.
+        :param my_string:  String like "A25'
+        :return: int like 25
+        """
+        self.string = my_string or self.string
+        res = self.digits_only(self.string)
+        if res:
+            return int(res)
+        logger.warning(f'String {my_string} had no digits, so returning 0.')
+        return 0
+
+    def substring_between_tokens(self, my_string: str = None, start_tok: str = None, end_tok: str = None) -> str:
+        """
+        Return the substring from start_str to end_str, excluding those tokens.
+        :param my_string: string to search, e.g., "A (parenthetical) phrase"
+        :param start_tok: token to start the search on, e.g., "(". If None, start from the beginning.
+        :param end_tok: token to end the search on, such as ")". If None, go to the end.
+        :return: substring between the tokens, e.g., parenthetical.
+        """
+        start_pos = 0
+        if start_tok:
+            start_pos = StringUtil.find(my_string, start_tok)
+            if start_pos < 0:
+                logger.warning(f'Token {start_tok} not found within {my_string}. Returning none.')
+                return None
+            start_pos += len(start_tok)
+        end_pos = len(my_string)
+        if end_tok:
+            end_pos = StringUtil.reverse_find(my_string, end_tok)
+            if end_pos < 0:
+                logger.warning(f'Token {start_tok} not found within {my_string}. Returning none.')
+                return None
+        return my_string[start_pos:end_pos]
+
+    def substring_inside_quotes(self, my_string: str) -> str:
+        """
+        Return the substring from within the quotes, either ' or "
+        :param my_string: string to search, e.g., <I said, "Don't stop"
+        :return: substring inside the two quotes, e.g., Don't stop
+        """
+        start_single = StringUtil.find(my_string, _SINGLE_QUOTE)
+        start_double = StringUtil.find(my_string, _DOUBLE_QUOTE)
+        if (start_double == -1) and (start_single == -1):
+            # Neither quote found
+            logger.debug(f'no quotes found in <{my_string}>. Returning string unchanged.')
+            return my_string
+        if (start_double == -1):
+            # Only single found
+            start_pos = start_single
+            match_me = _SINGLE_QUOTE
+        elif (start_single == -1):
+            # Only double quote found
+            start_pos = start_double
+            match_me = _DOUBLE_QUOTE
+        elif (start_single < start_double):
+            # Single found first
+            start_pos = start_single
+            match_me = _SINGLE_QUOTE
+        else:
+            # Double quote found first
+            start_pos = start_double
+            match_me = _DOUBLE_QUOTE
+
+        match_pos = StringUtil.reverse_find(my_string, match_me, left_most = start_pos + 1)
+        if (match_pos == -1):
+            logger.warning(f'Initial <{match_me} found in {my_string}, but matching quote not found. Returning None.')
+            return None
+        return my_string[start_pos + 1 : match_pos]
+
+    def as_float_or_int(self, myString: str = None) -> Union[int, float]:
+        """
+        Convert digits in myString to an int. Failing that, try converting to a float. If that also fails, warn user and return 0.
+        :param myString:  String like '25' or '3.14'
+        :return: int like 25 or float like 3.14
+        """
+        self.string = myString or self.string
+        try:
+            as_int = int(self.string)
+            return as_int
+        except ValueError:
+            # Catch the ValueError, but do nothing, and try as a float
+            pass
+
+        try:
+            as_float = float(self.string)
+        except ValueError:
+            logger.warning(f'String {myString} is not a float or an int, so returning 0.')
+            return 0
+        return as_float
+
+    def nth_word(self, my_string: str = None, word_index: int = 1, delim: str = " ") -> str:
+        """
+        Return the nth word in my_string.
+        :param my_string: words in a string
+        :param word_index: if n=2, return the 2nd word (one-offset)
+        :param delim: word separator, usually a space.
+        :return: nth word, or None if it doesn't have that many words.
+        """
+        self.string = my_string or self.string
+        words = self.string.split(delim)
+        word_desired = word_index - 1
+        if word_index <= len(words):
+            return words[word_desired].strip()
+        logger.warning(f'You asked for word {word_index}, but {my_string} does not have that many words. Returning None.')
+        return None
+
+    def remove_single_line_comment(self, my_string: str, start_comment: str = '/*', end_comment: str = '*/', is_trim: bool = True) -> str:
+        """
+        Remove a single-line comment, so that "a += 1 /* Increment a */" becomes a + 1
+        :param line:
+        :param start_comment:
+        :param end_comment:
+        :param is_trim: True if you want to remove trailing and leading blanks
+        :return:
+        """
+        self.string = my_string or self.string
+        start_pos = StringUtil.find(self.string, find_me=start_comment)
+        end_pos = StringUtil.reverse_find(self.string, find_me=end_comment)
+        if start_pos >= 0 and end_pos >= 0:
+            comment = self.string[start_pos:end_pos + len(end_comment)]
+            ans = self.replace_first(old=comment, new="", myString=my_string)
+            return ans.strip() if is_trim else ans
+        logger.debug(f'Did not find both opening and closing comment markers in <{my_string}>. Returning original string')
+        return my_string
+
+    def remove_comments(self, lines: Strings, start_comment: str = '/*', end_comment: str = '*/', is_trim: bool = True) -> Strings:
+        """
+        Looking at all the lines, remove all comments between start_comment and stop_comment tokens
+        :param lines:
+        :param start_comment:
+        :param end_comment:
+        :return:
+        """
+        ans = []
+        in_multiline_comment = False
+        for line in lines:
+            has_comment_open = (start_comment in line)
+            has_comment_close = (end_comment in line)
+            if has_comment_open and has_comment_close:
+                ans.append(self.remove_single_line_comment(my_string=line, start_comment=start_comment, end_comment=end_comment, is_trim=is_trim))
+            elif has_comment_open:
+                # Start of a multi-line comment
+                start_pos = StringUtil.find(my_string=line, find_me=start_comment)
+                if start_pos > 0:
+                    # It's not in the first position, so add the part up to start_pos
+                    code = line[:start_pos].strip() if is_trim else line[:start_pos]
+                    ans.append(code)
+                in_multiline_comment = True
+            elif has_comment_close and in_multiline_comment:
+                # End of a multi-line comment
+                end_pos = StringUtil.find(my_string=line, find_me=end_comment)
+                if end_pos >= 0:
+                    # It's not in the first position, so add the part up to start_pos
+                    code = line[end_pos + len(end_comment):].strip() if is_trim else line[end_pos + len(end_comment):]
+                    if code:
+                        ans.append(code)
+                in_multiline_comment = False
+            elif in_multiline_comment:
+                pass
+            else:
+                ans.append(line)
+        return ans
+
+    def is_variable(self, my_string: str = None) -> bool:
+        """
+        Test to see if my_string looks like an identifier.
+        :param my_string: string like valid_var2 or 2invalid%
+        :return: True iff it looks like an identifier.
+        """
+        self.string = my_string or self.string
+        return StringUtil.regex_found(self.string, pattern=r"^[^\d\W]\w*\Z")
+
+    def extract_variables(self, rhs: str) -> Strings:
+        """
+        For an assignment like
+          xyz = min(a, b, c)
+        return the rhs as a list, e.g., ['min', 'a', 'b', 'c']
+        :param rhs:
+        :return: list of variable identifiers
+        """
+        ans = self.split_on_regex(my_string=rhs, delim_regex="\\*{1,2}|\\+| |\\/|\\-|\\(|\\)|,")
+        return [x for x in ans if self.is_variable(x)]

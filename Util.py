@@ -1,3 +1,6 @@
+"""
+Util is a class that enables logging.
+"""
 import logging
 from LogitUtil import logit
 

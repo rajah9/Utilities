@@ -5,6 +5,7 @@ import logging
 from LogitUtil import logit
 from FileUtil import FileUtil
 from scipy.stats import linregress
+from io import StringIO, TextIOWrapper, BufferedWriter
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -186,9 +187,23 @@ class PandasUtil:
         logger.debug(f'df has {rows} rows and {cols} columns.')
         return rows, cols
 
-    def get_basic_data_analysis(self, df:pd.DataFrame):
-        logger.info(f'info:\n{df.info()}')
+    def get_basic_data_analysis(self, df:pd.DataFrame) -> str:
+        buffer = StringIO()
+        df.info(buf=buffer)
+        ans = buffer.getvalue()
+        logger.info(f'info:\n{ans}')
+        return ans
 
+    def get_quartiles(self, df:pd.DataFrame, percentiles: list = [.25, .50, .75]) -> pd.DataFrame:
+        """
+        Return basic statistics about the dataframe.
+        :param df:
+        :param percentiles: list of %-tiles as fractions between 0 and 1, e.g. [.2, .4, .6, .8] for quintiles
+        :return: basic description df
+        """
+        ans = df.describe(percentiles=percentiles)
+        logger.info(f'info:\n{ans.head(10)}')
+        return ans
 
     @logit(showRetVal=True)
     def get_worksheets(self, excelFileName=None):
@@ -248,6 +263,14 @@ class PandasUtil:
         :return:
         """
         return pd.DataFrame(data=lists, columns=column_names)
+
+    def convert_matrix_to_dataframe(self, lists: list) -> pd.DataFrame:
+        """
+        convert a list of lists to a dataframe.
+        :param lists:
+        :return:
+        """
+        return pd.DataFrame(data=lists)
 
     def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
         """
@@ -434,7 +457,12 @@ class PandasUtil:
         :param is_in_place: if true, column_name is dropped from df in place. Otherwise, a new df is returned.
         :return: None if is_in_place is True. Else df with the column_name dropped.
         """
-        return df.drop(columns=columns, inplace=is_in_place)
+        _, minor, _ = self.pandas_version()
+        if minor >= 21:
+            return df.drop(columns=columns, inplace=is_in_place)
+
+        logger.warning(f'Unable to drop column, as Pandas version is {minor}. Returning unchanged df.')
+        return df
 
     def drop_col_keeping(self, df:pd.DataFrame, cols_to_keep: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
         """
@@ -458,6 +486,7 @@ class PandasUtil:
         :param df:
         :param column_name:
         :param criterion:
+        :param is_in_place:
         :return:
         """
         ans = df[df[column_name] != criterion]
@@ -546,7 +575,8 @@ class PandasUtil:
 
     def dummy_var_df(self, df:pd.DataFrame, columns: Union[Strings, str], drop_first:bool=True) -> pd.DataFrame:
         """
-        create a dummy variable based on the given column
+        Do a one-hot encoding.
+        Create a dummy variable based on the given column.
         :param df:
         :param columns: a single column name or a list of column names.
         :return:
@@ -616,6 +646,18 @@ class PandasUtil:
         :return: df or None (if is_in_place is true)
         """
         return df.replace(to_replace=replace_me, value=new_val, inplace=is_in_place)
+
+    def replace_vals_by_mask(self, df:pd.DataFrame, mask:Bools, col_to_change:str, new_val:Union[str, int, float]):
+        """
+        Replace the values in the col_to_change with the new_val
+        :param df:
+        :param mask:
+        :param col_to_change: Column Name whose rows you want to change
+        :param new_val:
+        :return: the changed df (also changed in place)
+        """
+        ans = df.loc[mask, col_to_change] = new_val
+        return ans
 
     def is_empty(self, df:pd.DataFrame) -> bool:
         """

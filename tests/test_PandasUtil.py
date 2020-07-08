@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 """
 Interesting Python features:
 * Does some dict comprehension in test_replace_col_names. 
-* Uses mocking.
 ** Uses self.assertLogs to ensure that an error message is logged in the calling routine.
 * Uses next to figure out if it found expected_log_message in cm.output:
 ** self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
@@ -211,17 +210,16 @@ class Test_PandasUtil(unittest.TestCase):
         df = self.my_test_df()
         self.pu.write_df_to_excel(df=df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name)
         df2 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name)
-
-        assert_frame_equal(df,df2)
+        assert_frame_equal(df, df2, "Test 1 fail.")
         # Test 2
         df3 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet='noSuchWorksheet')
-        assert_frame_equal(PandasUtil.empty_df(), df3)
+        assert_frame_equal(PandasUtil.empty_df(), df3, "Test 2 fail.")
         # Test 3. Test for missing spreadsheet
         expected_log_message = 'Cannot find Excel file'
-        with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
+        with self.assertLogs(level=logging.WARN) as cm:
             df4 = self.pu.read_df_from_excel(excelFileName='NoSuchSpreadsheet.xls', excelWorksheet='noSuchWorksheet')
-            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
-            self.assertTrue(self.pu.is_empty(df4))
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False), "Test 3 fail: couldn't find message.")
+            self.assertTrue(self.pu.is_empty(df4), "Test 3 fail: df isn't empty.")
 
     @logit()
     def test_get_rowCount_colCount(self):
@@ -321,6 +319,17 @@ class Test_PandasUtil(unittest.TestCase):
         expected = cols_before
         expected.remove(col_to_index_and_reset)
         self.assertListEqual(expected, self.pu.get_df_headers(df=df_no_index))
+
+    def test_drop_col_keeping(self):
+        df = self.my_test_df()
+        df2 = self.my_test_df()
+        orig_cols = self.pu.get_df_headers(df) # Should be ['Weight', 'Name', 'Sex', 'Age']
+        keep_cols = orig_cols[0] # Should be 'Weight'
+        drop_cols = orig_cols[1:] # Should be ['Name', 'Sex', 'Age']
+        expected = self.pu.drop_col(df, drop_cols, is_in_place=False)
+        actual = self.pu.drop_col_keeping(df2, keep_cols, is_in_place=False)
+        assert_frame_equal(expected, actual)
+        # self.fail()  #TODO
 
     @logit()
     def test_reorder_col(self):
@@ -475,6 +484,22 @@ class Test_PandasUtil(unittest.TestCase):
         logger.debug(f'marked rows are: {mark}')
         expected = [x == 'female' for x in df['Sex']]
         self.assertListEqual(expected, mark.tolist())
+
+    @logit()
+    def test_replace_vals_by_mask(self):
+        df = self.my_test_df()
+        mark = self.pu.mark_rows_by_criterion(df, 'Sex', 'male')
+        logger.debug(f'marked rows are: {mark}')
+        new_name = "Billy Bob"
+        self.pu.replace_vals_by_mask(df, mark, col_to_change='Name', new_val=new_name)
+        new_mark = self.pu.mark_rows_by_criterion(df, 'Name', new_name)
+        # self.assertListEqual(mark, new_mark)
+        # self.assertSequenceEqual(mark, new_mark)
+        for male, bob in zip(mark, new_mark):
+            self.assertFalse(male ^ bob)
+
+
+
 
     @logit()
     def test_mark_isnull(self):
@@ -648,6 +673,26 @@ class Test_PandasUtil(unittest.TestCase):
         expected = df
         assert_frame_equal(expected, actual)
 
+    def test_get_basic_data_analysis(self):
+        df = self.my_test_df()
+        actual = self.pu.get_basic_data_analysis(df)
+        lines = actual.split('\n')
+        expected = "Data columns (total 4 columns)"
+        self.assertTrue(any(line.startswith(expected) for line in lines))
+
+    def test_get_get_quartiles(self):
+        df = self.my_test_df()
+        actual = self.pu.get_quartiles(df)
+
+        actual_weight_mean = actual['Weight']['mean']
+        expected_weight_mean = df['Weight'].mean()
+        self.assertEqual(expected_weight_mean, actual_weight_mean)
+        actual_age_mean = actual['Age']['mean']
+        expected_age_mean = df['Age'].mean()
+        self.assertEqual(expected_age_mean, actual_age_mean)
+        actual_age_25th_percentile = df['Age'].quantile(q=.25)
+        expected_age_25th_percentile = actual['Age']['25%']
+        self.assertEqual(expected_age_25th_percentile, actual_age_25th_percentile)
 
 from PandasUtil import DataFrameSplit
 
