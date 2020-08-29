@@ -4,6 +4,7 @@ import phonenumbers
 from typing import List, Union, Callable
 from re import match, search, sub, split
 from string import ascii_letters
+from urllib.parse import urlparse
 
 Strings = List[str]
 
@@ -17,6 +18,31 @@ logger = logging.getLogger(__name__)
 Interesting Python features:
 * Uses a generator in find_first_substring_in_list to find an element in a list.
 * tests to see if something is a string with isinstance(field, str) in truncate.
+* implements default dictionary to count words
+
+Some notes about formatting:
+* See https://docs.python.org/3/library/string.html for the definitive word. 
+** s6 = '{lang} is over {0:0.1f} {date} years old.'.format(20, date='years', lang='Python')
+      Python is over 20.0 years old
+** print('{0:>8}'.format('101.55') 
+         101.55   (field width of 8)
+** print('{0:-^20}.format('hello'))
+       ------hello-------
+>>> for align, text in zip('<^>', ['left', 'center', 'right']):
+...     '{0:{fill}{align}16}'.format(text, fill=align, align=align)
+...
+'left<<<<<<<<<<<<'
+'^^^^^center^^^^^'
+'>>>>>>>>>>>right'
+
+
+'b' Binary format. Outputs the number in base 2.
+'c' Character. Converts the integer to the corresponding unicode character before printing.
+'d' Decimal Integer. Outputs the number in base 10.
+'o' Octal format. Outputs the number in base 8.
+'x' Hex format. Outputs the number in base 16, using lower-case letters for the digits above 9.
+'n' Number. This is the same as 'g', except that it uses the current locale setting to insert the appropriate number separator characters.
+'%' Percentage. Multiplies the number by 100 and displays in fixed ('f') format, followed by a percent sign.
 """
 class StringUtil:
     def __init__(self, myString:str='Uninitialized'):
@@ -564,6 +590,16 @@ class StringUtil:
         self.string = my_string or self.string
         return StringUtil.regex_found(self.string, pattern=r"^[^\d\W]\w*\Z")
 
+    def is_SAS_variable(self, my_string: str = None) -> bool:
+        """
+        Test to see if my_string looks like an identifier.
+        This was derived from is_variable, but includes not just one23 but also &one23.
+        :param my_string: string like valid_var2 or 2invalid%
+        :return: True iff it looks like a SAS identifier.
+        """
+        self.string = my_string or self.string
+        return StringUtil.regex_found(self.string, pattern=r"^([^\d\W]\w*)|(&[^\d\W]\w*\.)\Z")
+
     def extract_variables(self, rhs: str) -> Strings:
         """
         For an assignment like
@@ -574,3 +610,12 @@ class StringUtil:
         """
         ans = self.split_on_regex(my_string=rhs, delim_regex="\\*{1,2}|\\+| |\\/|\\-|\\(|\\)|,")
         return [x for x in ans if self.is_variable(x)]
+
+    def parse_url(self, url: str = None) -> dict:
+        """
+        Parse the URL into sections, such as scheme, netloc, path, and params.
+        :param url:
+        :return:
+        """
+        self.string = url or self.string
+        return urlparse(self.string)

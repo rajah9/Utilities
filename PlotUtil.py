@@ -50,6 +50,24 @@ Helpful references:
 Interesting Python features:
 * In confusion_matrix_plot, uses a all function to help determine if a matrix is square.
 * Uses typing create Strings (= a list of strings).
+* Has an integer division ceiling. -(-102 // 10) # 11
+** See https://stackoverflow.com/questions/33299093/how-to-perform-ceiling-division-in-integer-arithmetic
+
+Rough outline
+0. Import libraries
+  a. from PlotUtil import PlotUtil
+  b. plu = PlotUtil()
+1. Import dataset (see PandasUtil)
+2. Visualize data
+  a. plu.count_plot(df=df, xlabel="spam", return_function_do_not_plot=False)
+  b. (See PandasUtil)
+  c. (See PandasUtil)
+  d. plu.correlation_plot(df=df)
+  e. Pairs plot
+    1. target_col = 'Kyphosis'
+    2. cols_to_pair_plot = pu.get_df_headers(df)
+    3. cols_to_pair_plot.remove(target_col)
+    4. plu.pair_plot(df=df, target_col_name=target_col, col_names=cols_to_pair_plot)
 """
 
 Strings = List[str]
@@ -109,10 +127,16 @@ class PlotUtil:
     @staticmethod
     def pair_plot(df: pd.DataFrame, target_col_name: str, col_names: List = None):
         """
-
+        Gives you an overview of how the columns stack up with each other.
+        Seaborn pairplot will "Plot pairwise relationships in a dataset."
+        Following example will establish the target column and plot the remaining variables against it.
+          target_col = 'Kyphosis'
+          cols_to_pair_plot = pu.get_df_headers(df)
+          cols_to_pair_plot.remove(target_col)
+          plu.pair_plot(df=df, target_col_name=target_col, col_names=cols_to_pair_plot)
         :param df:
-        :param col_names:
-        :param target_col_name:
+        :param target_col_name: binary column you're interested in
+        :param col_names: other interesting columns, excluding target_col_name
         :return:
         """
         param_dict = {'data': df, 'hue': target_col_name}
@@ -155,16 +179,33 @@ class PlotUtil:
         logger.warning('deprecated.')
         self.histogram_plot(df, xlabel, bins, return_function_do_not_plot)
 
-
     def null_heatmap(self, df: pd.DataFrame, color_scheme: str = 'Blues'):
         sns.heatmap(df.isnull(), yticklabels=True, cbar=False, cmap=color_scheme)
         self.plt.show()
 
     def heatmap(self, cm:confusion_matrix, is_annot:bool=True, format:str='d'):
+        """
+        Print out a heat map.
+        Calling example (using the input of a confusion matrix as the input to this routine)
+          y_predict_train = DataScienceUtil.model_predict(classifier=decision_tree_classifier, X_test=X_test)
+          cm = DataScienceUtil.confusion_matrix(y_test, y_predict_train)
+          plu.heatmap(cm)
+
+        :param cm:
+        :param is_annot:
+        :param format:
+        :return:
+        """
+        self.plt.figure(figsize=(10, 5))
         sns.heatmap(cm, annot=is_annot, fmt=format)
         self.plt.show()
 
     def correlation_plot(self, df:pd.DataFrame):
+        """
+        Gives you a big-picture plot of how the features correlate with each other.
+        :param df:
+        :return:
+        """
         self.heatmap(df.corr(), is_annot=True, format='.2g')
 
     def boxplot(self, df: pd.DataFrame, xlabel: str, ylabel: str):
@@ -280,3 +321,29 @@ class PlotUtil:
             plt.ylabel(y_label)
         plt.legend()
         plt.show()
+
+    @staticmethod
+    def kde_plots(df1: pd.DataFrame, df2: pd.DataFrame, df1_name:str = 'frame 1', df2_name:str = 'frame 2', plots_in_a_row:int = 4):
+        """
+        Kernel Density Estimation (KDE) is a non-parametric way to estimate the probability density function
+        of a random variable. For a given variable, if the distributions are largely overlapping, then the
+        variable will not be very useful. However, if they are largely distinct, then the variable might be useful.
+
+        :param df1: dataFrame representing one outcome
+        :param df2: dataFrame representing the other outcome
+        :param df1_name:
+        :param df2_name:
+        :param plots_in_a_row: How many plots to be displayed in a row
+        :return:
+        """
+        column_headers = list(df1.columns)
+
+        plot_rows = -(-len(column_headers) // plots_in_a_row) # This odd construction gives a ceiling
+
+        fig, ax = plt.subplots(plot_rows, plots_in_a_row, figsize=(18, 30))
+        for i, column_header in enumerate(column_headers):
+            plt.subplot(plot_rows, plots_in_a_row, i+1)
+            sns.kdeplot(df1[column_header], bw=0.4, label=df1_name, shade=True, color="r", linestyle="--")
+            sns.kdeplot(df2[column_header], bw=0.4, label=df2_name, shade=True, color="y", linestyle=":")
+            plt.title(column_header, fontsize=12)
+        plt.show();

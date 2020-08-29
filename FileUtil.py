@@ -325,6 +325,17 @@ class FileUtil:
         return statinfo.st_mtime
 
     @logit()
+    def file_size(self, filename: str) -> int:
+        """
+        Return the file size.
+        :param filename:
+        :return:
+        """
+        statinfo = stat(filename)
+        return statinfo.st_size
+
+
+    @logit()
     def list_modules(self, module_name: str):
         mod = importlib.import_module(module_name)
         for mod_entry in dir(mod):

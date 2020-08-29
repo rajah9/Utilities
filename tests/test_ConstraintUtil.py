@@ -168,13 +168,13 @@ class Test_ConstraintUtil(TestCase):
         cu = ConstraintUtil()
         cu.variables(v, range(1,10))
         cu.constraint_all_different(v)
-        cu.constraint_exact_sum([11,12,21,22], 20) # top left
-        cu.constraint_exact_sum([31,32,21,22], 21) # bottom left
-        cu.constraint_exact_sum([12,13,22,23], 12) # top right
-        cu.constraint_exact_sum([32,33,22,23], 24) # bottom right
+        cu.constraint_exact_sum([11,12,21,22], 28) # top left
+        cu.constraint_exact_sum([31,32,21,22], 18) # bottom left
+        cu.constraint_exact_sum([12,13,22,23], 20) # top right
+        cu.constraint_exact_sum([32,33,22,23], 21) # bottom right
 
-        cu.constraint_exact_sum([11,12,22], 16)
-        cu.constraint_exact_sum([13,23,33], 16)
+        cu.constraint_exact_sum([11,12,13], 18)
+        cu.constraint_exact_sum([32,33], 11)
 
         solutions = cu.solve()
         print (f'There were {len(solutions)} solutions.')
@@ -182,7 +182,7 @@ class Test_ConstraintUtil(TestCase):
             print (f'Solution {i}')
             sbox.print_solution(solution)
 
- #   @skip("too long! skipping")
+    # @skip("too long! skipping")
     def test_killer_sudoku(self):
         sbox = Sudoku(rows=9)
         v = sbox.variables()
@@ -202,7 +202,7 @@ class Test_ConstraintUtil(TestCase):
         for box in boxes:
             cu.constraint_all_different(box)
 
-        k = KillerReader('./killer2Jul20.yml')
+        k = KillerReader('./killer22Aug20.yml')
         k.pigeonhole()
         puzzle_sum = 0
         for key, value in k.asdict.items():
@@ -228,8 +228,8 @@ class Test_ConstraintUtil(TestCase):
         # cu.constraint_in_set([63,73,83], [9,8,7]) # only way to make 24
         # cu.constraint_in_set([13,2333,43,53,93], [1,2,3,4,5,6]) # rest of column can't be 9,8, or 7.
         # Helpers for 2Jul20
-        cu.constraint_in_set([11,12], [1,2,3,4,5,6]) # Several ways to get 8
-        cu.constraint_in_set([15,16], [1,2,3,4,5,7,8,9]) # Several ways to get 12, but not 6+6
+        # cu.constraint_in_set([11,12], [1,2,3,4,5,6]) # Several ways to get 8
+        # cu.constraint_in_set([15,16], [1,2,3,4,5,7,8,9]) # Several ways to get 12, but not 6+6
 
 
         start_time = time.time()

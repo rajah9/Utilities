@@ -21,6 +21,29 @@ Interesting Python features:
 * In replace_col_using_func, I pass in a function to be executed by it.
 * In stats, provided an independent way to find slope, intercept, and r.
 * In the init, set the display options to show head() better.
+Rough outline:
+0. Import Libraries
+  a. from PandasUtil import PandasUtil
+  b. pu = PandasUtil()
+1. Import Dataset
+  a. pu = PandasUtil()
+  b. df = pu.read_df_from_csv(csv_file_name=r'C:\\Users\\Owner\\Documents\\Udemy\\ML-Classification-Package\\ML Classification Package\\7. Naive Bayes\emails.csv', sep=',')
+  c. pu.get_rowCount_colCount(df)
+  d. df.head(10)
+  e. stats_df = pu.get_quartiles(df)
+  f. pu.get_basic_data_analysis(df)
+2. Visualize data 
+  a. (see PlotUtil.py)
+  b. count_df = pu.count_by_column(df, 'spam')
+  c. count_df.head()
+3. (see DataScienceUtil)
+4. Training the model
+  a. target_col = 'spam'
+  b. all_cols = pu.get_df_headers(df)
+  c. df_X = pu.drop_col(df, columns=target_col, is_in_place=False)
+  d. df_y = pu.drop_col_keeping(df, cols_to_keep=target_col, is_in_place=False)
+  e. X = pu.convert_dataframe_to_matrix(df_X)
+  f. y = pu.convert_dataframe_to_vector(df_y)
 """
 
 class PandasUtil:
@@ -116,7 +139,15 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {csv_file_name}.')
         return True
 
-    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col=None):
+    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col=None) -> pd.DataFrame:
+        """
+        Read an Excel file.
+        :param excelFileName:
+        :param excelWorksheet:
+        :param header: 0-offset location of header (0=row 1 in Excel)
+        :param index_col:
+        :return: dataframe result
+        """
         param_dict = {'header': header}
         if excelFileName:
             self.filename = excelFileName
@@ -271,6 +302,27 @@ class PandasUtil:
         :return:
         """
         return pd.DataFrame(data=lists)
+
+    def convert_dataframe_to_matrix(self, df:pd.DataFrame) -> np.ndarray:
+        """
+        Convert all of the values to a numpy ndarray.
+
+        :param df:
+        :return:
+        """
+        return df.to_numpy()
+
+    def convert_dataframe_to_vector(self, df: pd.DataFrame) -> np.ndarray:
+        """
+        Convert the dataframe to a numpy vector.
+        :param df:
+        :return:
+        """
+        cols = self.get_df_headers(df)
+        if len(cols) == 1:
+            return df.to_numpy().reshape(-1,)
+        logger.warning(f'Dataframe should have exactly one column, but contains {len(cols)}. Returning None.')
+        return None
 
     def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
         """
@@ -464,6 +516,7 @@ class PandasUtil:
         logger.warning(f'Unable to drop column, as Pandas version is {minor}. Returning unchanged df.')
         return df
 
+    @logit()
     def drop_col_keeping(self, df:pd.DataFrame, cols_to_keep: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
         """
         Keep the given columns and drop the rest.
@@ -473,10 +526,12 @@ class PandasUtil:
         :return:
         """
         headers_to_drop = self.get_df_headers(df)
+        print(f'I have these headers: {headers_to_drop}. But I will keep {cols_to_keep}')
         exceptions = cols_to_keep
         if isinstance(cols_to_keep, str):
             exceptions = [cols_to_keep]
         for col in exceptions:
+            print(f'dropping {col}')
             headers_to_drop.remove(col)
         return self.drop_col(df=df, columns=headers_to_drop, is_in_place=is_in_place)
 
@@ -716,6 +771,17 @@ class PandasUtil:
         """
         self.df = df
         return self.df.tail(how_many_rows)
+
+    def sort(self, df: pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True, is_asc: bool = True):
+        """
+        Sort the given dataFrame by the given column(s).
+        :param df:
+        :param columns:
+        :param is_in_place:
+        :param is_asc:
+        :return:
+        """
+        return df.sort_values(columns, ascending=is_asc, inplace=is_in_place, kind='quicksort', na_position='last')
 
 class DataFrameSplit():
     """

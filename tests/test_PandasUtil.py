@@ -138,6 +138,32 @@ class Test_PandasUtil(unittest.TestCase):
         assert_frame_equal(expected_df, actual_df)
 
     @logit()
+    def test_convert_dataframe_to_matrix(self):
+        df_orig = self.my_test_df()
+        df = self.pu.drop_col_keeping(df_orig, cols_to_keep=['Weight', 'Age'], is_in_place=False)
+        expected = df.to_numpy()
+        actual = self.pu.convert_dataframe_to_matrix(df)
+        for exp, act in zip(expected, actual):
+            self.assertListEqual(list(exp), list(act), "Failure test 1")
+
+    @logit()
+    def test_convert_dataframe_to_vector(self):
+        df_orig = self.my_test_df()
+        df = self.pu.drop_col_keeping(df_orig, cols_to_keep='Weight', is_in_place=False)
+        expected = df.to_numpy().reshape(-1,)
+        actual = self.pu.convert_dataframe_to_vector(df)
+        self.assertListEqual(list(expected), list(actual), "Failure test 1")
+
+    @logit()
+    def test_sort(self):
+        df_orig = self.my_test_df()
+        df = self.pu.drop_col_keeping(df_orig, cols_to_keep='Weight', is_in_place=False)
+        expected = df.to_numpy().reshape(-1,)
+        expected.sort()
+        actual = self.pu.sort(df, columns = 'Weight', is_in_place=False, is_asc=True)
+        self.assertListEqual(list(expected), list(actual['Weight']), "Failure test 1")
+
+    @logit()
     def test_without_null_rows(self):
         df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         col_to_nullify = 'name'
@@ -329,7 +355,6 @@ class Test_PandasUtil(unittest.TestCase):
         expected = self.pu.drop_col(df, drop_cols, is_in_place=False)
         actual = self.pu.drop_col_keeping(df2, keep_cols, is_in_place=False)
         assert_frame_equal(expected, actual)
-        # self.fail()  #TODO
 
     @logit()
     def test_reorder_col(self):

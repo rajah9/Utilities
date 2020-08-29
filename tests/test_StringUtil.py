@@ -396,6 +396,11 @@ class TestStringUtil(unittest.TestCase):
         for test2 in tests:
             self.assertFalse(self.su.is_variable(test2), f"failed test 2 on string {test2}")
 
+    def test_is_SAS_variable(self):
+        tests = ['xyzzy', 'x1', '3no', '&xyzzy', '&xyzzy.', '3.4']
+        expected = [True, True, False, False, True, False]
+        for test, exp in zip(tests, expected):
+            self.assertEqual(exp, self.su.is_SAS_variable(test), f'Expected {exp} for is_SAS_variable({test}')
 
     def test_extract_variables(self):
         # Test 1. normal.
@@ -439,6 +444,20 @@ class TestStringUtil(unittest.TestCase):
 
         for test, exp in tests.items():
             self.assertEqual(exp, self.su.digits_only_as_int(test), f'input {test} did not return {exp}')
+
+    def test_parse_url(self):
+        # Test 1. normal
+        test1 = "https://www.sas.com/en_us/home.html"
+        actual1 = self.su.parse_url(test1)
+        self.assertEqual("https", actual1.scheme)
+        self.assertEqual("www.sas.com", actual1.hostname)
+        self.assertEqual("/en_us/home.html", actual1.path)
+        # Test 2. The works
+        test2 = "http://www.google.com?gws_rd=ssl#q=python"
+        actual2 = self.su.parse_url(test2)
+        self.assertEqual("http", actual2.scheme)
+        self.assertEqual("gws_rd=ssl", actual2.query)
+        self.assertEqual("q=python", actual2.fragment)
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':

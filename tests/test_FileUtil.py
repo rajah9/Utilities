@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 Interesting Python features:
 * Does a super init
 * Uses tearDownClass (classmethod) to delete test files.
+* Generates lines of a given width in generate_text_lines using some formatting magic.
 * Uses mocking.
 ** with mock.patch('FileUtil.getcwd', return_value=my_mock_dir):
 ** Note that the part within quotes is FileUtil and just getcwd (not os.cwd), because that's how I call it in FileUtil.
@@ -83,11 +84,14 @@ class Test_FileUtil(TestCase):
         qualifiedPath = self._fu.qualified_path(self.path, self.yaml)
         self._fu.write_text_file(filename=qualifiedPath, lines=writeMe)
 
-    def generate_text_lines(self, how_many: int = 10) -> List[str]:
+    def generate_text_lines(self, how_many: int = 10, width: int = None) -> List[str]:
+        if width:
+            ans = ['{0:*^{width}}'.format(i, width=width) for i in range(how_many)]
+            return ans
         return [f'Line {i}' for i in range(how_many)]
 
-    def create_text_file(self, filename: str, how_many: int = 10):
-        lines = self.generate_text_lines(how_many)
+    def create_text_file(self, filename: str, how_many: int = 10, width : int = None):
+        lines = self.generate_text_lines(how_many, width)
         self._fu.write_text_file(filename, lines)
 
     @logit()
@@ -269,6 +273,7 @@ class Test_FileUtil(TestCase):
         :return:
         """
         return mock_is_file(args[1])
+
     def isDir_side_effect(*args) -> bool:
         return mock_is_dir(args[1])
 
@@ -400,6 +405,16 @@ class Test_FileUtil(TestCase):
         mod_time = self._fu.file_modify_time2(qualifiedPath)
         mod_timestamp = self._du.as_timestamp(dt=mod_time)
         self.assertTrue((start_time - mod_timestamp) < .1 ) # asserting a difference of < 0.1 seconds.
+
+    @logit()
+    def test_file_size(self):
+        filename = self._fu.qualified_path(self.path, self.text_fn)
+        width = 20
+        how_many_lines = randrange(10) + 2
+        self.create_text_file(filename, how_many_lines, width)
+        eol_len = 2
+        actual = self._fu.file_size(filename)
+        self.assertEqual((width + eol_len) * how_many_lines, actual )
 
     @logit()
     def test_list_modules(self):

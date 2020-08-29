@@ -5,7 +5,7 @@ import logging
 from datetime import timedelta, datetime
 from LogitUtil import logit
 from pytz import timezone
-from typing import Union
+from typing import Union, Tuple
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 Class DateUtil last updated 26Oct19.
 Interesting Python things:
 * iso_format is a class-level variable that can be found with DateUtil.iso_format.
+* Uses Tuple to return three values
 """
 
 
@@ -26,7 +27,7 @@ class DateUtil:
         self.my_tz = timezone(tz)
 
     @logit()
-    def now(self, tz_str:str=None):
+    def now(self, tz_str:str=None) -> datetime:
         tz = timezone(tz_str) if tz_str else self.my_tz
         logger.debug(f'now is using a timezone of {tz}')
         return datetime.now(tz)
@@ -50,7 +51,7 @@ class DateUtil:
         """
         Convert myDate (which could be a datetime or float) to a formatted string, defaulting to the form 2018-11-20.
         Some formats I have used:
-
+            %a  Day of week. Mon
             %d	Day of the month as a zero-padded decimal number.	30
             %b	Month as locale’s abbreviated name.	Sep
             %B	Month as locale’s full name.	September
@@ -86,13 +87,13 @@ class DateUtil:
         return ans
 
     @logit(showArgs=False, showRetVal=False)
-    def asDate(self, date_or_str_or_timestamp:Union[str, float], myFormat: str = '%Y-%m-%d') -> datetime:
+    def asDate(self, date_or_str_or_timestamp:Union[str, float], myFormat: str = '%Y-%m-%d', use_localize:bool=False) -> datetime:
         """
         Convert a date or string or a timestamp (float) into a Python datetime.
         If it's a string or float, use myFormat to format it.
         """
         if type(date_or_str_or_timestamp) == str:
-            return self.asDateTime(date_or_str_or_timestamp, myFormat)
+            return self.asDateTime(date_or_str_or_timestamp, myFormat, use_localize)
         elif type(date_or_str_or_timestamp) == float:
             return self.timestamp_to_datetime(date_or_str_or_timestamp, myFormat)
         # it should already be a datetime.
@@ -113,11 +114,13 @@ class DateUtil:
         return myDate + timedelta(days=deltaDay)
 
     @logit()
-    def asDateTime(self, strToConvert: str, strFormat: str = "%Y-%m-%d %H:%M:%S") -> datetime:
+    def asDateTime(self, strToConvert: str, strFormat: str = "%Y-%m-%d %H:%M:%S", use_localize: bool = False) -> datetime:
         """
         Convert the string to a datetime.
         """
         ans = datetime.strptime(strToConvert, strFormat)
+        if use_localize:
+            return self.my_tz.localize(ans).astimezone(self.my_tz)
         return ans
 
     @logit()
@@ -174,3 +177,22 @@ class DateUtil:
         return d.timestamp()  # In the usual case when dt is a datetime. Works if Python >= 3.3
 
 
+    def duration(self, start_date: datetime, end_date: datetime) -> Tuple[int, int, int]:
+        """
+        Return the days, hours, and minutes between these dates.
+        Taken from https://stackoverflow.com/questions/1345827/how-do-i-find-the-time-difference-between-two-datetime-objects-in-python
+        :param start_date:
+        :param end_date: should be later than start_date
+        :return: days, hours, minutes between dates.
+        """
+        duration = end_date - start_date
+
+        def days():
+            return duration.days
+        def hours():
+            return int(duration.seconds / 3600) # 3600 seconds in an hour
+        def minutes():
+            hrs = hours()
+            return int((duration.seconds - 3600 * hrs) / 60) # 60 seconds in a minute
+
+        return days(), hours(), minutes()

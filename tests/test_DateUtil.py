@@ -4,6 +4,8 @@ from datetime import timedelta, datetime
 import time
 from LogitUtil import logit
 from DateUtil import DateUtil
+import pytz
+from random import randint
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -73,6 +75,16 @@ class Test_DateUtil(unittest.TestCase):
         self.assertEqual(expectedDate1, actual1)
         actual2 = self.du.asDate(expectedDate1)
         self.assertEqual(expectedDate1, actual2)
+        # Test 3, timezone naive
+        expected3 = self.du.now()
+        actual3 = self.du.asDate(expected3, use_localize=False)
+        self.assertEqual(expected3, actual3)
+        # Test 4, timezone
+        tz = 'US/Mountain'
+        mst_du = DateUtil(tz)
+        expected4 = mst_du.now()
+        actual4 = mst_du.asDate(expected4, use_localize=True)
+        self.assertEqual(expected4, actual4)
 
     @logit()
     def test_today(self):
@@ -85,7 +97,18 @@ class Test_DateUtil(unittest.TestCase):
         first = self.du.as_timestamp()
         second = self.du.as_timestamp(first)
         self.assertEqual(first, second)
-
+    @logit()
+    def test_duration(self):
+        now = self.du.now()
+        exp_days = randint(1,50)
+        exp_hours = randint(0,23)
+        exp_minutes = randint(0,59)
+        logger.debug(f'looking at time {exp_days} days, {exp_hours} hours, {exp_minutes} minutes in the future.')
+        next = now + timedelta(days=exp_days, hours=exp_hours, minutes=exp_minutes)
+        act_days, act_hours, act_minutes = self.du.duration(now, next)
+        self.assertEqual(exp_days, act_days)
+        self.assertEqual(exp_hours, act_hours)
+        self.assertEqual(exp_minutes, act_minutes)
 
 if __name__ == "__main__":
     unittest.main(argv=['first-arg-ignored'], exit=False)
