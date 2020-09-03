@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 Strings = List[str]
 Bools = List[bool]
+Dataframes = List[pd.DataFrame]
 
 """
 Interesting Python features:
@@ -21,6 +22,7 @@ Interesting Python features:
 * In replace_col_using_func, I pass in a function to be executed by it.
 * In stats, provided an independent way to find slope, intercept, and r.
 * In the init, set the display options to show head() better.
+* Uses a generator / yield function to generate column names
 Rough outline:
 0. Import Libraries
   a. from PandasUtil import PandasUtil
@@ -45,6 +47,21 @@ Rough outline:
   e. X = pu.convert_dataframe_to_matrix(df_X)
   f. y = pu.convert_dataframe_to_vector(df_y)
 """
+
+
+def generate_col_names(prefix: str) -> str:
+    """
+    Generator for col00 through col99.
+    Invoke it like this:
+      gen = generate_col_names('pfx')
+      for i in range(3):
+        print next(gen)  # prints pfx00, pfx01, pfx02.
+
+    :return:
+    """
+    nums = range(100)  # Only 0 .. 99
+    for i in nums:
+        yield f'{prefix}{i:02d}'
 
 class PandasUtil:
     _EMPTY_DF = pd.DataFrame()
@@ -157,12 +174,12 @@ class PandasUtil:
             if excelWorksheet:
                 self.worksheetName = excelWorksheet
             wks = self.worksheetName
-            _, minor, _ = self.pandas_version()
+            major, minor, _ = self.pandas_version()
             logger.debug(f'Will read from the worksheet: {wks}. Pandas minor version is {minor}.')
             if wks not in self.get_worksheets(excelFileName):
                 logger.warning(f'Cannot find Excel worksheet: {self.worksheetName}. Returning empty df.')
                 return PandasUtil.empty_df()
-            if minor > 21:
+            if ((major == 0) & (minor > 21)) | (major >= 1):
                 param_dict['sheet_name'] = wks
             else:
                 param_dict['sheetname'] = wks
@@ -509,12 +526,12 @@ class PandasUtil:
         :param is_in_place: if true, column_name is dropped from df in place. Otherwise, a new df is returned.
         :return: None if is_in_place is True. Else df with the column_name dropped.
         """
-        _, minor, _ = self.pandas_version()
-        if minor >= 21:
-            return df.drop(columns=columns, inplace=is_in_place)
+        major, minor, _ = self.pandas_version()
+        if (major == 0) & (minor < 21):
+            logger.warning(f'Unable to drop column, as Pandas version is {minor}. Returning unchanged df.')
+            return df
 
-        logger.warning(f'Unable to drop column, as Pandas version is {minor}. Returning unchanged df.')
-        return df
+        return df.drop(columns=columns, inplace=is_in_place)
 
     @logit()
     def drop_col_keeping(self, df:pd.DataFrame, cols_to_keep: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
@@ -526,12 +543,11 @@ class PandasUtil:
         :return:
         """
         headers_to_drop = self.get_df_headers(df)
-        print(f'I have these headers: {headers_to_drop}. But I will keep {cols_to_keep}')
+        logger.debug(f'I have these headers: {headers_to_drop}. But I will keep {cols_to_keep}')
         exceptions = cols_to_keep
         if isinstance(cols_to_keep, str):
             exceptions = [cols_to_keep]
         for col in exceptions:
-            print(f'dropping {col}')
             headers_to_drop.remove(col)
         return self.drop_col(df=df, columns=headers_to_drop, is_in_place=is_in_place)
 
@@ -619,14 +635,30 @@ class PandasUtil:
             logger.warning(f'mask must be None, a series, or a list, but it is: {type(mask)}')
             return self.empty_df()
 
-    def join_dfs_on_index(self, df1:pd.DataFrame, df2:pd.DataFrame) -> pd.DataFrame:
+    def join_two_dfs_on_index(self, df1:pd.DataFrame, df2:pd.DataFrame) -> pd.DataFrame:
         """
-        return the join of these two dataframes on their index.
+        return a column-wise join of these two dataframes on their mutual index.
         :param df1:
         :param df2:
         :return:
         """
-        return pd.concat([df1, df2], axis=1)
+        return pd.concat([df1, df2], axis=1, ignore_index=False)
+
+    def join_dfs_by_column(self, dfs: Dataframes) -> pd.DataFrame:
+        """
+        Return a column-wise join of these dataframes.
+        :param dfs:
+        :return:
+        """
+        return pd.concat(dfs, axis='columns')
+
+    def join_dfs_by_row(self, dfs: Dataframes) -> pd.DataFrame:
+        """
+        Return a row-wise join of these dataframes.
+        :param dfs:
+        :return:
+        """
+        return pd.concat(dfs, axis='rows', ignore_index=True)
 
     def dummy_var_df(self, df:pd.DataFrame, columns: Union[Strings, str], drop_first:bool=True) -> pd.DataFrame:
         """
@@ -649,6 +681,21 @@ class PandasUtil:
 
         """
         return df.rename(columns=replace_dict, inplace=is_in_place)
+
+
+    def replace_col_names_by_pattern(self, df: pd.DataFrame, prefix: str = "col", is_in_place: bool = True) -> pd.DataFrame:
+        """
+        Replace the column names with col1, col2....
+        :param df:
+        :param prefix: string prefix, such as "col"
+        :param is_in_place:
+        :return:
+        """
+        cur_names = self.get_df_headers(df)
+        gen = generate_col_names(prefix)
+        replacement_dict = {k: next(gen) for k in cur_names}
+        return self.replace_col_names(df, replacement_dict, is_in_place)
+
 
     def coerce_to_string(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
         """

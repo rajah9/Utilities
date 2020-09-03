@@ -1,8 +1,11 @@
 from constraint import Problem, AllDifferentConstraint, ExactSumConstraint, InSetConstraint
 import sys
 from collections import defaultdict
-
 from Util import Util
+import numpy as np
+from typing import Callable, List, Union
+
+
 """
 Interesting Python Featuers:
 * implements default dictionary to count words
@@ -31,3 +34,39 @@ class CollectionUtil(Util):
         :return: sorted dictionary
         """
         return {k: v for k, v in sorted(d.items(), reverse=is_descending, key=lambda item: item[1])}
+
+    def layout(self, rows: int, cols: int, tile_by_rows: bool = True) -> np.array:
+        """
+        Given rows and columns (and whether tile_by_rows is True or False), return a
+        rows x cols array of ascending numbers. If rows = 2 and cols = 3 and tile_by_rows is True, return
+        [[0 1 2],
+        [3 4 5]]
+        If rows = 2 and cols = 3 and tile_by_rows is False, return
+        [[0 2 4],
+        [1 3 5]]
+        :param rows: number of rows
+        :param cols: number of columns
+        :param tile_by_rows: if True, the sequence goes l to r. If False, from top to bottom.
+        :return: np.array
+        """
+        a = np.arange(0, rows*cols)
+        if tile_by_rows:
+            return a.reshape(rows, cols)
+        return a.reshape(cols, rows).transpose()
+
+class NumpyUtil(CollectionUtil):
+    def __init__(self):
+        super(NumpyUtil, self).__init__(null_logger=False)
+
+    def to_numpy_array(self, data: list, dtype: Union[str, list] = None) -> np.array:
+        """
+        Return a numpy array.
+        See https://numpy.org/doc/stable/user/basics.types.html for what you can place in dtype.
+        If dtype is None, numpy will make a best guess.
+        :param data: usually an iterable, such as a list.
+        :param dtype: None, or a dtype such as np.uint, np.float.
+        :return: a np.array
+        """
+        if dtype:
+            return np.array(data, dtype=dtype)
+        return np.array(data)

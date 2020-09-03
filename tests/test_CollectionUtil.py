@@ -1,6 +1,7 @@
 import logging
 from unittest import TestCase
 from CollectionUtil import CollectionUtil
+import numpy as np
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -29,3 +30,16 @@ class Test_CollectionUtil(TestCase):
         actual2 = list(sort_dsc.values())
         expected2 = sorted(unsorted_dict.values(), reverse=True)
         self.assertListEqual(expected2, actual2)
+
+    def test_layout(self):
+        # Test 1, 2 x 3, by rows
+        exp1 = np.array([[0, 1, 2],
+                         [3, 4, 5]]).tolist()
+        act1 = self._cu.layout(rows=2, cols=3, tile_by_rows=True).tolist()
+        self.assertListEqual(exp1, act1, "test 1 fail")
+
+        # Test 2, 2 x 3, by columns
+        exp2 = np.array([[0, 2, 4],
+                         [1, 3, 5]]).tolist()
+        act2 = self._cu.layout(rows=2, cols=3, tile_by_rows=False).tolist()
+        self.assertListEqual(exp2, act2)

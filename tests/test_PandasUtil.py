@@ -25,6 +25,8 @@ Interesting Python features:
 * in test_mark_isnull, used an iloc[-1] to get the last record
 * test_replace_col_using_mult_cols uses an inner method to distinguish calculation of the expected value
 * test_select_non_blanks deletes rows based on criteria.
+* in test_join_dfs_by_row, uses `act_names.str.contains(new_guy, regex=False).any()` to test if new_guy is anywhere in act_names.
+
 """
 
 class Test_PandasUtil(unittest.TestCase):
@@ -86,7 +88,7 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(expected, actual)
 
     @logit()
-    def test_join_dfs_on_index(self):
+    def test_join_two_dfs_on_index(self):
         df1 = self.my_test_df()
 
         def my_test_df2():
@@ -96,10 +98,44 @@ class Test_PandasUtil(unittest.TestCase):
             df.index = index_
             return df
         df2 = my_test_df2()
-        actual = self.pu.join_dfs_on_index(df1, df2)
+        actual = self.pu.join_two_dfs_on_index(df1, df2)
         for index, row in actual.iterrows():
             self.assertEqual(row["Shoe_size"], df2.iloc[index]["Shoe_size"])
             self.assertEqual(row["Name"], df1.iloc[index]["Name"])
+
+    @logit()
+    def test_join_dfs_by_column(self):
+        # Test 1
+        df1 = self.my_test_df()
+        df2 = pd.DataFrame({'Shoe_size': [4.0, 5.5, 5.5, 10.5, 8.0]})
+        actual = self.pu.join_dfs_by_column([df1, df2])
+        for index, row in actual.iterrows():
+            self.assertEqual(row["Shoe_size"], df2.iloc[index]["Shoe_size"])
+            self.assertEqual(row["Name"], df1.iloc[index]["Name"])
+        # Test 2, three dfs
+        df3 = pd.DataFrame({'IQ': [100, 105, 85, 125, 98]})
+        actual = self.pu.join_dfs_by_column([df1, df3, df2])
+        for index, row in actual.iterrows():
+            self.assertEqual(row["Shoe_size"], df2.iloc[index]["Shoe_size"])
+            self.assertEqual(row["IQ"], df3.iloc[index]["IQ"])
+
+
+    @logit()
+    def test_join_dfs_by_row(self):
+        # Test 1
+        df1 = self.my_test_df()
+        new_guy = 'Bill'
+        new_gal = 'Julie'
+        df2 =  pd.DataFrame({'Weight': [110, 115],
+                           'Name': [new_guy, new_gal],
+                           'Sex' : ['male', 'female'],
+                           'Age': [12, 13]})
+        exp_len = len(df1) + len(df2)
+        actual_df = self.pu.join_dfs_by_row([df1, df2])
+        self.assertEqual(exp_len, len(actual_df))
+        act_names = actual_df['Name']
+        self.assertTrue(act_names.str.contains(new_guy, regex=False).any())
+        self.assertTrue(act_names.str.contains(new_gal, regex=False).any())
 
     @logit()
     def test_filename(self):
@@ -321,8 +357,8 @@ class Test_PandasUtil(unittest.TestCase):
         before_drop = self.pu.get_df_headers(df) # should be ['Name', 'Weight', 'Age']
         # pick one to drop.
         col_to_drop = before_drop[1]
-        self.pu.drop_col(df, columns=col_to_drop)
         after_drop = before_drop
+        self.pu.drop_col(df, columns=col_to_drop, is_in_place=True)
         after_drop.remove(col_to_drop)
         self.assertListEqual(self.pu.get_df_headers(df), after_drop)
 
@@ -374,6 +410,16 @@ class Test_PandasUtil(unittest.TestCase):
         replace_dict = dict(zip(orig_weights, expect_weights))
         df2 = self.pu.replace_col(df, 'Weight', replace_dict)
         self.assertListEqual(expect_weights, list(df2.Weight))
+
+    @logit()
+    def test_replace_col_names_by_pattern(self):
+        df = self.my_test_df()
+        cols = self.pu.get_df_headers(df)
+        prefix = 'col'
+        df2 = self.pu.replace_col_names_by_pattern(df, prefix, is_in_place=False)
+        exp = [f'{prefix}{i:02d}' for i in range(len(cols))]
+        act = self.pu.get_df_headers(df2)
+        self.assertListEqual(exp, act)
 
     @logit()
     def test_replace_col_err(self):

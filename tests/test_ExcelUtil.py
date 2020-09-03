@@ -143,3 +143,32 @@ class TestExcelCompareUtil(TestExcelUtil):
         list2 = copy(list1)
         self.assertTrue(self._ecu.identical(list1, list2), "fail test 1")
         self.fail("in progress")
+
+from ExcelUtil import PdfToExcelUtil
+
+class TestPdfToExcel(TestExcelUtil):
+    def __init__(self, *args, **kwargs):
+        super(TestPdfToExcel, self).__init__(*args, **kwargs)
+        self._pdf = PdfToExcelUtil()
+        pprint.pprint(sys.path)
+
+    def test_read_pdf_tables(self):
+        # Test 1, local WF Annual report
+        pdf_path = r"./2019-annual-report.pdf"
+        df_list = self._pdf.read_pdf_tables(pdf_path, pages=[1, 2], read_many_tables_per_page=True)
+        self.assertEqual(3, len(df_list)) # I only see 2 tables, but WF formatted as 3!
+        income_df = df_list[1]
+        balance_df = df_list[2]
+        logger.debug(f'Balance statement: \n {balance_df.head(10)}')
+        self.assertEqual(14, len(income_df))
+        self._pu.replace_col_names_by_pattern(income_df, is_in_place=True)
+        logger.debug(f'Income statement: \n {income_df.head(10)}')
+        one_row = self._pu.select(income_df, column_name='col00', match_me='Wells Fargo net income')
+        logger.debug(f'selected row is :\n{one_row.head()}')
+        self.assertEqual('19,549', one_row['col02'].any())
+
+    def test_read_tiled_pdf_tables(self):
+        # Test 1, read 4 tables and combine into one
+        pdf_path = r"./2019-annual-report.pdf"
+        df_list = self._pdf.read_tiled_pdf_tables(pdf_path, rows=2, cols=2, pages='3-6', tile_by_rows=True, read_many_tables_per_page=False)
+        self.fail('in progress') #TODO

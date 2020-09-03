@@ -33,14 +33,17 @@ from Util import Util
 from PandasUtil import PandasUtil
 from StringUtil import StringUtil
 from LogitUtil import logit
+from CollectionUtil import CollectionUtil
 from math import fabs
 import functools
 from copy import copy
 from typing import List, Union, Tuple
+import tabula
 
 Strings = List[str]
 Ints = List[int]
 Floats = List[float]
+Dataframes = List[pd.DataFrame]
 
 _EPSILON = 1.0e-8
 ExcelCell = namedtuple('ExcelCell', 'col row')
@@ -294,3 +297,59 @@ class ExcelRewriteUtil(ExcelUtil):
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
                 return
 
+class PdfToExcelUtil(ExcelUtil):
+    def __init__(self):
+        super().__init__()
+        self.logger.info('starting PdfToExcelUtil')
+        self._cu = CollectionUtil()
+
+    @logit()
+    def read_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                        read_many_tables_per_page=False) -> Dataframes:
+        """
+        Using tabula-py, read the designated pages from the PDF.
+        :param pdf_filename: full path and filename to PDF file. May be a URL.
+        :param pages: page to read in (defaults to 'all')
+        :param read_many_tables_per_page: False to read one table per page.
+        :return: a list of dataframes, where each el is a table
+        """
+        self.logger.debug(f'About to read from {pdf_filename}')
+#        dfs = tabula.read_pdf(pdf_filename, pages=pages, multiple_tables=read_many_tables_per_page)
+        dfs = tabula.read_pdf(pdf_filename, pages=pages) # problems with multiple_tables=read_many_tables_per_page)
+        self.logger.debug(f'Read in {len(dfs)} tables.')
+        if not make_NaN_blank:
+            return dfs
+        blanked_dfs = [df.replace(np.nan, '', regex=True) for df in dfs]
+        return blanked_dfs
+
+
+    def read_tiled_pdf_tables(self, pdf_filename: str, rows: int, cols: int, pages: Union[Ints, str] = 'all',
+                              tile_by_rows: bool = True, read_many_tables_per_page=False,
+                              make_NaN_blank: bool = True) -> Dataframes:
+        """
+        This reads the tables on several pages into a single table.
+        :param pdf_filename:
+        :param rows: How many rows across
+        :param cols: How many columns down
+        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3]. 1-offset.
+        :param tile_by_rows: True if sequential pages comprise rows, False if they comprise columns.
+        :param read_many_tables_per_page: False to read one table per page.
+        :param make_NaN_blank: True to make NaN values blank.
+        :return:
+        """
+        dfs = self.read_pdf_tables(pdf_filename, pages=pages, make_NaN_blank=make_NaN_blank, read_many_tables_per_page=read_many_tables_per_page)
+        expected_table_count = rows * cols
+        if expected_table_count != len(dfs):
+            self.logger.warning(f'Expected {rows} * {cols} tables, but read in {len(dfs)}')
+            if len(dfs) < expected_table_count:
+                self.logger.warning(f'Returning no tables')
+                return None
+            else:
+                self.logger.warning(f'Will use the first {expected_table_count} tables.')
+        table_layout = self._cu.layout(rows, cols, tile_by_rows)
+        row_dfs = []
+        for i, row in enumerate(table_layout):
+            self.logger.debug(f'row {i} contains: {row}')
+            this_row_df = self._pu.join_dfs_by_column([dfs[x] for x in row])
+            row_dfs.append(this_row_df)
+        pass # TODO Continue here
