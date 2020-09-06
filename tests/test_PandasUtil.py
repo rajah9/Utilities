@@ -3,7 +3,7 @@ import numpy as np
 import unittest
 import logging
 from math import sqrt
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
 
 from PandasUtil import PandasUtil
 from LogitUtil import logit

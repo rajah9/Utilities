@@ -1,10 +1,9 @@
-from constraint import Problem, AllDifferentConstraint, ExactSumConstraint, InSetConstraint
-import sys
 from collections import defaultdict
-from Util import Util
-import numpy as np
-from typing import Callable, List, Union
+from typing import Union
 
+import numpy as np
+
+from Util import Util
 
 """
 Interesting Python Featuers:

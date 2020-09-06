@@ -2,7 +2,7 @@ import logging
 from unittest import mock, TestCase, main
 import sys, pprint
 import pandas as pd
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
 from ExcelUtil import ExcelUtil, ExcelCell
 from ExecUtil import ExecUtil
 from PandasUtil import PandasUtil
@@ -142,7 +142,14 @@ class TestExcelCompareUtil(TestExcelUtil):
         list1 = list(df.Weight)
         list2 = copy(list1)
         self.assertTrue(self._ecu.identical(list1, list2), "fail test 1")
-        self.fail("in progress")
+        # Test 2, scale by float
+        scale2 = 2.5
+        f_scaled = [el / scale2 for el in list1]
+        self.assertTrue(self._ecu.identical(list1, f_scaled, scale2))
+        # Test 3, scale by int
+        scale3 = 10
+        f_scaled = [el / scale3 for el in list1]
+        self.assertTrue(self._ecu.identical(list1, f_scaled, scale3))
 
 from ExcelUtil import PdfToExcelUtil
 
