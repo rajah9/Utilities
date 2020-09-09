@@ -324,7 +324,7 @@ class PdfToExcelUtil(ExcelUtil):
 
 
     def read_tiled_pdf_tables(self, pdf_filename: str, rows: int, cols: int, pages: Union[Ints, str] = 'all',
-                              tile_by_rows: bool = True, read_many_tables_per_page=False,
+                              tables_to_tile: Ints = None, tile_by_rows: bool = True, read_many_tables_per_page=False,
                               make_NaN_blank: bool = True) -> Dataframes:
         """
         This reads the tables on several pages into a single table.
@@ -337,16 +337,28 @@ class PdfToExcelUtil(ExcelUtil):
         :param make_NaN_blank: True to make NaN values blank.
         :return:
         """
-        dfs = self.read_pdf_tables(pdf_filename, pages=pages, make_NaN_blank=make_NaN_blank, read_many_tables_per_page=read_many_tables_per_page)
-        expected_table_count = rows * cols
+        dfs = self.read_pdf_tables(pdf_filename, pages=pages,  make_NaN_blank=make_NaN_blank,
+                                   read_many_tables_per_page=read_many_tables_per_page)
+        expected_table_count = len(tables_to_tile)
+        are_tables_ok = True
         if expected_table_count != len(dfs):
-            self.logger.warning(f'Expected {rows} * {cols} tables, but read in {len(dfs)}')
+            self.logger.warning(f'There are {len(tables_to_tile)} tables to read, but read in {len(dfs)}')
             if len(dfs) < expected_table_count:
                 self.logger.warning(f'Returning no tables')
+                are_tables_ok = False
                 return None
             else:
                 self.logger.warning(f'Will use the first {expected_table_count} tables.')
-        table_layout = self._cu.layout(rows, cols, tile_by_rows)
+        for i in tables_to_tile:
+            if len(dfs[i]):
+                self.logger.debug(f'Table {i} has {len(dfs[i])} records.')
+            else:
+                self.logger.warning(f'Table {i} is empty.')
+                are_tables_ok = False
+
+        table_layout = self._cu.layout(rows, cols,
+                                       tile_by_rows)  # TODO: Change table_layout to work with tables_to_tile
+
         row_dfs = []
         for i, row in enumerate(table_layout):
             self.logger.debug(f'row {i} contains: {row}')

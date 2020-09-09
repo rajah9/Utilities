@@ -1,6 +1,6 @@
 import logging
 from unittest import TestCase
-from CollectionUtil import CollectionUtil
+from CollectionUtil import CollectionUtil, NumpyUtil
 import numpy as np
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -35,11 +35,36 @@ class Test_CollectionUtil(TestCase):
         # Test 1, 2 x 3, by rows
         exp1 = np.array([[0, 1, 2],
                          [3, 4, 5]]).tolist()
-        act1 = self._cu.layout(rows=2, cols=3, tile_by_rows=True).tolist()
+        act1 = self._cu.layout(rows=2, cols=3, row_dominant=True).tolist()
         self.assertListEqual(exp1, act1, "test 1 fail")
 
         # Test 2, 2 x 3, by columns
         exp2 = np.array([[0, 2, 4],
                          [1, 3, 5]]).tolist()
-        act2 = self._cu.layout(rows=2, cols=3, tile_by_rows=False).tolist()
+        act2 = self._cu.layout(rows=2, cols=3, row_dominant=False).tolist()
         self.assertListEqual(exp2, act2)
+        # Test 3, 1 x 3, by rows, non-sequential table order
+        list3 = [3, 6, 42]
+        exp3 = np.array([list3])
+        act3 = self._cu.layout(rows=1, cols=3, row_dominant=True, tiling_order=list3)
+        self.assertListEqual(exp3.tolist(), act3.tolist())
+
+class Test_NumpyUtil(TestCase):
+    def __init__(self, *args, **kwargs):
+        super(Test_NumpyUtil, self).__init__(*args, **kwargs)
+        self._nu = NumpyUtil()
+
+    def test_to_numpy_array(self):
+        # Test 1, mixed ints and floats should go to floats
+        list1 = [3, 4, 3.14159]
+        exp1 = np.array([x * 1.0 for x in list1])
+        act1 = self._nu.to_numpy_array(list1)
+        self.assertListEqual(exp1.tolist(), act1.tolist())
+        # Test 2, same as test 1, but explicitly set dtype to float
+        exp2 = np.array([x * 1.0 for x in list1])
+        act2 = self._nu.to_numpy_array(list1, dtype=np.float)
+        self.assertListEqual(exp2.tolist(), act2.tolist())
+        # Test 3, same as test 1, but explicitly set dtype to int
+        exp3 = np.array([int(x) for x in list1])
+        act3 = self._nu.to_numpy_array(list1, dtype=np.int)
+        self.assertListEqual(exp3.tolist(), act3.tolist())
