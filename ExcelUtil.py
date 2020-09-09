@@ -302,6 +302,7 @@ class PdfToExcelUtil(ExcelUtil):
         super().__init__()
         self.logger.info('starting PdfToExcelUtil')
         self._cu = CollectionUtil()
+        self._su = StringUtil()
 
     @logit()
     def read_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
@@ -365,3 +366,22 @@ class PdfToExcelUtil(ExcelUtil):
             this_row_df = self._pu.join_dfs_by_column([dfs[x] for x in row])
             row_dfs.append(this_row_df)
         pass # TODO Continue here
+
+    def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                        read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:
+        """
+        Summarize the tables on the given pages, and return the first how_many_summarized lines of each table.
+        :param pdf_filename: Filename to scan
+        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3].
+        :param make_NaN_blank: True to make NaN values blank (default). False to leave as NaN.
+        :param read_many_tables_per_page:
+        :return:
+        """
+        ans = []
+        dfs = self.read_pdf_tables(pdf_filename, pages, make_NaN_blank, read_many_tables_per_page)
+        for i, df in enumerate(dfs):
+            self.logger.info(self._su.fill_string(my_str=f'Table {i}'))
+            df_head = self._pu.head_as_string(df, how_many_rows=7)
+            self.logger.debug(df_head)
+            ans.append(df_head)
+        return ans

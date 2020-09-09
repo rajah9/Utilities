@@ -728,6 +728,22 @@ class Test_PandasUtil(unittest.TestCase):
         expected = df[:head_len]
         assert_frame_equal(expected, actual)
 
+    def test_head_as_string(self):
+        df = self.my_test_df()
+        head_len = 2
+        actual = self.pu.head_as_string(df, head_len)
+        for i in range(head_len):
+            self.assertTrue(df.iat[i, 1] in actual, f'Could not find {df.iat[i, 1]} in string')
+        if head_len + 1 < len(df):
+            self.assertFalse(df.iat[head_len+1, 1] in actual, f'Should not have found {df.iat[i, 1]} in string')
+
+    def test_tail_as_string(self):
+        df = self.my_test_df()
+        tail_len = 2
+        actual = self.pu.tail_as_string(df, tail_len)
+        for i in range(len(df) - tail_len, len(df)):
+            self.assertTrue(df.iat[i, 1] in actual, f'Could not find {df.iat[i, 1]} in string')
+
     def test_tail(self):
         # Test 1; tail is a subset of the df.
         df = self.my_test_df()

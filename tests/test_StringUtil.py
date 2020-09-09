@@ -459,6 +459,22 @@ class TestStringUtil(unittest.TestCase):
         self.assertEqual("gws_rd=ssl", actual2.query)
         self.assertEqual("q=python", actual2.fragment)
 
+    def test_fill_string(self):
+        # Test 1, centered
+        my_str = 'xyzzy'
+        str_len = len(my_str)
+        exp1 = '$$$$' + my_str + '$$$$'
+        act1 = self.su.fill_string(my_str, '$', fill_width=2*4+str_len)
+        self.assertEqual(exp1, act1, 'Test 1 fail')
+        # Test 2, left
+        exp2 = my_str + '?'*10
+        act2 = self.su.fill_string(my_str, '?', fill_width=10+str_len, alignment='left')
+        self.assertEqual(exp2, act2, 'Test 2 fail')
+        # Test 3, right
+        exp3 = '@'*20 + my_str
+        act3 = self.su.fill_string(my_str, '@', fill_width=20+str_len, alignment='right')
+        self.assertEqual(exp2, act2, 'Test 3 fail')
+
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':
 #     unittest.main()

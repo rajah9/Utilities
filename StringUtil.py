@@ -619,3 +619,22 @@ class StringUtil:
         """
         self.string = url or self.string
         return urlparse(self.string)
+
+    def fill_string(self, my_str: str, fill_str: str = '*', fill_width: int = 80, alignment: str = 'center') -> str:
+        """
+        Print out my_str, surrounded by fill_str, to a width of fill_width.
+        :param my_str: string to print out
+        :param fill_str: fill string (default is '*')
+        :param fill_width: how wide to make the string (default 80)
+        :param alignment: 'center', 'left', or 'right' aligned
+        :return:
+        """
+        align_dict = {'center': '^', 'left': '<', 'right': '>'}
+        try:
+            align = align_dict[alignment.lower()]
+        except KeyError:
+            valid_keys = align_dict.keys()
+            logger.debug(f"Alignment should be one of: {','.join(valid_keys)} but is {alignment}. Setting to center.")
+            align = align_dict['center']
+
+        return '{0:{fill}{align}{width}}'.format(my_str, fill=fill_str, align=align, width=fill_width)

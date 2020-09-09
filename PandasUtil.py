@@ -808,6 +808,29 @@ class PandasUtil:
         self.df = df
         return self.df.head(how_many_rows)
 
+    def head_as_string(self, df: pd.DataFrame, how_many_rows:int=10) -> str:
+        """
+        Return the first how_many_rows as a string, separated by \n.
+        :param df:
+        :param how_many_rows:
+        :return:
+        """
+        ans = str(self.head(df, how_many_rows))
+        logger.debug(f'First {how_many_rows} are:\n{ans}')
+        return ans
+
+    def tail_as_string(self, df: pd.DataFrame, how_many_rows:int=10) -> str:
+        """
+        Return the last how_many_rows as a string, separated by \n.
+        :param df:
+        :param how_many_rows:
+        :return:
+        """
+        ans = str(self.tail(df, how_many_rows))
+        logger.debug(f'Last {how_many_rows} are:\n{ans}')
+        return ans
+
+
     def tail(self, df: pd.DataFrame, how_many_rows:int=10) -> pd.DataFrame:
         """
         Return the last how_many_rows. This works well if called as the last line of an immediate, as in:
