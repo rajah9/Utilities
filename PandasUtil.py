@@ -303,14 +303,19 @@ class PandasUtil:
         """
         return pd.DataFrame(list_of_dicts)
 
-    def convert_list_to_dataframe(self, lists: list, column_names: List) -> pd.DataFrame:
+    def convert_list_to_dataframe(self, lists: list, column_names: List = None) -> pd.DataFrame:
         """
-        Convert a list of lists to a dataframe. Add the column names.
-        :param lists:
-        :param column_names:
+        Convert a list of lists to a dataframe. If provided, add the column names. If not, provide default col names.
+        :param lists: list of objects
+        :param column_names: Column names to use. Defaults to col00, col01, col22, .. col99
         :return:
         """
-        return pd.DataFrame(data=lists, columns=column_names)
+        if column_names:
+            return pd.DataFrame(data=lists, columns=column_names)
+        # Use the default column names: col00, col01...
+        ans = pd.DataFrame(data=lists)
+        self.replace_col_names_by_pattern(ans)
+        return ans
 
     def convert_matrix_to_dataframe(self, lists: list) -> pd.DataFrame:
         """

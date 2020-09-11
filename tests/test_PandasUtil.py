@@ -158,6 +158,7 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_convert_list_to_dataframe(self):
+        # Test 1, with column names
         expected_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         self.pu.drop_index(expected_df, True)
 
@@ -171,6 +172,10 @@ class Test_PandasUtil(unittest.TestCase):
         lists = list_of_dicts_to_lists(expected_df)
         actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=self.pu.get_df_headers(expected_df))
         # self.pu.set_index(df=actual_df, columns=[0])
+        assert_frame_equal(expected_df, actual_df)
+        # Test 2, with default column names col00, col01...
+        self.pu.replace_col_names_by_pattern(expected_df, prefix='col', is_in_place=True)
+        actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=None)
         assert_frame_equal(expected_df, actual_df)
 
     @logit()

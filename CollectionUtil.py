@@ -1,11 +1,12 @@
 from collections import defaultdict
 from typing import Union, List
-
+from itertools import compress
 import numpy as np
 
 from Util import Util
 
 Ints = List[int]
+Bools = List[bool]
 
 """
 Interesting Python Featuers:
@@ -58,6 +59,17 @@ class CollectionUtil(Util):
         if row_dominant:
             return a.reshape(rows, cols)
         return a.reshape(cols, rows).transpose()
+
+    def indices_of_True(self, bool_list: Bools) -> np.array:
+        """
+        Given an array of bool, provide the indices of those that are True.
+        From https://stackoverflow.com/a/21448251
+        :param bool_list:
+        :return:
+        """
+        if len(bool_list) < 15: # Need to do better measurements of threshold
+            return list(compress(range(len(bool_list)), bool_list))
+        return list(np.where(bool_list)[0])
 
 class NumpyUtil(Util):
     def __init__(self):

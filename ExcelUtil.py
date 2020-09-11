@@ -39,6 +39,7 @@ import functools
 from copy import copy
 from typing import List, Union, Tuple
 import tabula
+import pdfplumber
 
 Strings = List[str]
 Ints = List[int]
@@ -316,12 +317,34 @@ class PdfToExcelUtil(ExcelUtil):
         """
         self.logger.debug(f'About to read from {pdf_filename}')
 #        dfs = tabula.read_pdf(pdf_filename, pages=pages, multiple_tables=read_many_tables_per_page)
-        dfs = tabula.read_pdf(pdf_filename, pages=pages) # problems with multiple_tables=read_many_tables_per_page)
+        # tabula_build_opts = tabula.io.build_options(pages=pages, stream=True)
+        dfs = tabula.read_pdf(pdf_filename, guess=False, pages=pages, stream=True, multiple_tables=read_many_tables_per_page, pandas_options={'header': None}) # problems with multiple_tables=read_many_tables_per_page)
         self.logger.debug(f'Read in {len(dfs)} tables.')
         if not make_NaN_blank:
             return dfs
         blanked_dfs = [df.replace(np.nan, '', regex=True) for df in dfs]
         return blanked_dfs
+
+    def read_pdf_table(self, pdf_filename: str, pages: Ints) -> Dataframes:
+        """
+        Using pdfplumber, read the designated pages from the PDF.
+        :param pdf_filename: full path and filename to PDF file. May be a URL.
+        :param pages: page to read in (defaults to 'all')
+        :param read_many_tables_per_page: False to read one table per page.
+        :return: a list of dataframes, where each el is a table
+        """
+        self.logger.debug(f'About to read from {pdf_filename}')
+        pdf = pdfplumber.open(pdf_filename)
+        ans = []
+        for p in pages:
+            page = pdf.pages[p]
+            table = page.extract_table()
+            self.logger.debug(f'First 5 rows:\n{table[:5]}')
+            df = pd.DataFrame(table[1:], columns=table[0])
+            pass # TODO: Cleanup df
+            ans.append(df)
+        return ans
+
 
 
     def read_tiled_pdf_tables(self, pdf_filename: str, rows: int, cols: int, pages: Union[Ints, str] = 'all',

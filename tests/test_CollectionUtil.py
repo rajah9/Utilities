@@ -49,6 +49,25 @@ class Test_CollectionUtil(TestCase):
         act3 = self._cu.layout(rows=1, cols=3, row_dominant=True, tiling_order=list3)
         self.assertListEqual(exp3.tolist(), act3.tolist())
 
+    def test_indices_of_True(self):
+        # Test 1, small test
+        exp1 = [0, 7, 10, 14]
+        def mark_true(size: int, list_to_mark: list) -> list:
+            # Init a bool list of the given size to False. Then set the indices in list_to_mark as True
+            ans = [False] * size
+            for i in list_to_mark:
+                ans[i] = True
+            return ans
+
+        test1 = mark_true(15, exp1)
+        act1 = self._cu.indices_of_True(test1)
+        self.assertListEqual(exp1, act1)
+        # Test 2, big(ger) test
+        exp2 = [0, 7, 10, 11, 14, 20]
+        test2 = mark_true(21, exp2)
+        act2 = self._cu.indices_of_True(test2)
+        self.assertListEqual(exp2, act2)
+
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):
         super(Test_NumpyUtil, self).__init__(*args, **kwargs)
