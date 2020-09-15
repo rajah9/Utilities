@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from typing import Union, List
 from itertools import compress
 import numpy as np
@@ -7,6 +7,7 @@ from Util import Util
 
 Ints = List[int]
 Bools = List[bool]
+Strings = List[str]
 
 """
 Interesting Python Featuers:
@@ -70,6 +71,29 @@ class CollectionUtil(Util):
         if len(bool_list) < 15: # Need to do better measurements of threshold
             return list(compress(range(len(bool_list)), bool_list))
         return list(np.where(bool_list)[0])
+
+    def dict_comprehension(self, keys: list, values: list) -> dict:
+        """
+        Create a dictionary comprehension of the key-value pairs
+        :param keys: list
+        :param values: list
+        :return: dict
+        """
+        return { k:v for (k,v) in zip(keys, values)}
+
+    @staticmethod
+    def named_tuple(clz: str, fields: Union[str, Strings]) :
+        """
+        Create a namedtuple.
+        Example use:
+          Complex = CollectionUtil('Complex', 'real imaginary')
+          c = Complex(3, 2.5) # creates 3 + 2.5i
+          print ('Created ' + c.real + ' + ' + c.imaginary + "i")
+        :param clz: name of the class of this namedtuple (typically capitalized)
+        :param fields: either a list of strings, one per field, or the fields separated by spaces.
+        :return:
+        """
+        return namedtuple(clz, fields)
 
 class NumpyUtil(Util):
     def __init__(self):

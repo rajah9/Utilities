@@ -56,6 +56,7 @@ class ExcelUtil(Util):
         self._pu = PandasUtil()
         self._wb = None
 
+
     def row_col_to_ExcelCell(self, row:int, col:int) -> ExcelCell:
         """
         Convert the given row and column to an ExcelCell.
@@ -247,6 +248,7 @@ They use openpyxl.
 See generates_spreadsheets.py as an example.
 """
 from openpyxl import load_workbook, Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 class ExcelRewriteUtil(ExcelUtil):
     def load_and_write(self, file1: dict, file2: dict) -> bool:
@@ -297,6 +299,22 @@ class ExcelRewriteUtil(ExcelUtil):
                     val = local_vals.pop(0)
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
                 return
+
+    def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_index=False) -> bool:
+        """
+        Write the given dataframe to Excel. Attempt to format percents and numbers as percents and numbers, if requested.
+        Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
+        :param df:
+        :param excelFileName:
+        :param attempt_formatting:
+        :return:
+        """
+        self._wb = Workbook()
+        ws = self._wb.active
+        ws.title = excelWorksheet
+        for r in dataframe_to_rows(df, index=write_index, header=False):
+            ws.append(r)
+        self.save_workbook(excelFileName)
 
 class PdfToExcelUtil(ExcelUtil):
     def __init__(self):

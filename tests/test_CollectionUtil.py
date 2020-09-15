@@ -68,6 +68,28 @@ class Test_CollectionUtil(TestCase):
         act2 = self._cu.indices_of_True(test2)
         self.assertListEqual(exp2, act2)
 
+    def test_named_tuple(self):
+        # Test 1, using a list
+        name = 'Bill'
+        age = 35
+        Person = CollectionUtil.named_tuple('Person', ['name', 'age'])
+        william = Person(name, age)
+        self.assertEqual(name, william.name)
+        self.assertEqual(age, william.age)
+        # Test 2, using a string for the fields
+        Person2 = CollectionUtil.named_tuple('Person', 'name age')
+        billy = Person2(name, age)
+        self.assertEqual(name, billy.name)
+        self.assertEqual(age, billy.age)
+
+    def test_dict_comprehension(self):
+        # Test 1, simple dict
+        list2 = ['alfa', 'bravo', 'charlie', 'delta']
+        list1 = [1, 2, 3, 4]
+        exp_dict = {k:v for (k,v) in zip(list1, list2)}
+        act_dict = self._cu.dict_comprehension(list1, list2)
+        self.assertEqual(exp_dict, act_dict)
+
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):
         super(Test_NumpyUtil, self).__init__(*args, **kwargs)

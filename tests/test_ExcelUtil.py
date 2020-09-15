@@ -7,7 +7,7 @@ from unittest import TestCase
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
-from ExcelUtil import ExcelUtil, ExcelCell
+from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
 from PandasUtil import PandasUtil
@@ -151,6 +151,37 @@ class TestExcelCompareUtil(TestExcelUtil):
         scale3 = 10
         f_scaled = [el / scale3 for el in list1]
         self.assertTrue(self._ecu.identical(list1, f_scaled, scale3))
+
+
+class TestExcelRewriteUtil(TestExcelUtil):
+    def __init__(self, *args, **kwargs):
+        super(TestExcelRewriteUtil, self).__init__(*args, **kwargs)
+        self._rwu = ExcelRewriteUtil()
+
+    def my_test_df(self):
+        df = pd.DataFrame({'Year': [2018, 2019, 2020, 2021],
+                           'Era':  ['past', 'past', 'present', 'future'],
+                           'Income': ['4,606.18', '4707.19', '4,808.20', '4909.21'],
+                           'Margin' : ['18.18%', '19.19%', '20.20%', '21.21%'],
+                           })
+        return df
+
+    def test_write_df_to_excel(self):
+        # Test 1, no formatting
+        df = self.my_test_df()
+        self._rwu.write_df_to_excel(df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True)
+        df_act = self._pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+        # It will be unnecessary to have this section once I figure out how to have rwu.write_df_to_excel put out headers.
+        orig = ['Year', 'Era', 'Income', 'Margin']
+        act = ['Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4']
+        col_names_dict = {k: v for (k, v) in zip(act, orig)}
+        self._pu.replace_col_names(df_act, col_names_dict)
+
+        assert_frame_equal(df, df_act)
+        ecu = ExcelCompareUtil()
+        self.assertTrue(ecu.identical(df['Income'], df_act['Income']))
+
+        self.fail('in progress') #TODO
 
 from ExcelUtil import PdfToExcelUtil
 

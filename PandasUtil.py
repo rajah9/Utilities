@@ -183,7 +183,7 @@ class PandasUtil:
                 param_dict['sheet_name'] = wks
             else:
                 param_dict['sheetname'] = wks
-            if index_col:
+            if index_col >= 0:
                 param_dict['index_col'] = index_col
             self._df = pd.read_excel(**param_dict)
             logger.debug(f'Read in {len(self.df)} records.')

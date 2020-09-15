@@ -475,6 +475,29 @@ class TestStringUtil(unittest.TestCase):
         act3 = self.su.fill_string(my_str, '@', fill_width=20+str_len, alignment='right')
         self.assertEqual(exp2, act2, 'Test 3 fail')
 
+    def test_convert_string_append_type(self):
+        # Test 1, percent
+        test1 = '99.75%'
+        exp_val_1 = 0.9975
+        exp_type_1 = 'Percent'
+        act1 = self.su.convert_string_append_type(test1)
+        self.assertEqual(exp_val_1, act1.value)
+        self.assertEqual(exp_type_1, act1.cellType)
+        # test 2, number with comma
+        test2 = '102,309.58'
+        exp_val_2 = 102309.58
+        exp_type_2 = 'Comma'
+        act2 = self.su.convert_string_append_type(test2)
+        self.assertEqual(exp_val_2, act2.value)
+        self.assertEqual(exp_type_2, act2.cellType)
+        # test 3, plain string with a numbr
+        test3 = 'December 3'
+        exp_val_3 = test3
+        exp_type_3 = 'Normal'
+        act3 = self.su.convert_string_append_type(test3)
+        self.assertEqual(exp_val_3, act3.value)
+        self.assertEqual(exp_type_3, act3.cellType)
+
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':
 #     unittest.main()
