@@ -156,7 +156,7 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {csv_file_name}.')
         return True
 
-    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col=None) -> pd.DataFrame:
+    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col:int=-1) -> pd.DataFrame:
         """
         Read an Excel file.
         :param excelFileName:

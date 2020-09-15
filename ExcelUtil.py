@@ -251,6 +251,10 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 class ExcelRewriteUtil(ExcelUtil):
+    def __init__(self):
+        super().__init__()
+        self._su = StringUtil()
+
     def load_and_write(self, file1: dict, file2: dict) -> bool:
         vals1 = self.get_spreadsheet_values(excelDict=file1)
         self.logger.debug(f'1: \n{vals1}')
@@ -300,7 +304,7 @@ class ExcelRewriteUtil(ExcelUtil):
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
                 return
 
-    def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_index=False) -> bool:
+    def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False) -> bool:
         """
         Write the given dataframe to Excel. Attempt to format percents and numbers as percents and numbers, if requested.
         Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
@@ -312,8 +316,20 @@ class ExcelRewriteUtil(ExcelUtil):
         self._wb = Workbook()
         ws = self._wb.active
         ws.title = excelWorksheet
-        for r in dataframe_to_rows(df, index=write_index, header=False):
-            ws.append(r)
+
+        if attempt_formatting:
+            for r in dataframe_to_rows(df, index=write_index, header=write_header):
+                row = []
+                for el in r:
+                    if isinstance(el, str):
+                        cell = self._su.convert_string_append_type(el)
+                        row.append(cell.value)
+                    else:
+                        row.append(el)
+                ws.append(row)
+        else:
+            for row in dataframe_to_rows(df, index=write_index, header=write_header):
+                ws.append(row)
         self.save_workbook(excelFileName)
 
 class PdfToExcelUtil(ExcelUtil):

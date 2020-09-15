@@ -11,6 +11,7 @@ from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
 from PandasUtil import PandasUtil
+from LogitUtil import logit
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -166,20 +167,25 @@ class TestExcelRewriteUtil(TestExcelUtil):
                            })
         return df
 
+    @logit()
     def test_write_df_to_excel(self):
         # Test 1, no formatting
         df = self.my_test_df()
-        self._rwu.write_df_to_excel(df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True)
+        self._rwu.write_df_to_excel(df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
         df_act = self._pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
-        # It will be unnecessary to have this section once I figure out how to have rwu.write_df_to_excel put out headers.
-        orig = ['Year', 'Era', 'Income', 'Margin']
-        act = ['Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4']
-        col_names_dict = {k: v for (k, v) in zip(act, orig)}
-        self._pu.replace_col_names(df_act, col_names_dict)
+        # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
+        ok_mask = self._pu.mark_isnull(df_act, 'Year')
+        df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
 
-        assert_frame_equal(df, df_act)
         ecu = ExcelCompareUtil()
         self.assertTrue(ecu.identical(df['Income'], df_act['Income']))
+        self.assertTrue(ecu.identical(df['Year'], df_act['Year']))
+
+        # Test 2, formatting.
+        self._rwu.write_df_to_excel(df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=True)
+        df_act = self._pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+
+
 
         self.fail('in progress') #TODO
 
