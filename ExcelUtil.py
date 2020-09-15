@@ -316,16 +316,20 @@ class ExcelRewriteUtil(ExcelUtil):
         self._wb = Workbook()
         ws = self._wb.active
         ws.title = excelWorksheet
+        formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
 
         if attempt_formatting:
-            for r in dataframe_to_rows(df, index=write_index, header=write_header):
-                row = []
-                for el in r:
-                    if isinstance(el, str):
-                        cell = self._su.convert_string_append_type(el)
-                        row.append(cell.value)
+            for r, row in enumerate(dataframe_to_rows(df, index=write_index, header=write_header)):
+                for c, col in enumerate(row):
+                    if isinstance(col, str):
+                        cell = self._su.convert_string_append_type(col)
+                        ws.cell(row=r+1, column=c+1).value = cell.value
+                        if cell.cellType == 'Comma':
+                            ws.cell(row=r+1, column=c+1).number_format = formatting[cell.cellType]
+                        if cell.cellType == 'Percent':
+                            ws.cell(row=r+1, column=c+1).number_format = formatting[cell.cellType]
                     else:
-                        row.append(el)
+                        ws.cell(row=r+1, column=c+1).value = col
                 ws.append(row)
         else:
             for row in dataframe_to_rows(df, index=write_index, header=write_header):
