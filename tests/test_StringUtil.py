@@ -345,6 +345,10 @@ class TestStringUtil(unittest.TestCase):
         test3 = "neither int nor float"
         exp3 = 0
         self.assertEqual(exp3, self.su.as_float_or_int(test3), "failed test 3")
+        # Test 4, float with a comma
+        test4 = "1,234.56"
+        exp4 = 1234.56
+        self.assertEqual(exp4, self.su.as_float_or_int(test4), "failed test 4")
 
     def test_nth_word(self):
         # Test 1, normal (last word)

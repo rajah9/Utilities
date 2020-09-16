@@ -72,6 +72,15 @@ class CollectionUtil(Util):
             return list(compress(range(len(bool_list)), bool_list))
         return list(np.where(bool_list)[0])
 
+    def any_string_contains(self, lines: Strings, find_me: str) -> bool:
+        """
+        Return True iff any of the strings contains find_me.
+        :param lines: List of strings in which to search
+        :param find_me: str to search for
+        :return: True iff any of the strings contains find_me.
+        """
+        return any(line.find(find_me) >= 0 for line in lines)
+
     def dict_comprehension(self, keys: list, values: list) -> dict:
         """
         Create a dictionary comprehension of the key-value pairs

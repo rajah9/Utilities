@@ -68,6 +68,19 @@ class Test_CollectionUtil(TestCase):
         act2 = self._cu.indices_of_True(test2)
         self.assertListEqual(exp2, act2)
 
+    def test_any_string_contains(self):
+        # Test 1, yes, it's there
+        test1 = ["To be, or not to be: that is the question:", "Whether 'tis nobler in the mind to suffer",
+                 "The slings and arrows of outrageous fortune,", "Or to take arms against a sea of troubles,",
+                 "And by opposing end them?"]
+        self.assertTrue(self._cu.any_string_contains(test1, "slings"))
+        # Test 2, yes, it's there in the first position
+        self.assertTrue(self._cu.any_string_contains(test1, "And"))
+        # Test 3, yes, it's there in the last position
+        self.assertTrue(self._cu.any_string_contains(test1, "suffer"))
+        # Test 4, no, it's not there
+        self.assertFalse(self._cu.any_string_contains(test1, "this"))
+
     def test_named_tuple(self):
         # Test 1, using a list
         name = 'Bill'

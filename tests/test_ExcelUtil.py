@@ -2,15 +2,16 @@ import logging
 import pprint
 import sys
 from copy import copy
-from unittest import TestCase
+from unittest import TestCase, skip
 
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
-from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil
+from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
 from PandasUtil import PandasUtil
+from StringUtil import StringUtil
 from LogitUtil import logit
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -29,6 +30,7 @@ class TestExcelUtil(TestCase):
         self._eu = ExcelUtil()
         self._pu = PandasUtil()
         self._fu = FileUtil()
+        self._su = StringUtil()
         self.platform = ExecUtil.which_platform()
         logger.debug(f'You seem to be running {self.platform}.')
         self.path = r'c:\temp' if self.platform == 'Windows' else r'/tmp'
@@ -184,24 +186,26 @@ class TestExcelRewriteUtil(TestExcelUtil):
         # Test 2, formatting.
         self._rwu.write_df_to_excel(df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=True)
         df_act = self._pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+        # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
+        ok_mask = self._pu.mark_isnull(df_act, 'Year')
+        df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
+        exp_inc = [self._su.as_float_or_int(x) for x in df['Income']]
+        self.assertListEqual(exp_inc, list(df_act['Income']))
 
-
-
-        self.fail('in progress') #TODO
-
-from ExcelUtil import PdfToExcelUtil
-
-class TestPdfToExcel(TestExcelUtil):
+"""
+This class tests tabula-py.
+"""
+class TestPdfToExcelTabula(TestExcelUtil):
     def __init__(self, *args, **kwargs):
-        super(TestPdfToExcel, self).__init__(*args, **kwargs)
-        self._pdf = PdfToExcelUtil()
-        pprint.pprint(sys.path)
+        super(TestPdfToExcelTabula, self).__init__(*args, **kwargs)
+        self._pdf = PdfToExcelUtilTabula()
 
     def test_read_pdf_tables(self):
         # This one uses tabula
+        logger.debug('Using tabula-py.')
         # Test 1, local WF Annual report
         pdf_path = r"./2019-annual-report.pdf"
-        df_list = self._pdf.read_pdf_tables(pdf_path, pages=[1], read_many_tables_per_page=False)
+        df_list = self._pdf.read_pdf_table(pdf_path, pages=[1], read_many_tables_per_page=False)
         # self.assertEqual(2, len(df_list))
         income_df = df_list[0]
         # income_df = df_list[1]
@@ -212,25 +216,45 @@ class TestPdfToExcel(TestExcelUtil):
         # logger.debug(f'selected row is :\n{one_row.head()}')
         # self.assertEqual('19,549', one_row['col02'].any())
 
-    def test_read_pdf_table(self):
-        # This one uses pdfplumber
-        # Test 1, local WF Annual report
-        pdf_path = r"./2019-annual-report.pdf"
-        df_list = self._pdf.read_pdf_table(pdf_path, pages=[0])
-        self.fail('in process') #TODO
 
     def test_read_tiled_pdf_tables(self):
         # Test 1, read 4 tables and combine into one
         pdf_path = r"./2019-annual-report.pdf"
-        df_list = self._pdf.read_tiled_pdf_tables(pdf_path, rows=2, cols=2, pages='3-6', tile_by_rows=True, read_many_tables_per_page=False)
+        df_list = self._pdf.read_tiled_pdf_tables(pdf_path, rows=2, cols=2, pages='all', tile_by_rows=True, read_many_tables_per_page=False)
         # self.fail('progress') #TODO
+
+
+"""
+This class tests pdfplumber
+"""
+class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
+    def __init__(self, *args, **kwargs):
+        super(TestPdfToExcelUtilPdfPlumber, self).__init__(*args, **kwargs)
+        self._pdf = PdfToExcelUtilPdfPlumber()
+
+    # @skip("Takes too long (about 90 seconds)")
+    def test_read_pdf_table(self):
+        logger.debug('Using pdfplumber.')
+        logger.info('Disabling all logging but Info and higher for test_read_pdf_table!')
+        logging.disable(logging.INFO)
+
+        # Test 1, local WF Annual report
+        pdf_path = r"./2019-annual-report.pdf"
+        df_list = self._pdf.read_pdf_table(pdf_path, pages=[0])
+        # logger.disabled = False
+        logging.disable(logging.DEBUG)
+        logger.info('Enabling logging for test_read_pdf_table.')
+        self.assertEqual(1, len(df_list))
 
     def test_summarize_pdf_tables(self):
         # Test 1, read a single table
         pdf_path = r"./2019-annual-report.pdf"
-        df_summary = self._pdf.summarize_pdf_tables(pdf_path, pages=[1])
+        summary = self._pdf.summarize_pdf_tables(pdf_path, pages=[0])
         # self.assertEqual(2, len(df_summary))
         # Test 1a. Table 0 is the lower half of the page; go figure.
         # self.assertTrue('(1,458)' in df_summary[0]) # Must have "Income tax benefit (expense) related to other ...  (1,458)"
         # Test 1b, Table 1 is the upper half
         # self.assertTrue('5,439' in df_summary[1])  # Must have "Net unrealized gains (losses) arising during t...                 5,439"
+        self.assertTrue(any(line.find('***Table') >= 0 for line in summary))
+        logger.info(f'First lines of summary are:\n{summary[:10]}')
+        self.assertTrue(any(line.find('19,549') >= 0 for line in summary))

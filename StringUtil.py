@@ -496,10 +496,11 @@ class StringUtil:
     def as_float_or_int(self, myString: str = None) -> Union[int, float]:
         """
         Convert digits in myString to an int. Failing that, try converting to a float. If that also fails, warn user and return 0.
-        :param myString:  String like '25' or '3.14'
+        :param myString:  String like '25' or '3.14' or '1,234.56'
         :return: int like 25 or float like 3.14
         """
-        self.string = myString or self.string
+        no_commas = myString or self.string
+        self.string = self.replace_all(',', '', no_commas)
         try:
             as_int = int(self.string)
             return as_int
