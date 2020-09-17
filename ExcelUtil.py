@@ -38,8 +38,9 @@ from math import fabs
 import functools
 from copy import copy
 from typing import List, Union, Tuple
-import tabula
+from tabula import read_pdf, convert_into, errors
 import pdfplumber
+from subprocess import CalledProcessError
 
 Strings = List[str]
 Ints = List[int]
@@ -426,12 +427,38 @@ class PdfToExcelUtilTabula(PdfToExcelUtil):
         self.logger.debug(f'About to read from {pdf_filename} using tabula-py. Pages are 0-offset: {pages}')
 #        dfs = tabula.read_pdf(pdf_filename, pages=pages, multiple_tables=read_many_tables_per_page)
         # tabula_build_opts = tabula.io.build_options(pages=pages, stream=True)
-        dfs = tabula.read_pdf(pdf_filename, guess=False, pages=pages, stream=True, multiple_tables=read_many_tables_per_page, pandas_options={'header': None}) # problems with multiple_tables=read_many_tables_per_page)
+        dfs = read_pdf(pdf_filename, guess=False, pages=pages, stream=True, multiple_tables=read_many_tables_per_page, pandas_options={'header': None}) # problems with multiple_tables=read_many_tables_per_page)
         self.logger.debug(f'Read in {len(dfs)} tables.')
         if not make_NaN_blank:
             return dfs
         blanked_dfs = [df.replace(np.nan, '', regex=True) for df in dfs]
         return blanked_dfs
+
+    def read_pdf_write_csv(self, pdf_filename: str, csv_filename: str, pages: Union[Ints, str] = 'all') -> bool:
+        """
+        Use tabula's convert_into routine to read a PDF and process into CSVs.
+        Exceptions are from https://tabula-py.readthedocs.io/en/latest/tabula.html .
+        :param pdf_filename:
+        :param csv_filename:
+        :param pages:
+        :return:
+        """
+        try:
+            convert_into(pdf_filename, csv_filename, output_format="csv", pages=pages)
+            self.logger.info(f'Successfully wrote to {csv_filename}.')
+            return True
+        except FileNotFoundError:
+            self.logger.warning(f"Can't find the input file {pdf_filename}")
+            return False
+        except ValueError:
+            self.logger.warning(f'downloaded input file {pdf_filename} is of size 0')
+            return False
+        except errors.JavaNotFoundError:
+            self.logger.warning(f'Java was not found')
+            return False
+        except CalledProcessError:
+            self.logger.warning('tabula-java execution failed')
+            return False
 
 class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
     def __init__(self):

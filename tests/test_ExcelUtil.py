@@ -204,6 +204,7 @@ class TestPdfToExcelTabula(TestExcelUtil):
     def __init__(self, *args, **kwargs):
         super(TestPdfToExcelTabula, self).__init__(*args, **kwargs)
         self._pdf = PdfToExcelUtilTabula()
+        self.converting_spreadsheet_name = self._fu.qualified_path(self.path, 'convert.csv') #
 
     def test_read_pdf_tables(self):
         # This one uses tabula
@@ -211,16 +212,25 @@ class TestPdfToExcelTabula(TestExcelUtil):
         # Test 1, local WF Annual report
         pdf_path = r"./2019-annual-report.pdf"
         df_list = self._pdf.read_pdf_table(pdf_path, pages=[1], read_many_tables_per_page=False)
-        # self.assertEqual(2, len(df_list))
         income_df = df_list[0]
-        # income_df = df_list[1]
         self.assertEqual(30, len(income_df))
         self._pu.replace_col_names_by_pattern(income_df, is_in_place=True)
         logger.debug(f'Income statement: \n {income_df.head(10)}')
-        one_row = self._pu.select(income_df, column_name='col00', match_me='Wells Fargo net income')
-        # logger.debug(f'selected row is :\n{one_row.head()}')
-        # self.assertEqual('19,549', one_row['col02'].any())
+        one_row = self._pu.select(income_df, column_name='col00', match_me='Wells Fargo net income $')
+        logger.debug(f'selected row is :\n{one_row.head()}')
+        self.assertEqual('19,549', one_row['col01'].any())
 
+    def test_read_pdf_write_csv(self):
+        # Test 1, Convert one page to CSV
+        pdf_path = r"./2019-annual-report.pdf"
+        result = self._pdf.read_pdf_write_csv(pdf_filename=pdf_path, csv_filename=self.converting_spreadsheet_name, pages = '2')
+        self.assertTrue(result, "Failed test 1.")
+        df = self._pu.read_df_from_csv(csv_file_name=self.converting_spreadsheet_name, header=1, enc='ISO-8859-1')
+        logger.debug(f'Beginning of read-in CSV file: {df.head()}')
+        # Test 2, no such file (should throw a warning)
+        pdf_path = r"./no_such_file.pdf"
+        result = self._pdf.read_pdf_write_csv(pdf_filename=pdf_path, csv_filename=self.converting_spreadsheet_name, pages = '2')
+        self.assertFalse(result, "Failed test 2.")
 
     @skip("Throwing unknown Tabula errors")
     def test_read_tiled_pdf_tables(self):
