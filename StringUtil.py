@@ -6,8 +6,10 @@ from re import match, search, sub, split
 from string import ascii_letters
 from urllib.parse import urlparse
 from CollectionUtil import CollectionUtil
+from pandas import DataFrame
 
 Strings = List[str]
+Cell = CollectionUtil.named_tuple('Cell', ['value', 'cellType'])
 
 _DOUBLE_QUOTE = '"'
 _SINGLE_QUOTE = "'"
@@ -46,7 +48,7 @@ Some notes about formatting:
 'n' Number. This is the same as 'g', except that it uses the current locale setting to insert the appropriate number separator characters.
 '%' Percentage. Multiplies the number by 100 and displays in fixed ('f') format, followed by a percent sign.
 """
-Cell = CollectionUtil.named_tuple('Cell', ['value', 'cellType'])
+
 class StringUtil:
     def __init__(self, myString:str='Uninitialized'):
         self.string = myString
@@ -663,3 +665,37 @@ class StringUtil:
             align = align_dict['center']
 
         return '{0:{fill}{align}{width}}'.format(my_str, fill=fill_str, align=align, width=fill_width)
+
+"""
+This class accmulates lines (say, for a log).
+"""
+
+class LineAccmulator:
+    def __init__(self):
+        self._contents = []
+
+    # Getter for content
+    @property
+    def contents(self):
+        return self._contents
+
+    @contents.setter
+    def contents(self, lines: Strings):
+        self._contents = lines
+
+    def add_line(self, line: str):
+        self.contents.append(line)
+
+    def add_lines(self, lines: Strings):
+        self.contents.extend(lines)
+
+    def add_df(self, df:DataFrame, how_many_rows: int = 10):
+        ans = str(df.head(how_many_rows))
+        lines = ans.splitlines()
+        self.add_lines(lines)
+        pass
+
+
+
+
+

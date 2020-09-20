@@ -54,7 +54,7 @@ class Test_FileUtil(TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         fu = FileUtil()
-        path = r'c:\temp' if platform.system() == 'Windows' else r'\tmp'
+        path = r'c:\temp' if platform.system() == 'Windows' else r'/tmp'
         fu.delete_file(fu.qualified_path(path, cls.yaml))
         fu.delete_file(fu.qualified_path(path, cls.fn))
         fu.delete_file(fu.qualified_path(path, cls.text_fn))

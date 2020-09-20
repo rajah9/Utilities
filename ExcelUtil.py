@@ -31,7 +31,7 @@ import numpy as np
 from collections import namedtuple
 from Util import Util
 from PandasUtil import PandasUtil
-from StringUtil import StringUtil
+from StringUtil import StringUtil, LineAccmulator
 from LogitUtil import logit
 from CollectionUtil import CollectionUtil
 from math import fabs
@@ -397,18 +397,14 @@ class PdfToExcelUtil(ExcelUtil):
         :param read_many_tables_per_page:
         :return:
         """
-        ans = []
+        ans = LineAccmulator()
         dfs = self.read_pdf_table(pdf_filename, pages, make_NaN_blank, read_many_tables_per_page)
         for i, df in enumerate(dfs):
             header = self._su.fill_string(my_str=f'Table {i} contains {len(df)} records.')
-            self.logger.info(header)
-            ans.append(header)
+            ans.add_line(header)
             if len(df) > 0:
-                df_head = self._pu.head_as_string(df, how_many_rows=how_many_summarized)
-                lines = df_head.splitlines()
-                self.logger.debug(lines)
-            ans.extend(lines)
-        return ans
+                ans.add_df(df, how_many_rows=how_many_summarized)
+        return ans.contents
 
 class PdfToExcelUtilTabula(PdfToExcelUtil):
     def __init__(self):
@@ -491,6 +487,9 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         pdf = pdfplumber.open(pdf_filename)
         ans = []
         table_count = 0
+        if isinstance(pages, str):
+            self.logger.warning(f'Please use a list of pages instead of a string <{pages}>. Returning an empty list.')
+            return ans
         for p in pages:
             page = pdf.pages[p]
             table = page.extract_table(table_settings=self.table_settings)
@@ -502,3 +501,41 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         self.logger.debug(f'Found {table_count} tables in pages: {pages}')
         return ans
 
+    def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                        read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:
+        """
+        Summarize the PDF tables in a PdfPlumber kinda way.
+        This code adopted from: https://stackoverflow.com/questions/55939921/use-pdfplumber-to-find-text-in-pdf-return-page-number-then-return-table
+        :param pdf_filename:
+        :param pages:
+        :param make_NaN_blank:
+        :param read_many_tables_per_page:
+        :param how_many_summarized:
+        :return:
+        """
+        tables = []
+        ans = LineAccmulator()
+        with pdfplumber.open(pdf_filename) as pdf:
+            scanned_pages = pdf.pages
+            for i, pg in enumerate(scanned_pages):
+                tbl = scanned_pages[i].extract_tables(table_settings=self.table_settings)
+                lines = self.clean_tables(tbl)
+                header = self._su.fill_string(my_str=f'Table {i} contains {len(lines)} records.')
+                ans.add_line(header)
+                ans.add_lines(lines)
+                print(f'{i} --- {tbl}')
+        return ans.contents
+
+    def clean_tables(self, tables: list) -> Strings:
+        """
+        tables is a nested list. Clean them up in a list of strings.
+        :param tables: [ [ ['one column'] ['another column'] ]]
+        :return:
+        """
+        ans = LineAccmulator()
+        tbl = tables[0]
+        for lst in tbl:
+            null_to_spc = self._cu.replace_elements_in_list(lst, '', ' ')
+            line = ''.join(null_to_spc)
+            ans.add_line(line)
+        return ans.contents

@@ -81,6 +81,23 @@ class Test_CollectionUtil(TestCase):
         # Test 4, no, it's not there
         self.assertFalse(self._cu.any_string_contains(test1, "this"))
 
+    def test_dict_comprehension(self):
+        # Test 1, basic
+        keys = ['one', 'ten', 'hundred', 'thousand']
+        values = [1, 10, 100, 1000]
+        exp = {}
+        for k, v in zip(keys, values):
+            exp[k] = v
+        act = self._cu.dict_comprehension(keys, values)
+        self.assertEqual(exp, act)
+
+    def test_replace_elements_in_list(self):
+        # Test 1, basic
+        test1 = ['a', 'b', 'x']
+        exp1 =  ['a', 'b', 'c']
+        act1 = self._cu.replace_elements_in_list(before_list=test1, find_me='x', replace_me='c')
+        self.assertListEqual(exp1, act1)
+
     def test_named_tuple(self):
         # Test 1, using a list
         name = 'Bill'

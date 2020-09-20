@@ -1,8 +1,9 @@
-
 import unittest
 import logging
 from LogitUtil import logit
-from StringUtil import StringUtil
+from StringUtil import StringUtil, LineAccmulator
+from pandas import DataFrame
+from CollectionUtil import CollectionUtil
 
 _SINGLE_QUOTE = "'"
 
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
 Interesting Python features:
 * Binds a class function in test_capitalize_func. See answer at https://stackoverflow.com/a/114289/509840
 """
-
 
 class TestStringUtil(unittest.TestCase):
     def setUp(self):
@@ -501,6 +501,39 @@ class TestStringUtil(unittest.TestCase):
         act3 = self.su.convert_string_append_type(test3)
         self.assertEqual(exp_val_3, act3.value)
         self.assertEqual(exp_type_3, act3.cellType)
+
+
+class TestLineAccmulator(unittest.TestCase):
+    def setUp(self):
+        logger.debug('Starting TestLineAccmulator')
+        self.la = LineAccmulator()
+
+    def test_add_line(self):
+        first_line = 'hello, world'
+        second_line = "How's it going?"
+        self.la.add_line(first_line)
+        self.la.add_line(second_line)
+        exp = [first_line, second_line]
+        self.assertListEqual(exp, self.la.contents)
+
+    def test_add_lines(self):
+        first_line = 'hello, world'
+        second_line = "How's it going?"
+        both_lines = [first_line, second_line]
+        self.la.add_lines(both_lines)
+        exp = [first_line, second_line]
+        self.assertListEqual(exp, self.la.contents)
+
+    def test_add_df(self):
+        cu = CollectionUtil()
+        exp = ['uno', 'dos', 'tres', 'quatro']
+        d  = {'col1': exp}
+        df = DataFrame(data=d)
+        self.la.add_df(df)
+        for el in exp:
+            self.assertTrue(cu.any_string_contains(lines=self.la.contents, find_me=el))
+
+
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 # if __name__ == '__main__':

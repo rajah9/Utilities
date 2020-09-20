@@ -90,6 +90,17 @@ class CollectionUtil(Util):
         """
         return { k:v for (k,v) in zip(keys, values)}
 
+    def replace_elements_in_list(self, before_list: list, find_me: Union[str, int, float], replace_me: Union[str, int, float]) -> list:
+        """
+        Find the elements in before_list and replace whole elements as specified.
+        :param before_list: list to change
+        :param find_me: element to find within the list
+        :param replace_me: element to replace with
+        :return: new list with replaced elements
+        """
+        return [replace_me if el == find_me else el for el in before_list]
+
+
     @staticmethod
     def named_tuple(clz: str, fields: Union[str, Strings]) :
         """
