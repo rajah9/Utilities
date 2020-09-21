@@ -533,6 +533,14 @@ class TestLineAccmulator(unittest.TestCase):
         for el in exp:
             self.assertTrue(cu.any_string_contains(lines=self.la.contents, find_me=el))
 
+    def test_contents_len(self):
+        # Test 1, empty list
+        self.assertEqual(0, self.la.contents_len())
+        # Test 2, regular
+        test2 = ['uno', 'dos', 'tres', 'quatro']
+        self.la.add_lines(test2)
+        self.assertEqual(len(test2), self.la.contents_len())
+
 
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.

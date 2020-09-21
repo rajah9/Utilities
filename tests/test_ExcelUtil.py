@@ -307,15 +307,18 @@ class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
         summary = self.summarize_multiple_tables(pdf_path)
         self.assertTrue(any(line.find('***Table 2') >= 0 for line in summary))
         self.assertTrue(any(line.find('11,532,712') >= 0 for line in summary))
+        self.assertTrue(any(line.find('19,549') >= 0 for line in summary))
 
         # Turn logging back on
         logging.disable(logging.DEBUG)
         logger.info('Enabling logging for test_summarize_pdf_tables.')
-        logger.info(f'First lines of summary are:\n{summary[:100]}')
+        logger.info('First lines of summary are:\n')
+        for line in summary:
+            logger.info(f'  {line}')
 
     def summarize_multiple_tables(self, pdf_path) -> Strings:
         # Test 2, read multiple tables
-        summary = self._pdf.summarize_pdf_tables(pdf_path, pages=[3, 4, 5, 6])
+        summary = self._pdf.summarize_pdf_tables(pdf_path, pages='all')
         return summary
 
     def summarize_single_table(self, pdf_path: str) -> Strings:
@@ -323,6 +326,5 @@ class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
         # Separating into a function because it takes 2 min to run.
         # return ['***Table 0']  #remove this if you want it to run.
         summary = self._pdf.summarize_pdf_tables(pdf_path, pages=[0])
-        self.assertTrue(any(line.find('19,549') >= 0 for line in summary))
         return summary
 

@@ -519,22 +519,26 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             scanned_pages = pdf.pages
             for i, pg in enumerate(scanned_pages):
                 tbl = scanned_pages[i].extract_tables(table_settings=self.table_settings)
-                lines = self.clean_tables(tbl)
-                header = self._su.fill_string(my_str=f'Table {i} contains {len(lines)} records.')
+                rec_count = len(tbl[0])
+                lines = self.clean_tables(tbl, how_many_summarized)
+                header = self._su.fill_string(my_str=f'Table {i} contains {rec_count} records.')
                 ans.add_line(header)
                 ans.add_lines(lines)
                 print(f'{i} --- {tbl}')
         return ans.contents
 
-    def clean_tables(self, tables: list) -> Strings:
+    def clean_tables(self, tables: list, how_many_summarized: int = 10) -> Strings:
         """
         tables is a nested list. Clean them up in a list of strings.
+        :param how_many_summarized:
         :param tables: [ [ ['one column'] ['another column'] ]]
         :return:
         """
         ans = LineAccmulator()
         tbl = tables[0]
         for lst in tbl:
+            if ans.contents_len() >= how_many_summarized:
+                break
             null_to_spc = self._cu.replace_elements_in_list(lst, '', ' ')
             line = ''.join(null_to_spc)
             ans.add_line(line)

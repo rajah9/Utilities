@@ -693,7 +693,9 @@ class LineAccmulator:
         ans = str(df.head(how_many_rows))
         lines = ans.splitlines()
         self.add_lines(lines)
-        pass
+
+    def contents_len(self):
+        return len(self._contents)
 
 
 
