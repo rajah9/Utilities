@@ -2,7 +2,6 @@ from collections import defaultdict, namedtuple
 from typing import Union, List
 from itertools import compress
 import numpy as np
-
 from Util import Util
 
 Ints = List[int]

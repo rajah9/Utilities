@@ -6,6 +6,8 @@ from LogitUtil import logit
 from FileUtil import FileUtil
 from scipy.stats import linregress
 from io import StringIO, TextIOWrapper, BufferedWriter
+from datetime import datetime
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 Strings = List[str]
 Bools = List[bool]
 Dataframes = List[pd.DataFrame]
+Dates = List[datetime]
+
 
 """
 Interesting Python features:
@@ -858,6 +862,10 @@ class PandasUtil:
         """
         return df.sort_values(columns, ascending=is_asc, inplace=is_in_place, kind='quicksort', na_position='last')
 
+
+"""
+DataFrameSplit is a one-off to help split a dataframe into an even number of records. 
+"""
 class DataFrameSplit():
     """
     Class to implement an iterator to divide a dataframe.
@@ -886,3 +894,15 @@ class DataFrameSplit():
         ans = self.df[self.n:end]
         self.n = end
         return ans
+
+
+"""
+PandasDateUtil is a child of PandasUtil.
+It implements some date-related indices. 
+"""
+class PandasDateUtil(PandasUtil):
+    def __init__(self):
+        super(PandasDateUtil, self).__init__()
+
+    def to_Datetime_index(self, data: Dates) -> pd.DatetimeIndex:
+        return pd.DatetimeIndex(data)
