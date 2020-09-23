@@ -279,7 +279,7 @@ class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
         super(TestPdfToExcelUtilPdfPlumber, self).__init__(*args, **kwargs)
         self._pdf = PdfToExcelUtilPdfPlumber()
 
-    # @skip("Takes too long (about 90 seconds)")
+    @skip("Takes too long (about 90 seconds)")
     def test_read_pdf_table(self):
         logger.debug('Using pdfplumber.')
         logger.info('Disabling all logging but Info and higher for test_read_pdf_table!')
@@ -328,3 +328,16 @@ class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
         summary = self._pdf.summarize_pdf_tables(pdf_path, pages=[0])
         return summary
 
+    def test_read_tiled_pdf_tables(self):
+        logger.debug('starting PdfPluber read_tiled_pdf_tables')
+        # Turn logging down (because PdfPlumber is very noisy with debug statements)
+        logger.info('Disabling all logging but Info and higher for test_read_tiled_pdf_tables!')
+        logging.disable(logging.INFO)
+
+        pdf_path = r"./2019-annual-report.pdf"
+        df = self._pdf.read_tiled_pdf_tables(pdf_path, pages=[1,2,3,4,5,6], tables_to_tile=[2,3,4,5], rows=2, cols=2)
+        print (df)
+        # Turn logging back on
+        logging.disable(logging.DEBUG)
+        logger.info('Enabling logging for test_read_tiled_pdf_tables.')
+        self.fail('in progress')

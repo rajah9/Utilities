@@ -377,15 +377,21 @@ class PdfToExcelUtil(ExcelUtil):
                 self.logger.warning(f'Table {i} is empty.')
                 are_tables_ok = False
 
-        table_layout = self._cu.layout(rows, cols,
-                                       tile_by_rows)  # TODO: Change table_layout to work with tables_to_tile
+        if not are_tables_ok:
+            self.logger.warning(f'Requested tables {tables_to_tile} but one or more were empty.')
 
+        table_layout = self._cu.layout(rows, cols, row_dominant=tile_by_rows, tiling_order=tables_to_tile)
+
+        # Assemble columns by rows
         row_dfs = []
         for i, row in enumerate(table_layout):
             self.logger.debug(f'row {i} contains: {row}')
             this_row_df = self._pu.join_dfs_by_column([dfs[x] for x in row])
             row_dfs.append(this_row_df)
-        pass # TODO Continue here
+
+        # Assemble the rows into one big DF
+        big_df = self._pu.join_dfs_by_column(row_dfs)
+        return big_df
 
     def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
                         read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:
@@ -474,7 +480,7 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         self.table_settings["text_y_tolerance"] = 5
 
 
-    def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+    def read_pdf_table_old(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
                        read_many_tables_per_page=False) -> Dataframes:
         """
         Using pdfplumber, read the designated pages from the PDF.
@@ -501,6 +507,29 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         self.logger.debug(f'Found {table_count} tables in pages: {pages}')
         return ans
 
+    def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                       read_many_tables_per_page=False) -> Dataframes:
+        """
+        Using pdfplumber, read the designated pages from the PDF.
+        :param pdf_filename: full path and filename to PDF file. May be a URL.
+        :param pages: page to read in (defaults to 'all')
+        :param read_many_tables_per_page: False to read one table per page.
+        :return: a list of dataframes, where each el is a table
+        """
+        self.logger.debug(f'About to read from {pdf_filename} using PdfPlumber. Pages are 1-offset: {pages}')
+        ans = []
+        with pdfplumber.open(pdf_filename) as pdf:
+            scanned_pages = pdf.pages
+            for i, pg in enumerate(scanned_pages):
+                tbl = scanned_pages[i].extract_tables(table_settings=self.table_settings)
+                df = self._pu.convert_list_to_dataframe(tbl[0])
+                self._pu.replace_col_names_by_pattern(df, is_in_place=True)
+                ans.append(df)
+                self.logger.info(f'Table i {i} has {len(df)} records')
+        return ans
+
+
+
     def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
                         read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:
         """
@@ -513,7 +542,6 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         :param how_many_summarized:
         :return:
         """
-        tables = []
         ans = LineAccmulator()
         with pdfplumber.open(pdf_filename) as pdf:
             scanned_pages = pdf.pages
