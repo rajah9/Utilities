@@ -1,15 +1,11 @@
-import sys
-from pathlib import Path
 import logging
-from unittest import mock, TestCase, main, skip
+import time
+from collections import Counter
+from unittest import TestCase
+
 from ConstraintUtil import ConstraintUtil
 from LogitUtil import logit
-from FileUtil import FileUtil
-import time
-from datetime import date
-from collections import namedtuple
 from YamlUtil import YamlUtil
-from collections import Counter
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -168,13 +164,13 @@ class Test_ConstraintUtil(TestCase):
         cu = ConstraintUtil()
         cu.variables(v, range(1,10))
         cu.constraint_all_different(v)
-        cu.constraint_exact_sum([11,12,21,22], 28) # top left
-        cu.constraint_exact_sum([31,32,21,22], 18) # bottom left
-        cu.constraint_exact_sum([12,13,22,23], 20) # top right
-        cu.constraint_exact_sum([32,33,22,23], 21) # bottom right
+        cu.constraint_exact_sum([11,12,21,22], 21) # top left
+        cu.constraint_exact_sum([31,32,21,22], 26) # bottom left
+        cu.constraint_exact_sum([12,13,22,23], 10) # top right
+        cu.constraint_exact_sum([32,33,22,23], 19) # bottom right
 
-        cu.constraint_exact_sum([11,12,13], 18)
-        cu.constraint_exact_sum([32,33], 11)
+        cu.constraint_exact_sum([11,13], 11)
+        cu.constraint_exact_sum([12,22,23], 7)
 
         solutions = cu.solve()
         print (f'There were {len(solutions)} solutions.')
@@ -202,7 +198,7 @@ class Test_ConstraintUtil(TestCase):
         for box in boxes:
             cu.constraint_all_different(box)
 
-        k = KillerReader('./killer22Aug20.yml')
+        k = KillerReader('./killer29Aug20.yml')
         k.pigeonhole()
         puzzle_sum = 0
         for key, value in k.asdict.items():

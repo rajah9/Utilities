@@ -31,14 +31,16 @@ import numpy as np
 from collections import namedtuple
 from Util import Util
 from PandasUtil import PandasUtil
-from StringUtil import StringUtil
+from StringUtil import StringUtil, LineAccmulator
 from LogitUtil import logit
 from CollectionUtil import CollectionUtil
 from math import fabs
 import functools
 from copy import copy
 from typing import List, Union, Tuple
-import tabula
+from tabula import read_pdf, convert_into, errors
+import pdfplumber
+from subprocess import CalledProcessError
 
 Strings = List[str]
 Ints = List[int]
@@ -54,6 +56,7 @@ class ExcelUtil(Util):
         self.logger.info('starting ExcelUtil')
         self._pu = PandasUtil()
         self._wb = None
+
 
     def row_col_to_ExcelCell(self, row:int, col:int) -> ExcelCell:
         """
@@ -246,8 +249,13 @@ They use openpyxl.
 See generates_spreadsheets.py as an example.
 """
 from openpyxl import load_workbook, Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 class ExcelRewriteUtil(ExcelUtil):
+    def __init__(self):
+        super().__init__()
+        self._su = StringUtil()
+
     def load_and_write(self, file1: dict, file2: dict) -> bool:
         vals1 = self.get_spreadsheet_values(excelDict=file1)
         self.logger.debug(f'1: \n{vals1}')
@@ -297,34 +305,47 @@ class ExcelRewriteUtil(ExcelUtil):
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
                 return
 
+    def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False) -> bool:
+        """
+        Write the given dataframe to Excel. Attempt to format percents and numbers as percents and numbers, if requested.
+        Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
+        :param df:
+        :param excelFileName:
+        :param attempt_formatting:
+        :return:
+        """
+        self._wb = Workbook()
+        ws = self._wb.active
+        ws.title = excelWorksheet
+        formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
+        # Write the whole worksheet
+        for row in dataframe_to_rows(df, index=write_index, header=write_header):
+            ws.append(row)
+        if attempt_formatting: # apply formatting if requested.
+            for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row, max_col=ws.max_column):
+                for cell in row:
+                    if isinstance(cell.value, str):
+                        c = self._su.convert_string_append_type(cell.value)
+                        cell.value = c.value
+                        if (c.cellType == 'Comma') or (c.cellType == 'Percent'):
+                            cell.number_format = formatting[c.cellType]
+                    else:
+                        pass
+        self.save_workbook(excelFileName)
+
 class PdfToExcelUtil(ExcelUtil):
     def __init__(self):
         super().__init__()
         self.logger.info('starting PdfToExcelUtil')
         self._cu = CollectionUtil()
+        self._su = StringUtil()
 
-    @logit()
-    def read_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
-                        read_many_tables_per_page=False) -> Dataframes:
-        """
-        Using tabula-py, read the designated pages from the PDF.
-        :param pdf_filename: full path and filename to PDF file. May be a URL.
-        :param pages: page to read in (defaults to 'all')
-        :param read_many_tables_per_page: False to read one table per page.
-        :return: a list of dataframes, where each el is a table
-        """
-        self.logger.debug(f'About to read from {pdf_filename}')
-#        dfs = tabula.read_pdf(pdf_filename, pages=pages, multiple_tables=read_many_tables_per_page)
-        dfs = tabula.read_pdf(pdf_filename, pages=pages) # problems with multiple_tables=read_many_tables_per_page)
-        self.logger.debug(f'Read in {len(dfs)} tables.')
-        if not make_NaN_blank:
-            return dfs
-        blanked_dfs = [df.replace(np.nan, '', regex=True) for df in dfs]
-        return blanked_dfs
-
+    def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                       read_many_tables_per_page=False) -> Dataframes:
+        pass
 
     def read_tiled_pdf_tables(self, pdf_filename: str, rows: int, cols: int, pages: Union[Ints, str] = 'all',
-                              tile_by_rows: bool = True, read_many_tables_per_page=False,
+                              tables_to_tile: Ints = None, tile_by_rows: bool = True, read_many_tables_per_page=False,
                               make_NaN_blank: bool = True) -> Dataframes:
         """
         This reads the tables on several pages into a single table.
@@ -337,19 +358,216 @@ class PdfToExcelUtil(ExcelUtil):
         :param make_NaN_blank: True to make NaN values blank.
         :return:
         """
-        dfs = self.read_pdf_tables(pdf_filename, pages=pages, make_NaN_blank=make_NaN_blank, read_many_tables_per_page=read_many_tables_per_page)
-        expected_table_count = rows * cols
+        dfs = self.read_pdf_table(pdf_filename, pages=pages, make_NaN_blank=make_NaN_blank,
+                                  read_many_tables_per_page=read_many_tables_per_page)
+        expected_table_count = len(tables_to_tile)
+        are_tables_ok = True
         if expected_table_count != len(dfs):
-            self.logger.warning(f'Expected {rows} * {cols} tables, but read in {len(dfs)}')
+            self.logger.warning(f'There are {len(tables_to_tile)} tables to read, but read in {len(dfs)}')
             if len(dfs) < expected_table_count:
                 self.logger.warning(f'Returning no tables')
+                are_tables_ok = False
                 return None
             else:
                 self.logger.warning(f'Will use the first {expected_table_count} tables.')
-        table_layout = self._cu.layout(rows, cols, tile_by_rows)
+        for i in tables_to_tile:
+            if len(dfs[i]):
+                self.logger.debug(f'Table {i} has {len(dfs[i])} records.')
+            else:
+                self.logger.warning(f'Table {i} is empty.')
+                are_tables_ok = False
+
+        if not are_tables_ok:
+            self.logger.warning(f'Requested tables {tables_to_tile} but one or more were empty.')
+
+        table_layout = self._cu.layout(rows, cols, row_dominant=tile_by_rows, tiling_order=tables_to_tile)
+
+        # Assemble columns by rows
         row_dfs = []
         for i, row in enumerate(table_layout):
             self.logger.debug(f'row {i} contains: {row}')
             this_row_df = self._pu.join_dfs_by_column([dfs[x] for x in row])
             row_dfs.append(this_row_df)
-        pass # TODO Continue here
+
+        # Assemble the rows into one big DF
+        big_df = self._pu.join_dfs_by_column(row_dfs)
+        return big_df
+
+    def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                        read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:
+        """
+        Summarize the tables on the given pages, and return the first how_many_summarized lines of each table.
+        :param pdf_filename: Filename to scan
+        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3].
+        :param make_NaN_blank: True to make NaN values blank (default). False to leave as NaN.
+        :param read_many_tables_per_page:
+        :return:
+        """
+        ans = LineAccmulator()
+        dfs = self.read_pdf_table(pdf_filename, pages, make_NaN_blank, read_many_tables_per_page)
+        for i, df in enumerate(dfs):
+            header = self._su.fill_string(my_str=f'Table {i} contains {len(df)} records.')
+            ans.add_line(header)
+            if len(df) > 0:
+                ans.add_df(df, how_many_rows=how_many_summarized)
+        return ans.contents
+
+class PdfToExcelUtilTabula(PdfToExcelUtil):
+    def __init__(self):
+        super().__init__()
+        self.logger.info('starting PdfToExcelUtilTabula')
+
+    def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                       read_many_tables_per_page=False) -> Dataframes:
+        """
+        Using tabula-py, read the designated pages from the PDF.
+        :param pdf_filename: full path and filename to PDF file. May be a URL.
+        :param pages: page to read in (defaults to 'all')
+        :param read_many_tables_per_page: False to read one table per page.
+        :return: a list of dataframes, where each el is a table
+        """
+        self.logger.debug(f'About to read from {pdf_filename} using tabula-py. Pages are 0-offset: {pages}')
+#        dfs = tabula.read_pdf(pdf_filename, pages=pages, multiple_tables=read_many_tables_per_page)
+        # tabula_build_opts = tabula.io.build_options(pages=pages, stream=True)
+        dfs = read_pdf(pdf_filename, guess=False, pages=pages, stream=True, multiple_tables=read_many_tables_per_page, pandas_options={'header': None}) # problems with multiple_tables=read_many_tables_per_page)
+        self.logger.debug(f'Read in {len(dfs)} tables.')
+        if not make_NaN_blank:
+            return dfs
+        blanked_dfs = [df.replace(np.nan, '', regex=True) for df in dfs]
+        return blanked_dfs
+
+    def read_pdf_write_csv(self, pdf_filename: str, csv_filename: str, pages: Union[Ints, str] = 'all') -> bool:
+        """
+        Use tabula's convert_into routine to read a PDF and process into CSVs.
+        Exceptions are from https://tabula-py.readthedocs.io/en/latest/tabula.html .
+        :param pdf_filename:
+        :param csv_filename:
+        :param pages:
+        :return:
+        """
+        try:
+            convert_into(pdf_filename, csv_filename, output_format="csv", pages=pages)
+            self.logger.info(f'Successfully wrote to {csv_filename}.')
+            return True
+        except FileNotFoundError:
+            self.logger.warning(f"Can't find the input file {pdf_filename}")
+            return False
+        except ValueError:
+            self.logger.warning(f'downloaded input file {pdf_filename} is of size 0')
+            return False
+        except errors.JavaNotFoundError:
+            self.logger.warning(f'Java was not found')
+            return False
+        except CalledProcessError:
+            self.logger.warning('tabula-java execution failed')
+            return False
+
+class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
+    def __init__(self):
+        super().__init__()
+        self.logger.info('starting PdfToExcelUtilPdfPlumber')
+        # Original table settings from https://github.com/jsvine/pdfplumber#extracting-tables
+        self.table_settings = {"vertical_strategy": "lines", "horizontal_strategy": "lines",
+                               "explicit_vertical_lines": [], "explicit_horizontal_lines": [], "snap_tolerance": 3,
+                               "join_tolerance": 3, "edge_min_length": 3, "min_words_vertical": 3,
+                               "min_words_horizontal": 1, "keep_blank_chars": False, "text_tolerance": 3,
+                               "text_x_tolerance": None, "text_y_tolerance": None, "intersection_tolerance": 3,
+                               "intersection_x_tolerance": None, "intersection_y_tolerance": None}
+        self.table_settings["vertical_strategy"] = "text"
+        self.table_settings["horizontal_strategy"] = "text"
+        self.table_settings["text_tolerance"] = 9
+        self.table_settings["text_x_tolerance"] = 9
+        self.table_settings["text_y_tolerance"] = 5
+
+
+    def read_pdf_table_old(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                       read_many_tables_per_page=False) -> Dataframes:
+        """
+        Using pdfplumber, read the designated pages from the PDF.
+        :param pdf_filename: full path and filename to PDF file. May be a URL.
+        :param pages: page to read in (defaults to 'all')
+        :param read_many_tables_per_page: False to read one table per page.
+        :return: a list of dataframes, where each el is a table
+        """
+        self.logger.debug(f'About to read from {pdf_filename} using PdfPlumber. Pages are 1-offset: {pages}')
+        pdf = pdfplumber.open(pdf_filename)
+        ans = []
+        table_count = 0
+        if isinstance(pages, str):
+            self.logger.warning(f'Please use a list of pages instead of a string <{pages}>. Returning an empty list.')
+            return ans
+        for p in pages:
+            page = pdf.pages[p]
+            table = page.extract_table(table_settings=self.table_settings)
+            if table:
+                self.logger.debug(f'First 5 rows:\n{table[:5]}')
+                df = pd.DataFrame(table[1:], columns=table[0])
+                ans.append(df)
+                table_count += 1
+        self.logger.debug(f'Found {table_count} tables in pages: {pages}')
+        return ans
+
+    def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                       read_many_tables_per_page=False) -> Dataframes:
+        """
+        Using pdfplumber, read the designated pages from the PDF.
+        :param pdf_filename: full path and filename to PDF file. May be a URL.
+        :param pages: page to read in (defaults to 'all')
+        :param read_many_tables_per_page: False to read one table per page.
+        :return: a list of dataframes, where each el is a table
+        """
+        self.logger.debug(f'About to read from {pdf_filename} using PdfPlumber. Pages are 1-offset: {pages}')
+        ans = []
+        with pdfplumber.open(pdf_filename) as pdf:
+            scanned_pages = pdf.pages
+            for i, pg in enumerate(scanned_pages):
+                tbl = scanned_pages[i].extract_tables(table_settings=self.table_settings)
+                df = self._pu.convert_list_to_dataframe(tbl[0])
+                self._pu.replace_col_names_by_pattern(df, is_in_place=True)
+                ans.append(df)
+                self.logger.info(f'Table i {i} has {len(df)} records')
+        return ans
+
+
+
+    def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
+                        read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:
+        """
+        Summarize the PDF tables in a PdfPlumber kinda way.
+        This code adopted from: https://stackoverflow.com/questions/55939921/use-pdfplumber-to-find-text-in-pdf-return-page-number-then-return-table
+        :param pdf_filename:
+        :param pages:
+        :param make_NaN_blank:
+        :param read_many_tables_per_page:
+        :param how_many_summarized:
+        :return:
+        """
+        ans = LineAccmulator()
+        with pdfplumber.open(pdf_filename) as pdf:
+            scanned_pages = pdf.pages
+            for i, pg in enumerate(scanned_pages):
+                tbl = scanned_pages[i].extract_tables(table_settings=self.table_settings)
+                rec_count = len(tbl[0])
+                lines = self.clean_tables(tbl, how_many_summarized)
+                header = self._su.fill_string(my_str=f'Table {i} contains {rec_count} records.')
+                ans.add_line(header)
+                ans.add_lines(lines)
+                print(f'{i} --- {tbl}')
+        return ans.contents
+
+    def clean_tables(self, tables: list, how_many_summarized: int = 10) -> Strings:
+        """
+        tables is a nested list. Clean them up in a list of strings.
+        :param how_many_summarized:
+        :param tables: [ [ ['one column'] ['another column'] ]]
+        :return:
+        """
+        ans = LineAccmulator()
+        tbl = tables[0]
+        for lst in tbl:
+            if ans.contents_len() >= how_many_summarized:
+                break
+            null_to_spc = self._cu.replace_elements_in_list(lst, '', ' ')
+            line = ''.join(null_to_spc)
+            ans.add_line(line)
+        return ans.contents

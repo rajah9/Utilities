@@ -6,6 +6,8 @@ from LogitUtil import logit
 from FileUtil import FileUtil
 from scipy.stats import linregress
 from io import StringIO, TextIOWrapper, BufferedWriter
+from datetime import datetime
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 Strings = List[str]
 Bools = List[bool]
 Dataframes = List[pd.DataFrame]
+Dates = List[datetime]
+
 
 """
 Interesting Python features:
@@ -156,7 +160,7 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {csv_file_name}.')
         return True
 
-    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col=None) -> pd.DataFrame:
+    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col:int=-1) -> pd.DataFrame:
         """
         Read an Excel file.
         :param excelFileName:
@@ -183,7 +187,7 @@ class PandasUtil:
                 param_dict['sheet_name'] = wks
             else:
                 param_dict['sheetname'] = wks
-            if index_col:
+            if index_col >= 0:
                 param_dict['index_col'] = index_col
             self._df = pd.read_excel(**param_dict)
             logger.debug(f'Read in {len(self.df)} records.')
@@ -303,14 +307,19 @@ class PandasUtil:
         """
         return pd.DataFrame(list_of_dicts)
 
-    def convert_list_to_dataframe(self, lists: list, column_names: List) -> pd.DataFrame:
+    def convert_list_to_dataframe(self, lists: list, column_names: List = None) -> pd.DataFrame:
         """
-        Convert a list of lists to a dataframe. Add the column names.
-        :param lists:
-        :param column_names:
+        Convert a list of lists to a dataframe. If provided, add the column names. If not, provide default col names.
+        :param lists: list of objects
+        :param column_names: Column names to use. Defaults to col00, col01, col22, .. col99
         :return:
         """
-        return pd.DataFrame(data=lists, columns=column_names)
+        if column_names:
+            return pd.DataFrame(data=lists, columns=column_names)
+        # Use the default column names: col00, col01...
+        ans = pd.DataFrame(data=lists)
+        self.replace_col_names_by_pattern(ans)
+        return ans
 
     def convert_matrix_to_dataframe(self, lists: list) -> pd.DataFrame:
         """
@@ -808,6 +817,29 @@ class PandasUtil:
         self.df = df
         return self.df.head(how_many_rows)
 
+    def head_as_string(self, df: pd.DataFrame, how_many_rows:int=10) -> str:
+        """
+        Return the first how_many_rows as a string, separated by \n.
+        :param df:
+        :param how_many_rows:
+        :return:
+        """
+        ans = str(self.head(df, how_many_rows))
+        logger.debug(f'First {how_many_rows} are:\n{ans}')
+        return ans
+
+    def tail_as_string(self, df: pd.DataFrame, how_many_rows:int=10) -> str:
+        """
+        Return the last how_many_rows as a string, separated by \n.
+        :param df:
+        :param how_many_rows:
+        :return:
+        """
+        ans = str(self.tail(df, how_many_rows))
+        logger.debug(f'Last {how_many_rows} are:\n{ans}')
+        return ans
+
+
     def tail(self, df: pd.DataFrame, how_many_rows:int=10) -> pd.DataFrame:
         """
         Return the last how_many_rows. This works well if called as the last line of an immediate, as in:
@@ -830,6 +862,10 @@ class PandasUtil:
         """
         return df.sort_values(columns, ascending=is_asc, inplace=is_in_place, kind='quicksort', na_position='last')
 
+
+"""
+DataFrameSplit is a one-off to help split a dataframe into an even number of records. 
+"""
 class DataFrameSplit():
     """
     Class to implement an iterator to divide a dataframe.
@@ -858,3 +894,15 @@ class DataFrameSplit():
         ans = self.df[self.n:end]
         self.n = end
         return ans
+
+
+"""
+PandasDateUtil is a child of PandasUtil.
+It implements some date-related indices. 
+"""
+class PandasDateUtil(PandasUtil):
+    def __init__(self):
+        super(PandasDateUtil, self).__init__()
+
+    def to_Datetime_index(self, data: Dates) -> pd.DatetimeIndex:
+        return pd.DatetimeIndex(data)

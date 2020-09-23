@@ -3,15 +3,20 @@ import numpy as np
 import unittest
 import logging
 from math import sqrt
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
+from datetime import datetime
+from typing import List
 
-from PandasUtil import PandasUtil
+from PandasUtil import PandasUtil, PandasDateUtil
 from LogitUtil import logit
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
+from DateUtil import DateUtil
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+Dates = List[datetime]
 
 """
 Interesting Python features:
@@ -158,6 +163,7 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_convert_list_to_dataframe(self):
+        # Test 1, with column names
         expected_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         self.pu.drop_index(expected_df, True)
 
@@ -171,6 +177,10 @@ class Test_PandasUtil(unittest.TestCase):
         lists = list_of_dicts_to_lists(expected_df)
         actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=self.pu.get_df_headers(expected_df))
         # self.pu.set_index(df=actual_df, columns=[0])
+        assert_frame_equal(expected_df, actual_df)
+        # Test 2, with default column names col00, col01...
+        self.pu.replace_col_names_by_pattern(expected_df, prefix='col', is_in_place=True)
+        actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=None)
         assert_frame_equal(expected_df, actual_df)
 
     @logit()
@@ -229,7 +239,7 @@ class Test_PandasUtil(unittest.TestCase):
     @logit()
     def test_write_df_to_excel(self):
         df = self.my_test_df()
-        self.pu.write_df_to_excel(df=df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+        self.pu.write_df_to_excel(df=df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True)
         df2 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, index_col=0)
         logger.debug(f'my test df: {df.head()}')
         logger.debug(f'returned from read_df: {df2.head()}')
@@ -728,6 +738,22 @@ class Test_PandasUtil(unittest.TestCase):
         expected = df[:head_len]
         assert_frame_equal(expected, actual)
 
+    def test_head_as_string(self):
+        df = self.my_test_df()
+        head_len = 2
+        actual = self.pu.head_as_string(df, head_len)
+        for i in range(head_len):
+            self.assertTrue(df.iat[i, 1] in actual, f'Could not find {df.iat[i, 1]} in string')
+        if head_len + 1 < len(df):
+            self.assertFalse(df.iat[head_len+1, 1] in actual, f'Should not have found {df.iat[i, 1]} in string')
+
+    def test_tail_as_string(self):
+        df = self.my_test_df()
+        tail_len = 2
+        actual = self.pu.tail_as_string(df, tail_len)
+        for i in range(len(df) - tail_len, len(df)):
+            self.assertTrue(df.iat[i, 1] in actual, f'Could not find {df.iat[i, 1]} in string')
+
     def test_tail(self):
         # Test 1; tail is a subset of the df.
         df = self.my_test_df()
@@ -778,3 +804,28 @@ class Test_DataFrameSplit(unittest.TestCase):
             logger.debug(f'Set {i}: {little_df.head()}')
             combined_sizes += len(little_df)
         self.assertEqual(len(df), combined_sizes)
+
+class Test_PandasDateUtil(unittest.TestCase):
+    def setUp(self):
+        self.du = DateUtil()
+        self.pdu = PandasDateUtil()
+        self.spreadsheet_name = 'small.xls'
+        self.csv_name = 'small.csv'
+
+    @logit()
+    def test_to_Datetime_index(self):
+        # Test 1. Send it datetimes.
+        dates = []
+        start_day = 1
+        start_hr = 9
+        end_day = 10
+        end_hr = 17
+        for d in range (start_day, end_day):
+            for h in range (start_hr, end_hr):
+                dates.append(self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=d, myHH=h))
+
+        actual = self.pdu.to_Datetime_index(dates)
+        min_datetime = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=start_day, myHH=start_hr)
+        self.assertEqual(min_datetime, actual[0], 'min does not match')
+        max_datetime = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=end_day-1, myHH=end_hr-1)
+        self.assertEqual(max_datetime, actual[len(actual)-1], 'max does not match')

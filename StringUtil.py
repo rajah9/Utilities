@@ -5,8 +5,11 @@ from typing import List, Union, Callable
 from re import match, search, sub, split
 from string import ascii_letters
 from urllib.parse import urlparse
+from CollectionUtil import CollectionUtil
+from pandas import DataFrame
 
 Strings = List[str]
+Cell = CollectionUtil.named_tuple('Cell', ['value', 'cellType'])
 
 _DOUBLE_QUOTE = '"'
 _SINGLE_QUOTE = "'"
@@ -19,6 +22,7 @@ Interesting Python features:
 * Uses a generator in find_first_substring_in_list to find an element in a list.
 * tests to see if something is a string with isinstance(field, str) in truncate.
 * implements default dictionary to count words
+* Uses a namedtuple to let Excel cells have both a value and a type.
 
 Some notes about formatting:
 * See https://docs.python.org/3/library/string.html for the definitive word. 
@@ -44,6 +48,7 @@ Some notes about formatting:
 'n' Number. This is the same as 'g', except that it uses the current locale setting to insert the appropriate number separator characters.
 '%' Percentage. Multiplies the number by 100 and displays in fixed ('f') format, followed by a percent sign.
 """
+
 class StringUtil:
     def __init__(self, myString:str='Uninitialized'):
         self.string = myString
@@ -342,7 +347,10 @@ class StringUtil:
     @staticmethod
     def regex_found(my_string:str, pattern:str=r".*") -> bool:
         """
-        Return a boolean as to whether pattern is found within my_string
+        Return a boolean as to whether pattern is found within my_string.
+        Helpful pattern examples:
+          [\d,\.]+                  a number like 2,345.67
+          r"[\d,\.]+\s+[\d,\.]"     Embedded space between two numbers
         :param my_string: Look inside me.
         :param pattern: Pattern to look for, such as r"crime(s)?"
         :return: True iff the pattern was found.
@@ -490,10 +498,11 @@ class StringUtil:
     def as_float_or_int(self, myString: str = None) -> Union[int, float]:
         """
         Convert digits in myString to an int. Failing that, try converting to a float. If that also fails, warn user and return 0.
-        :param myString:  String like '25' or '3.14'
+        :param myString:  String like '25' or '3.14' or '1,234.56'
         :return: int like 25 or float like 3.14
         """
-        self.string = myString or self.string
+        no_commas = myString or self.string
+        self.string = self.replace_all(',', '', no_commas)
         try:
             as_int = int(self.string)
             return as_int
@@ -507,6 +516,24 @@ class StringUtil:
             logger.warning(f'String {myString} is not a float or an int, so returning 0.')
             return 0
         return as_float
+
+    def convert_string_append_type(self, my_string: str = None) -> Cell:
+        """
+        Decide to leave the string as a string, or convert it to a number (or percentage).
+        :param my_string: String like 'hello', '2,345.67', or '99.4%'
+        :return: a named tuple with (hello, 'Normal'), (2345.67, 'Comma'), or (.994, 'Percent')
+        """
+        self.string = my_string or self.string
+        if '%' in self.string:
+            no_percent = self.replace_first(old='%', new='')
+            val = self.as_float_or_int(no_percent) / 100.0 # might need to divide by 100
+            return Cell(value=val, cellType='Percent')
+        elif self.regex_found(pattern=r"[\d,\.]+", my_string=self.string):
+            no_comma = self.replace_first(old=',', new='')
+            val = self.as_float_or_int(no_comma)
+            return Cell(value=val, cellType='Comma')
+        else:
+            return Cell(value=self.string, cellType='Normal')
 
     def nth_word(self, my_string: str = None, word_index: int = 1, delim: str = " ") -> str:
         """
@@ -619,3 +646,58 @@ class StringUtil:
         """
         self.string = url or self.string
         return urlparse(self.string)
+
+    def fill_string(self, my_str: str, fill_str: str = '*', fill_width: int = 80, alignment: str = 'center') -> str:
+        """
+        Print out my_str, surrounded by fill_str, to a width of fill_width.
+        :param my_str: string to print out
+        :param fill_str: fill string (default is '*')
+        :param fill_width: how wide to make the string (default 80)
+        :param alignment: 'center', 'left', or 'right' aligned
+        :return:
+        """
+        align_dict = {'center': '^', 'left': '<', 'right': '>'}
+        try:
+            align = align_dict[alignment.lower()]
+        except KeyError:
+            valid_keys = align_dict.keys()
+            logger.debug(f"Alignment should be one of: {','.join(valid_keys)} but is {alignment}. Setting to center.")
+            align = align_dict['center']
+
+        return '{0:{fill}{align}{width}}'.format(my_str, fill=fill_str, align=align, width=fill_width)
+
+"""
+This class accmulates lines (say, for a log).
+"""
+
+class LineAccmulator:
+    def __init__(self):
+        self._contents = []
+
+    # Getter for content
+    @property
+    def contents(self):
+        return self._contents
+
+    @contents.setter
+    def contents(self, lines: Strings):
+        self._contents = lines
+
+    def add_line(self, line: str):
+        self.contents.append(line)
+
+    def add_lines(self, lines: Strings):
+        self.contents.extend(lines)
+
+    def add_df(self, df:DataFrame, how_many_rows: int = 10):
+        ans = str(df.head(how_many_rows))
+        lines = ans.splitlines()
+        self.add_lines(lines)
+
+    def contents_len(self):
+        return len(self._contents)
+
+
+
+
+
