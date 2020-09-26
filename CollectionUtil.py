@@ -3,6 +3,7 @@ from typing import Union, List
 from itertools import compress
 import numpy as np
 from Util import Util
+from copy import copy
 
 Ints = List[int]
 Bools = List[bool]
@@ -36,6 +37,27 @@ class CollectionUtil(Util):
         :return: sorted dictionary
         """
         return {k: v for k, v in sorted(d.items(), reverse=is_descending, key=lambda item: item[1])}
+
+    def sorted_list(self, lst: list, is_descending: bool = False) -> list:
+        """
+        Sort the list. Note: This does a sort in place, so the l passed in is sorted as a side-effect.
+        :param lst:
+        :param is_descending:
+        :return:
+        """
+        lst.sort(reverse=is_descending)
+        return lst
+
+    def list_max_and_min(self, lst: list):
+        """
+        Return the min and max of the list.
+        This does a (shallow) copy so as not to sort the list as a side-effect.
+        :param lst:
+        :return: max and min of the list.
+        """
+        x = self.sorted_list(copy(lst))
+        return x[-1], x[0]
+
 
     def layout(self, rows: int, cols: int, row_dominant: bool = True, tiling_order: Ints = None) -> np.array:
         """

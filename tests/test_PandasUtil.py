@@ -12,6 +12,7 @@ from LogitUtil import logit
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
 from DateUtil import DateUtil
+from CollectionUtil import CollectionUtil
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -791,6 +792,22 @@ class Test_PandasUtil(unittest.TestCase):
         expected_age_25th_percentile = actual['Age']['25%']
         self.assertEqual(expected_age_25th_percentile, actual_age_25th_percentile)
 
+    def test_largest_index(self):
+        df = self.my_test_df()
+        exp = df.index
+        act_argmax, act_max = self.pu.largest_index(df)
+        self.assertEqual(exp.sort_values(ascending=False)[0], act_max)
+        exp_list = list(exp) # convert from Int64Index to a plain list.
+        self.assertEqual(exp_list.index(act_max), act_argmax)
+
+    def test_smallest_index(self):
+        df = self.my_test_df()
+        exp = df.index
+        act_argmin, act_min = self.pu.smallest_index(df)
+        self.assertEqual(exp.sort_values(ascending=True)[0], act_argmin)
+        exp_list = list(exp) # convert from Int64Index to a plain list.
+        self.assertEqual(exp_list.index(act_argmin), act_min)
+
 from PandasUtil import DataFrameSplit
 
 class Test_DataFrameSplit(unittest.TestCase):
@@ -809,10 +826,30 @@ class Test_PandasDateUtil(unittest.TestCase):
     def setUp(self):
         self.du = DateUtil()
         self.pdu = PandasDateUtil()
+        self.cu = CollectionUtil()
         self.spreadsheet_name = 'small.xls'
         self.csv_name = 'small.csv'
 
-    @logit()
+    def list_of_dicts_with_datetime_str(self, start_day:int=1, end_day:int=9, start_hr:int=9, end_hr:int=9, myFormat='%Y-%m-%d'):
+        """
+        Return a list of dictionaries with a datetime str and a float amount.
+        :param start_day: day of month
+        :param end_day: day of month
+        :param start_hr: 24 hr of day
+        :param end_hr: use the same as start_hr to have only daily
+        :param myFormat: how to format the datetime str, e.g., '%Y-%m-%d'
+        :return: list of dict
+        """
+        list_of_dicts = []
+        if start_hr == end_hr: # Indicates only one hour per day; bump end_hr so that range (start_hr, end_hr) will run once.
+            end_hr += 1
+        for d in range (start_day, end_day):
+            for h in range (start_hr, end_hr):
+                dt = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=d, myHH=h)
+                list_of_dicts.append({'datetime': self.du.asFormattedStr(dt, myFormat=myFormat), 'amount': d * 100 + h})
+        return list_of_dicts
+
+
     def test_to_Datetime_index(self):
         # Test 1. Send it datetimes.
         dates = []
@@ -829,3 +866,40 @@ class Test_PandasDateUtil(unittest.TestCase):
         self.assertEqual(min_datetime, actual[0], 'min does not match')
         max_datetime = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=end_day-1, myHH=end_hr-1)
         self.assertEqual(max_datetime, actual[len(actual)-1], 'max does not match')
+
+    @logit()
+    def test_set_index(self):
+        # Test 1. Datetimes as yyyy-mm-dd strings
+        regFormat = "%Y-%m-%d"
+        dicts = []
+        start_day = 1
+        start_hr = 9
+        end_day = 10
+        end_hr = 17
+        first_dt = None
+        # Using same start_hr and end_hr to only have one entry per day.
+        dicts = self.list_of_dicts_with_datetime_str(start_day=start_day, end_day=end_day, start_hr=start_hr,
+                                                     end_hr=start_hr, myFormat=regFormat)
+
+        def create_and_test_datetime_indexed_df(dicts: list, my_format: str = '%Y-%m-%d'):
+            df = self.pdu.convert_dict_to_dataframe(dicts)
+            datetimes = [self.du.asDate(d['datetime'], myFormat=my_format) for d in dicts]
+            last_dt, first_dt = self.cu.list_max_and_min(datetimes)
+            self.pdu.set_index(df, columns='datetime', is_in_place=True)
+            _, act_val = self.pdu.smallest_index(df)
+            self.assertEqual(first_dt, act_val, 'failed to find smallest index')
+            _, act_val = self.pdu.largest_index(df)
+            self.assertEqual(last_dt, act_val, 'failed to find largest index')
+
+        logger.debug('about to test and create first df')
+        create_and_test_datetime_indexed_df(dicts, regFormat)
+        logger.debug('first df created and tested')
+        # Test 2, Datetimes as yyyy-mm-dd hh:MM:ss (isoFormat) strings
+        isoFormat = "%Y-%m-%dT%H:%M:%S"
+        dicts = []
+        # Using different start_hr and end_hr to ensure many entries per day.
+        dicts = self.list_of_dicts_with_datetime_str(start_day=start_day, end_day=end_day, start_hr=start_hr,
+                                                     end_hr=end_hr, myFormat=isoFormat)
+        logger.debug('about to test and create second df')
+        create_and_test_datetime_indexed_df(dicts, isoFormat)
+        logger.debug('second df with ISO times created and tested')

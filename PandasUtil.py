@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Callable, List, Union
+from typing import Callable, List, Union, Tuple
 import logging
 from LogitUtil import logit
 from FileUtil import FileUtil
@@ -862,6 +862,24 @@ class PandasUtil:
         """
         return df.sort_values(columns, ascending=is_asc, inplace=is_in_place, kind='quicksort', na_position='last')
 
+    def largest_index(self, df: pd.DataFrame) -> Tuple[int, int]:
+        """
+        Return the largest index and its value (usually an int and an int).
+        :return:
+        :param df:
+        :return: (index, value of index)
+        """
+        return df.index.argmax(), df.index.max()
+
+    def smallest_index(self, df: pd.DataFrame) -> Tuple[int, int]:
+        """
+        Return the smallest index and its value (usually an int and an int).
+        :return:
+        :param df:
+        :return: (index, value of index)
+        """
+        return df.index.argmin(), df.index.min()
+
 
 """
 DataFrameSplit is a one-off to help split a dataframe into an even number of records. 
@@ -906,3 +924,16 @@ class PandasDateUtil(PandasUtil):
 
     def to_Datetime_index(self, data: Dates) -> pd.DatetimeIndex:
         return pd.DatetimeIndex(data)
+
+    def set_index(self, df:pd.DataFrame, columns: str, is_in_place:bool = True, format:str = '%Y-%m-%d') -> pd.DataFrame:
+        """
+        set the Datetime index to the column name given in columns. Format it into a datetime object according to format.
+        :param df:
+        :param columns: This is a single string of the column that contains the datetime
+        :param is_in_place: True if it gets changed in place
+        :param format: str of the format. See https://strftime.org.
+        :return: df with newly set index.
+        """
+        df[columns] = pd.to_datetime(df[columns], format=format)
+        return super().set_index(df, columns, is_in_place=is_in_place)
+

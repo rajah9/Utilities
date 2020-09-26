@@ -113,7 +113,7 @@ class TestExcelUtil(TestCase):
         area2 = self._eu.get_excel_rectangle_start_to("A6", "D6")
         act2 = self._eu.get_values(df=df, rectangle=area2)
         exp2 = [71, 'Kia', 'male', 21]
-        self.assertEqual(exp2, act2, "fail normal case 2.")
+        self.assertListEqual(exp2, act2, "fail normal case 2.")
 
     def test_convert_range_to_cells(self):
         # Normal case. A2:A6

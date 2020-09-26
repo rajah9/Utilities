@@ -2,6 +2,7 @@ import logging
 from unittest import TestCase
 from CollectionUtil import CollectionUtil, NumpyUtil
 import numpy as np
+from copy import deepcopy
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -30,6 +31,29 @@ class Test_CollectionUtil(TestCase):
         actual2 = list(sort_dsc.values())
         expected2 = sorted(unsorted_dict.values(), reverse=True)
         self.assertListEqual(expected2, actual2)
+
+    def test_sorted_list(self):
+        # Test 1, ascending
+        unsorted_list = [5, 7, 3, 1, 10, 0]
+        is_reversed = False
+        exp1 = deepcopy(unsorted_list)
+        exp1.sort(reverse=is_reversed)
+        self.assertListEqual(exp1, self._cu.sorted_list(unsorted_list, is_descending=is_reversed), "Fail test 1")
+        # Test 2, descending
+        unsorted_list = [5, 7, 3, 1, 10, 0]
+        is_reversed = True
+        exp2 = deepcopy(unsorted_list)
+        exp2.sort(reverse=is_reversed)
+        self.assertListEqual(exp2, self._cu.sorted_list(unsorted_list, is_descending=is_reversed), "Fail test 2")
+
+    def test_list_max_and_min(self):
+        # Test 1, ascending
+        unsorted_list = [5, 7, 3, 1, 10, 0]
+        orig = deepcopy(unsorted_list)
+        act_max, act_min = self._cu.list_max_and_min(unsorted_list)
+        self.assertEqual(0, act_min, 'Test 1 min fail')
+        self.assertEqual(10, act_max, 'Test 1 max fail')
+        self.assertListEqual(orig, unsorted_list, 'Test 1 fail: original list was modified')
 
     def test_layout(self):
         # Test 1, 2 x 3, by rows
