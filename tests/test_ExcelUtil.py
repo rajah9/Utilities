@@ -79,6 +79,13 @@ class TestExcelUtil(TestCase):
         self.assertEqual(exp_row, act_row, "fail test 2 (rows)")
         self.assertEqual(exp_col, act_col, "fail test 2 (cols)")
 
+    def test_ExcelCell_to_A1(self):
+        # Normal case
+        tests = ['A2', 'C27', 'AA10', 'ZZ99']
+        for test in tests:
+            asExcel1 = self._eu.convert_from_A1_to_cell(test)
+            self.assertEqual(test, self._eu.ExcelCell_to_A1(asExcel1))
+
     def test_get_excel_rectangle_start_to(self):
         # Normal case: rows
         test_start_1 = "a5"
@@ -216,6 +223,37 @@ class TestExcelRewriteUtil(TestExcelUtil):
         df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
         exp_inc = [self._su.as_float_or_int(x) for x in df['Income']]
         self.assertListEqual(exp_inc, list(df_act['Income']))
+
+    def test_write_df_to_ws(self):
+        # Test 1, no formatting
+        df = self.format_test_df()
+        ws1_name = "test1"
+        ws = self._rwu.write_df_to_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        act1 = self._rwu.get_cells(ws, 'D1:D4') # These are the margins
+        exp1 = list(df['Margin'])
+        self.assertListEqual(exp1, act1)
+
+    def test_get_cell(self):
+        # Test 1
+        df = self.format_test_df()
+        ws1_name = "test1"
+        ws = self._rwu.write_df_to_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        act1 = self._rwu.get_cell(ws, 'A1')
+        exp1 = df.iloc[0][0]
+        self.assertEqual(exp1, act1)
+        act2 = self._rwu.get_cell(ws, 'C2')
+        exp2 = df.iloc[1][2]
+        self.assertEqual(exp2, act2)
+
+    def test_get_cells(self):
+        # Test 1
+        df = self.format_test_df()
+        ws1_name = "test1"
+        ws = self._rwu.write_df_to_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        act1 = self._rwu.get_cells(ws, 'C1:C4') # These are the Incomes
+        exp1 = list(df['Income'])
+        self.assertListEqual(exp1, act1)
+
 
 """
 This class tests tabula-py.

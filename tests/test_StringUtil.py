@@ -422,6 +422,14 @@ class TestStringUtil(unittest.TestCase):
         for test, exp in tests.items():
             self.assertEqual(exp, self.su.excel_col_to_int(test), f'input {test} did not return {exp}')
 
+    def test_int_to_excel_col(self):
+        # Test 1. normal.
+        tests = {1: 'A', 2: 'B', 26: 'Z', 27: 'AA', 702: 'ZZ'}
+        for test, exp in tests.items():
+            self.assertEqual(exp, self.su.int_to_excel_col(test))
+        # Test 2. out of range
+        self.assertEqual("BAD", self.su.int_to_excel_col(703))
+
     def test_digits_only(self):
         """
         Convert the digits-only part of the string like "AB14" to "14" and "D32" to "32".

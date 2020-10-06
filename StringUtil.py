@@ -401,7 +401,7 @@ class StringUtil:
 
     def excel_col_to_int(self, my_string: str = None) -> int:
         """
-        Convert excel column A or B or AA to 1, 2, and 27.
+        Convert Excel column A or B or AA to 1, 2, and 27.
         Modified from https://stackoverflow.com/a/12640614/509840
         :param my_string: Can be single like A or mixed like AB24. Not case sensitive.
         :return: integer representing the letter part
@@ -412,6 +412,25 @@ class StringUtil:
             if c in ascii_letters:
                 num = num * 26 + (ord(c.upper()) - ord('A')) + 1
         return num
+
+    def int_to_excel_col(self, col_num: int) -> str:
+        """
+        Convert an integer like 1, 2, or 27 to an Excel column like A, B, or AA.
+        :param col_num:
+        :return:
+        """
+        def conv_num_to_letter(n: int) -> str:
+            return chr(n +  ord('A') - 1)
+        ans = ""
+        if col_num <= 702: # 702 = 26*27 or ZZ
+            second_num = col_num
+            if col_num > 26:
+                first_num = int((col_num - 1) / 26)
+                ans = conv_num_to_letter(first_num)
+                second_num = col_num - first_num * 26
+            return ans + conv_num_to_letter(second_num)
+        logger.warning(f'Columns only go up to ZZ (or 702), but {col_num} was requested. Returning "BAD"')
+        return 'BAD'
 
     def digits_only(self, my_string: str = None) -> str:
         """

@@ -55,8 +55,8 @@ class ExcelUtil(Util):
         super().__init__()
         self.logger.info('starting ExcelUtil')
         self._pu = PandasUtil()
+        self._su = StringUtil()
         self._wb = None
-
 
     def row_col_to_ExcelCell(self, row:int, col:int) -> ExcelCell:
         """
@@ -80,6 +80,14 @@ class ExcelUtil(Util):
         col = row_col.excel_col_to_int()
         row = row_col.digits_only_as_int()
         return row, col
+
+    def ExcelCell_to_A1(self, ec: ExcelCell) -> str:
+        """
+        convert an ExcelCell to an Excel location
+        :param ec: ExcelCell
+        :return: str
+        """
+        return f'{self._su.int_to_excel_col(ec.col)}{ec.row}'
 
     def convert_from_A1_to_cell(self, convert_me: str) -> ExcelCell:
         """
@@ -125,6 +133,12 @@ class ExcelUtil(Util):
         return self.get_excel_rectangle_start_to(start, to)
 
     def get_values(self, df:pd.DataFrame, rectangle: list) -> list:
+        """
+        Return the values described in rectangle.
+        :param df:
+        :param rectangle: a list, such as returned by get_excel_rectangle_start_to
+        :return:
+        """
         ans = []
         for cell in rectangle:
             val = df.iloc[cell.row - 2, cell.col - 1] # row is -2 because of -1 for header for 0-offset. col is -1 b/c of 0-offset
@@ -249,12 +263,57 @@ They use openpyxl.
 See generates_spreadsheets.py as an example.
 """
 from openpyxl import load_workbook, Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 class ExcelRewriteUtil(ExcelUtil):
     def __init__(self):
         super().__init__()
         self._su = StringUtil()
+
+    @functools.lru_cache(maxsize=2)
+    def init_workbook_to_read(self, filename: str) -> Workbook:
+        self._wb = load_workbook(filename=filename)
+        return self._wb
+
+    def init_workbook_to_write(self) -> Workbook:
+        self._wb = Workbook()
+
+    @logit(showArgs=True, showRetVal=False)
+    def save_workbook(self, filename: str):
+        self._wb.save(filename=filename)
+
+    def worksheet_names(self) -> list:
+        """
+        Return a list of the worksheet names.
+        :return:
+        """
+        return self._wb.sheetnames
+
+    def get_cell(self, ws: Worksheet, cell_loc: str = 'A1', want_value: bool = True) -> Union[int, float, str]:
+        """
+        Return the cell at the given ExcelCell.
+        :param cell_loc: cell location using Excel notation
+        :return: value at that cell
+        """
+        if want_value:
+            return ws[cell_loc].value
+        return ws[cell_loc]
+
+    def get_cells(self, ws: Worksheet, excel_range: str = 'A1:C3') -> list:
+        """
+        Return the cells in the given range.
+        :param ws:
+        :param excel_range:
+        :return:
+        """
+        start, to = self.convert_range_to_cells(excel_range) # start like 'A1'; to like 'C3'
+        cells = self.get_excel_rectangle_start_to(start, to) # list of cells
+        ans = []
+        for cell in cells:
+            cell_loc = self.ExcelCell_to_A1(cell)
+            ans.append(self.get_cell(ws, cell_loc))
+        return ans
 
     def load_and_write(self, file1: dict, file2: dict) -> bool:
         vals1 = self.get_spreadsheet_values(excelDict=file1)
@@ -263,15 +322,6 @@ class ExcelRewriteUtil(ExcelUtil):
         scaled_vals = [v * scaling for v in vals1]
         self.rewrite_worksheet(file2, scaled_vals)
         return True
-
-    @functools.lru_cache(maxsize=2)
-    def init_workbook(self, filename: str) -> Workbook:
-        self._wb = load_workbook(filename=filename)
-        return self._wb
-
-    @logit(showArgs=True, showRetVal=False)
-    def save_workbook(self, filename: str):
-        self._wb.save(filename=filename)
 
     @logit()
     def rewrite_worksheet(self, file: dict, vals: list):
@@ -283,7 +333,7 @@ class ExcelRewriteUtil(ExcelUtil):
         :param vals: list of values to be written. len(vals) should be the same as the range.
         :return:
         """
-        wb = self.init_workbook(filename=file['filename'])
+        wb = self.init_workbook_to_read(filename=file['filename'])
         ws = wb[file['worksheet']]
         # We have either a single range or many ranges to copy to.
         try:
@@ -314,9 +364,46 @@ class ExcelRewriteUtil(ExcelUtil):
         :param attempt_formatting:
         :return:
         """
-        self._wb = Workbook()
-        ws = self._wb.active
-        ws.title = excelWorksheet
+        self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+        # self.init_workbook_to_write()
+        #
+        # ws = self._wb.active
+        # ws.title = excelWorksheet
+        # formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
+        # # Write the whole worksheet
+        # for row in dataframe_to_rows(df, index=write_index, header=write_header):
+        #     ws.append(row)
+        # if attempt_formatting: # apply formatting if requested.
+        #     for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row, max_col=ws.max_column):
+        #         for cell in row:
+        #             if isinstance(cell.value, str):
+        #                 c = self._su.convert_string_append_type(cell.value)
+        #                 cell.value = c.value
+        #                 if (c.cellType == 'Comma') or (c.cellType == 'Percent'):
+        #                     cell.number_format = formatting[c.cellType]
+        #             else:
+        #                 pass
+        self.save_workbook(excelFileName)
+
+    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting: bool = False, write_header: bool = False, write_index: bool = False) -> Worksheet:
+        """
+        Write the given dataframe to an excel worksheet. Attempt to format percents and numbers as percents and numbers, if requested.
+        Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
+
+        :param df:
+        :param excelWorksheet:
+        :param write_header:
+        :param write_index:
+        :return:
+        """
+        self.init_workbook_to_write()
+        if excelWorksheet in self.worksheet_names():
+            self.logger.warning(f'overwriting existing sheet name {excelWorksheet}')
+            ws = self._wb[excelWorksheet]
+        else:
+            self.logger.debug(f'Creating new worksheet: {excelWorksheet}')
+            ws = self._wb.create_sheet(title=excelWorksheet)
+
         formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
         # Write the whole worksheet
         for row in dataframe_to_rows(df, index=write_index, header=write_header):
@@ -331,7 +418,8 @@ class ExcelRewriteUtil(ExcelUtil):
                             cell.number_format = formatting[c.cellType]
                     else:
                         pass
-        self.save_workbook(excelFileName)
+        return ws
+
 
 class PdfToExcelUtil(ExcelUtil):
     def __init__(self):
