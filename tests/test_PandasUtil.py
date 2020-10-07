@@ -823,12 +823,19 @@ class Test_DataFrameSplit(unittest.TestCase):
         self.assertEqual(len(df), combined_sizes)
 
 class Test_PandasDateUtil(unittest.TestCase):
+    isoFormat = "%Y-%m-%dT%H:%M:%S"
+    _DATETIME = 'datetime' # name of a column
+    _CLOSE = 'close'
+
     def setUp(self):
         self.du = DateUtil()
         self.pdu = PandasDateUtil()
         self.cu = CollectionUtil()
         self.spreadsheet_name = 'small.xls'
         self.csv_name = 'small.csv'
+
+    def my_price(self, day: int, hour: int) -> float:
+        return day * 100 + hour
 
     def list_of_dicts_with_datetime_str(self, start_day:int=1, end_day:int=9, start_hr:int=9, end_hr:int=9, myFormat='%Y-%m-%d'):
         """
@@ -846,9 +853,18 @@ class Test_PandasDateUtil(unittest.TestCase):
         for d in range (start_day, end_day):
             for h in range (start_hr, end_hr):
                 dt = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=d, myHH=h)
-                list_of_dicts.append({'datetime': self.du.asFormattedStr(dt, myFormat=myFormat), 'amount': d * 100 + h})
+                list_of_dicts.append({self._DATETIME: self.du.asFormattedStr(dt, myFormat=myFormat), self._CLOSE: self.my_price(d, h)})
         return list_of_dicts
 
+    def my_pdu_test_df(self, start_day:int = 1, end_day:int = 10, start_hr:int = 9, end_hr:int = 17, myFormat:str = "%Y-%m-%dT%H:%M:%S") -> pd.DataFrame:
+        dicts = self.list_of_dicts_with_datetime_str(start_day, end_day, start_hr, end_hr, myFormat)
+        df = self.pdu.convert_dict_to_dataframe(dicts)
+        self.pdu.set_index(df=df, format=self.isoFormat, columns=self._DATETIME)
+        return df
+
+    def write_df_to_csv(self):
+        df = self.my_pdu_test_df()
+        self.pdu.write_df_to_csv(df=df, csv_file_name=self.csv_name, write_index=True)
 
     def test_to_Datetime_index(self):
         # Test 1. Send it datetimes.
@@ -883,9 +899,9 @@ class Test_PandasDateUtil(unittest.TestCase):
 
         def create_and_test_datetime_indexed_df(dicts: list, my_format: str = '%Y-%m-%d'):
             df = self.pdu.convert_dict_to_dataframe(dicts)
-            datetimes = [self.du.asDate(d['datetime'], myFormat=my_format) for d in dicts]
+            datetimes = [self.du.asDate(d[self._DATETIME], myFormat=my_format) for d in dicts]
             last_dt, first_dt = self.cu.list_max_and_min(datetimes)
-            self.pdu.set_index(df, columns='datetime', is_in_place=True)
+            self.pdu.set_index(df, columns=self._DATETIME, is_in_place=True)
             _, act_val = self.pdu.smallest_index(df)
             self.assertEqual(first_dt, act_val, 'failed to find smallest index')
             _, act_val = self.pdu.largest_index(df)
@@ -895,11 +911,39 @@ class Test_PandasDateUtil(unittest.TestCase):
         create_and_test_datetime_indexed_df(dicts, regFormat)
         logger.debug('first df created and tested')
         # Test 2, Datetimes as yyyy-mm-dd hh:MM:ss (isoFormat) strings
-        isoFormat = "%Y-%m-%dT%H:%M:%S"
         dicts = []
         # Using different start_hr and end_hr to ensure many entries per day.
         dicts = self.list_of_dicts_with_datetime_str(start_day=start_day, end_day=end_day, start_hr=start_hr,
-                                                     end_hr=end_hr, myFormat=isoFormat)
+                                                     end_hr=end_hr, myFormat=self.isoFormat)
         logger.debug('about to test and create second df')
-        create_and_test_datetime_indexed_df(dicts, isoFormat)
+        create_and_test_datetime_indexed_df(dicts, self.isoFormat)
         logger.debug('second df with ISO times created and tested')
+
+    def test_read_df_from_csv(self):
+        self.write_df_to_csv()
+        df = self.pdu.read_df_from_csv(csv_file_name=self.csv_name, index_col=self._DATETIME)
+        exp_df = self.my_pdu_test_df()
+        assert_frame_equal(exp_df, df)
+
+    def test_resample(self):
+        # Test 1, resampling hourly data by days
+        start_day = 1
+        start_hr = 9
+        end_day = 10
+        end_hr = 17
+        orig_df = self.my_pdu_test_df(start_day, end_day, start_hr, end_hr)
+        act_df = self.pdu.resample(orig_df, column=self._CLOSE, rule='D')  # D means sample for calendar days.
+        for i, d in enumerate(range(start_day, end_day)):
+            prices = [self.my_price(d, h) for h in range(start_hr,end_hr)]
+            exp = np.average(np.array(prices, dtype=int))
+            self.assertEqual(exp, act_df[i])
+        # Test 2, resampling hourly data using OHLC.
+        ohlc_df = self.pdu.resample(orig_df, column='ohlc', rule='D')  # D means sample for calendar days.
+        for i, d in enumerate(range(start_day, end_day)):
+            prices = [self.my_price(d, h) for h in range(start_hr,end_hr)]
+            np_prices = np.array(prices, dtype=int)
+            l = np.amin(np_prices)
+            h = np.amax(np_prices)
+            row = ohlc_df.iloc[i]
+            self.assertEqual(l, row[((self._CLOSE, 'low'))])
+            self.assertEqual(h, row[((self._CLOSE, 'high'))])

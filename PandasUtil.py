@@ -8,7 +8,6 @@ from scipy.stats import linregress
 from io import StringIO, TextIOWrapper, BufferedWriter
 from datetime import datetime
 
-
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -927,7 +926,8 @@ class PandasDateUtil(PandasUtil):
 
     def set_index(self, df:pd.DataFrame, columns: str, is_in_place:bool = True, format:str = '%Y-%m-%d') -> pd.DataFrame:
         """
-        set the Datetime index to the column name given in columns. Format it into a datetime object according to format.
+        Set the Datetime index to the column name given in columns. Format it into a datetime object according to format.
+        The columns parameter now takes only a single string, not a list.
         :param df:
         :param columns: This is a single string of the column that contains the datetime
         :param is_in_place: True if it gets changed in place
@@ -937,3 +937,39 @@ class PandasDateUtil(PandasUtil):
         df[columns] = pd.to_datetime(df[columns], format=format)
         return super().set_index(df, columns, is_in_place=is_in_place)
 
+    def read_df_from_csv(self, csv_file_name: str = None, header: int = 0, enc: str = 'utf-8', index_col: str = 'Date',
+                         sep: str = None, format:str = '%Y-%m-%d') -> pd.DataFrame:
+        """
+        Read in the given CSV file, but make the index_col into a date according to the given format.
+        :param csv_file_name:
+        :param header:
+        :param enc:
+        :param index_col:
+        :param sep:
+        :param format:
+        :return:
+        """
+        df = super().read_df_from_csv(csv_file_name=csv_file_name, header=header, enc=enc, sep=sep)
+        self.set_index(df=df, format=format, columns=index_col)
+        return df
+
+    def resample(self, df: pd.DataFrame, column: str, rule: str = 'B') -> pd.core.series.Series:
+        """ was pd.core.resample.DatetimeIndexResampler
+        Resample the df according to the given rule. Return the mean of whatever column is given or the Open-High-Low-Close if the column is ohlc.
+        For a list of rules, See https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases.
+        Here is a subset:
+            B  business day frequency
+            C  custom business day frequency
+            D  calendar day frequency
+            W  weekly frequency
+            M  month end frequency
+            Q  quarter end frequency
+            A, Y  year end frequency
+        :param df:
+        :param column: Column name to resample on. If ohlc, it will transform the open, high, low, and close.
+        :param rule:
+        :return:
+        """
+        if column.lower() == 'ohlc':
+            return df.resample(rule=rule).ohlc()
+        return df[column].resample(rule=rule).mean()
