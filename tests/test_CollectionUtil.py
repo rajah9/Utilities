@@ -3,6 +3,7 @@ from unittest import TestCase
 from CollectionUtil import CollectionUtil, NumpyUtil
 import numpy as np
 from copy import deepcopy
+from pandas import Series
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -54,6 +55,11 @@ class Test_CollectionUtil(TestCase):
         self.assertEqual(0, act_min, 'Test 1 min fail')
         self.assertEqual(10, act_max, 'Test 1 max fail')
         self.assertListEqual(orig, unsorted_list, 'Test 1 fail: original list was modified')
+        # Test 2, using a series.
+        unsorted_series = Series(unsorted_list)
+        act_max, act_min = self._cu.list_max_and_min(unsorted_series)
+        self.assertEqual(0, act_min, 'Test 2 min fail')
+        self.assertEqual(10, act_max, 'Test 2 max fail')
 
     def test_layout(self):
         # Test 1, 2 x 3, by rows
@@ -143,6 +149,26 @@ class Test_CollectionUtil(TestCase):
         exp_dict = {k:v for (k,v) in zip(list1, list2)}
         act_dict = self._cu.dict_comprehension(list1, list2)
         self.assertEqual(exp_dict, act_dict)
+
+    def test_remove_first_occurrence(self):
+        # Test 1.
+        orig = [1, 2, 3, 2, 2, 2, 3, 4]
+        x = orig.copy()
+        remove_me = 3
+        exp = x.copy()
+        exp.remove(remove_me)
+        act =  self._cu.remove_first_occurrence(x, remove_me)
+        self.assertListEqual(exp, act)
+        self.assertListEqual(orig, x) # Original list should be unchanged.
+
+    def test_remove_all_occurrences(self):
+        orig = [1, 2, 3, 2, 2, 2, 3, 4]
+        x = orig.copy()
+        remove_me = 3
+        exp = list(filter((remove_me).__ne__, x))
+        self.assertListEqual(exp, self._cu.remove_all_occurrences(x, remove_me))
+        self.assertListEqual(orig, x) # Original list should be unchanged.
+
 
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):

@@ -365,24 +365,6 @@ class ExcelRewriteUtil(ExcelUtil):
         :return:
         """
         self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
-        # self.init_workbook_to_write()
-        #
-        # ws = self._wb.active
-        # ws.title = excelWorksheet
-        # formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
-        # # Write the whole worksheet
-        # for row in dataframe_to_rows(df, index=write_index, header=write_header):
-        #     ws.append(row)
-        # if attempt_formatting: # apply formatting if requested.
-        #     for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row, max_col=ws.max_column):
-        #         for cell in row:
-        #             if isinstance(cell.value, str):
-        #                 c = self._su.convert_string_append_type(cell.value)
-        #                 cell.value = c.value
-        #                 if (c.cellType == 'Comma') or (c.cellType == 'Percent'):
-        #                     cell.number_format = formatting[c.cellType]
-        #             else:
-        #                 pass
         self.save_workbook(excelFileName)
 
     def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting: bool = False, write_header: bool = False, write_index: bool = False) -> Worksheet:
@@ -419,6 +401,32 @@ class ExcelRewriteUtil(ExcelUtil):
                     else:
                         pass
         return ws
+
+    def copy_spreadsheet_to_ws(self, sourceFileName: str, sourceWorksheet: str, destWorksheet: str = None, header: int = 0,
+                               attempt_formatting: bool = False, write_header: bool = False,
+                               write_index: bool = False) -> Worksheet:
+        """
+        Read the sourceWorksheet into a dataframe and write it to the destWorksheet.
+        :param sourceFileName:
+        :param sourceWorksheet:
+        :param destWorksheet: Title of the destination worksheet (or copy the sourceWorksheet if None)
+        :param header:
+        :param attempt_formatting:
+        :param write_header:
+        :param write_index:
+        :return: copied worksheet
+        """
+        # 1. Read the existing sourceWorksheet.
+        df = self._pu.read_df_from_excel(excelFileName=sourceFileName, excelWorksheet=sourceWorksheet, header=header)
+        if len(df):
+            self.logger.debug(f'Read in {len(df)} records from file {sourceFileName} and worksheet {sourceWorksheet}.')
+            worksheet_name = destWorksheet or sourceWorksheet
+            # 2. Create a ws based on the df.
+            ws = self.write_df_to_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+            return ws
+        self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws')
+        return None
+
 
 
 class PdfToExcelUtil(ExcelUtil):
@@ -659,3 +667,4 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             line = ''.join(null_to_spc)
             ans.add_line(line)
         return ans.contents
+

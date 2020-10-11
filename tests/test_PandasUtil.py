@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import unittest
 import logging
-from math import sqrt
+from math import sqrt, isnan, nan
 from pandas.testing import assert_frame_equal
 from datetime import datetime
 from typing import List
@@ -32,12 +32,13 @@ Interesting Python features:
 * test_replace_col_using_mult_cols uses an inner method to distinguish calculation of the expected value
 * test_select_non_blanks deletes rows based on criteria.
 * in test_join_dfs_by_row, uses `act_names.str.contains(new_guy, regex=False).any()` to test if new_guy is anywhere in act_names.
-
+* in test_sma, tests for NaN. 
 """
 
 class Test_PandasUtil(unittest.TestCase):
     def setUp(self):
         self.pu = PandasUtil()
+        self.cu = CollectionUtil()
         self.spreadsheet_name = 'small.xls'
         self.csv_name = 'small.csv'
         self.worksheet_name = 'test'
@@ -361,7 +362,6 @@ class Test_PandasUtil(unittest.TestCase):
         actual = self.pu.add_new_col_from_array(df, 'IQ', new_vals)
         self.assertListEqual(new_vals, actual.IQ.tolist())
 
-
     @logit()
     def test_drop_col(self):
         df = self.my_test_df()
@@ -372,6 +372,25 @@ class Test_PandasUtil(unittest.TestCase):
         self.pu.drop_col(df, columns=col_to_drop, is_in_place=True)
         after_drop.remove(col_to_drop)
         self.assertListEqual(self.pu.get_df_headers(df), after_drop)
+
+    def test_drop_row_by_criterion(self):
+        df = self.my_test_df()
+        before_drop_ages = df['Age']
+        max_age, _ = self.cu.list_max_and_min(before_drop_ages)
+        exp_ages = self.cu.remove_all_occurrences(before_drop_ages, max_age)
+        act_df = self.pu.drop_row_by_criterion(df, 'Age', max_age, is_in_place=False)
+        self.assertListEqual(exp_ages, list(act_df['Age']))
+
+    def test_drop_row_if_nan(self):
+        df = self.my_test_df()
+        iq_list = [100, 105, nan, 99, nan]
+        iq = np.array(iq_list)
+        self.pu.add_new_col_from_array(df, 'IQ', iq)
+        exp_iq = [x for x in iq_list if not isnan(x) ]
+        act = self.pu.drop_row_if_nan(df, ['IQ'], is_in_place=False)
+        act_iq = act['IQ']
+        self.assertListEqual(exp_iq, list(act_iq))
+
 
     @logit()
     def test_set_index(self):
@@ -579,9 +598,6 @@ class Test_PandasUtil(unittest.TestCase):
         # self.assertSequenceEqual(mark, new_mark)
         for male, bob in zip(mark, new_mark):
             self.assertFalse(male ^ bob)
-
-
-
 
     @logit()
     def test_mark_isnull(self):
@@ -825,7 +841,7 @@ class Test_DataFrameSplit(unittest.TestCase):
 class Test_PandasDateUtil(unittest.TestCase):
     isoFormat = "%Y-%m-%dT%H:%M:%S"
     _DATETIME = 'datetime' # name of a column
-    _CLOSE = 'close'
+    _CLOSE = 'Close'
 
     def setUp(self):
         self.du = DateUtil()
@@ -861,6 +877,20 @@ class Test_PandasDateUtil(unittest.TestCase):
         df = self.pdu.convert_dict_to_dataframe(dicts)
         self.pdu.set_index(df=df, format=self.isoFormat, columns=self._DATETIME)
         return df
+
+    def wfm_df(self):
+        df = pd.DataFrame({
+            "Date": ["2020-09-01", "2020-09-02", "2020-09-03", "2020-09-04", "2020-09-08", "2020-09-09", "2020-09-10", "2020-09-11", "2020-09-14", "2020-09-15", "2020-09-16", "2020-09-17", "2020-09-18", "2020-09-21", "2020-09-22", "2020-09-23", "2020-09-24", "2020-09-25", "2020-09-28", "2020-09-29", "2020-09-30"],
+            "Open": [24.02, 24.01, 24.799999, 25, 24.280001, 24.01, 24.030001, 23.92, 24.379999, 24.959999, 24.870001, 25.23, 24.940001, 24.450001, 23.98, 23.780001, 22.959999, 23.120001, 23.99, 23.719999, 23.360001],
+            "High": [24.34, 24.66, 25.360001, 25.190001, 24.549999, 24.07, 24.67, 24.32, 24.969999, 25.040001, 26, 25.43, 25.4, 24.52, 24.360001, 24.129999, 23.719999, 23.709999, 24.27, 23.719999, 23.870001],
+            "Low": [23.74, 23.93, 24.299999, 24.25, 23.74, 23.700001, 23.860001, 23.709999, 24.23, 24.559999, 24.75, 24.9, 24.9, 23.719999, 23.530001, 22.83, 22.559999, 23.01, 23.76, 23.07, 23.25],
+            self._CLOSE: [24.049999, 24.57, 24.52, 24.790001, 23.969999, 23.84, 23.950001, 24.27, 24.809999, 24.879999, 25.709999, 25.110001, 25.129999, 24.040001, 23.65, 22.83, 23.32, 23.639999, 23.82, 23.26, 23.51],
+            "Adj Close": [24.049999, 24.57, 24.52, 24.790001, 23.969999, 23.84, 23.950001, 24.27, 24.809999, 24.879999, 25.709999, 25.110001, 25.129999, 24.040001, 23.65, 22.83, 23.32, 23.639999, 23.82, 23.26, 23.51],
+            "Volume": [30541900, 40334000, 42349300, 48745000, 49082900, 49427900, 54211700, 34861100, 49787100, 41954800, 51768200, 51531300, 115153200, 56188400, 39839500, 45697700, 43329100, 30229900, 41103500, 38416300, 43058500],
+        })
+        self.pdu.set_index(df, columns="Date", is_in_place=True)
+        return df
+
 
     def write_df_to_csv(self):
         df = self.my_pdu_test_df()
@@ -947,3 +977,31 @@ class Test_PandasDateUtil(unittest.TestCase):
             row = ohlc_df.iloc[i]
             self.assertEqual(l, row[((self._CLOSE, 'low'))])
             self.assertEqual(h, row[((self._CLOSE, 'high'))])
+
+    def test_sma(self):
+        # Simple SMA
+        df = self.wfm_df()
+        window_size = 5
+        ma_df = self.pdu.sma(df, window=window_size)
+        closes = df[self._CLOSE]
+        for i, row in enumerate(ma_df.iterrows()):
+            if i < window_size - 1:
+                self.assertTrue(isnan(row[1][self._CLOSE]))
+            else:
+                avg = closes[i-window_size+1:i+1].mean() # When i = 4, I'm looking for closes[0:5].
+                self.assertAlmostEqual(avg, row[1][self._CLOSE], 6)
+
+    def test_add_bollinger(self):
+        # Bollinger bands
+        df = self.wfm_df()
+        window_size = 10
+        bb_df = self.pdu.add_bollinger(df=df, window=window_size, column_name=self._CLOSE)
+
+        bb_no_nan_df = self.pdu.drop_row_if_nan(bb_df, [self._CLOSE], is_in_place=False)
+
+        self.assertEqual(len(df) - window_size + 1, len(bb_no_nan_df))
+        ma_df = self.pdu.sma(df, window=window_size)
+        for i, row in enumerate(bb_df.iterrows()):
+            self.fail('in progress')  # TODO
+
+

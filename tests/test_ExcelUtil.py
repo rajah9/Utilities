@@ -254,6 +254,16 @@ class TestExcelRewriteUtil(TestExcelUtil):
         exp1 = list(df['Income'])
         self.assertListEqual(exp1, act1)
 
+    def test_copy_spreadsheet_to_ws(self):
+        # Test 1, normal
+        df_expected = self.my_test_df()
+        self._pu.write_df_to_excel(df=df_expected, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+
+        df = self.format_test_df()
+        ws = self._rwu.copy_spreadsheet_to_ws(sourceFileName=self.parent_spreadsheet_name, sourceWorksheet=self.worksheet_name, destWorksheet='copy', header=0, write_header=True)
+        self._rwu.save_workbook(filename=r'c:\temp\thrid.xlsx')
+        #TODO
+        self.fail('in progress')
 
 """
 This class tests tabula-py.

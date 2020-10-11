@@ -574,6 +574,16 @@ class PandasUtil:
         else:
             return ans
 
+    def drop_row_if_nan(self, df:pd.DataFrame, column_names: list = None, is_in_place:bool = True) -> pd.DataFrame:
+        """
+        Drop a row if the given column name is NaN.
+        :param df:
+        :param column_names: Drop the rows based in this array of column names. If None, drop every row with any NaN column.
+        :param is_in_place:
+        :return:
+        """
+        return df.dropna(axis='index', inplace=is_in_place)
+        pass #TODO
 
     def reorder_cols(self, df:pd.DataFrame, columns: Strings) -> pd.DataFrame:
         """
@@ -973,3 +983,55 @@ class PandasDateUtil(PandasUtil):
         if column.lower() == 'ohlc':
             return df.resample(rule=rule).ohlc()
         return df[column].resample(rule=rule).mean()
+
+    def rolling(self, df: pd.DataFrame, window: int = 7) -> pd.core.window.rolling.Rolling:
+        """
+        Return a window based on the df.
+        :param df:
+        :param window:
+        :return:
+        """
+        return df.rolling(window)
+
+    def sma(self, df: pd.DataFrame, window: int = 7, col_name_to_average: str = None) -> pd.DataFrame:
+        """
+        Using rolling, provide a simple moving average on the given
+        :param df:
+        :param window:
+        :param col_name_to_average: if specified, get MA for the column, else MA for all.
+        :return:
+        """
+        if col_name_to_average:
+            return self.rolling(df[col_name_to_average], window=window).mean()
+        return self.rolling(df=df, window=window).mean()
+
+    def bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close'):
+        """
+        Add a SMA column and an upper and lower BB Column
+        :param df:
+        :param window:
+        :param column_name:
+        :return: sma, upper, and lower arrays
+        """
+        sma = np.array( self.sma(df=df, col_name_to_average=column_name, window=window), dtype=float)
+        upper = np.array(sma + 2 * (df[column_name].rolling(window).std()))
+        lower = np.array(sma - 2 * (df[column_name].rolling(window).std()))
+        return sma, upper, lower
+
+    def add_bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close', ma_column: str = 'SMA', upper_colname: str = 'Upper BB', lower_colname: str = 'Lower BB'):
+        """
+        Add a SMA column and an upper and lower BB Column to the existing df.
+        :param df:
+        :param window:
+        :param column_name:
+        :param ma_column: name to call the Moving Average column
+        :param upper_colname: Name for upper BB
+        :param lower_colname: Name for lower BB
+        :return: df with three new columns.
+        """
+        sma, upper, lower = self.bollinger(df, window, column_name)
+        self.add_new_col_from_array(df, ma_column, sma)
+        self.add_new_col_from_array(df, upper_colname, upper)
+        self.add_new_col_from_array(df, lower_colname, lower)
+        return df
+
