@@ -559,7 +559,7 @@ class PandasUtil:
             headers_to_drop.remove(col)
         return self.drop_col(df=df, columns=headers_to_drop, is_in_place=is_in_place)
 
-    def drop_row_by_criterion(self, df:pd.DataFrame, column_name: str, criterion: str, is_in_place:bool = True) -> pd.DataFrame:
+    def drop_row_by_criterion(self, df:pd.DataFrame, column_name: str, criterion: Union[int, str], is_in_place:bool = True) -> pd.DataFrame:
         """
         Drop the rows that have criterion in the given column.
         :param df:
@@ -568,22 +568,19 @@ class PandasUtil:
         :param is_in_place:
         :return:
         """
-        ans = df[df[column_name] != criterion]
-        if is_in_place:
-            df = ans
-        else:
-            return ans
+        return df.drop(df[df[column_name] == criterion].index, inplace=is_in_place)
 
-    def drop_row_if_nan(self, df:pd.DataFrame, column_names: list = None, is_in_place:bool = True) -> pd.DataFrame:
+    def drop_row_if_nan(self, df:pd.DataFrame, column_names: Strings = None, is_in_place:bool = True) -> pd.DataFrame:
         """
         Drop a row if the given column name is NaN.
         :param df:
-        :param column_names: Drop the rows based in this array of column names. If None, drop every row with any NaN column.
+        :param column_names: Drop the rows based in this array of column names. If None, drop every row with all NaNs.
         :param is_in_place:
         :return:
         """
-        return df.dropna(axis='index', inplace=is_in_place)
-        pass #TODO
+        if column_names:
+            return df.dropna(axis='index', subset=column_names, inplace=is_in_place)
+        return df.dropna(axis='index', inplace=is_in_place, how='all')
 
     def reorder_cols(self, df:pd.DataFrame, columns: Strings) -> pd.DataFrame:
         """

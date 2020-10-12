@@ -185,6 +185,11 @@ class Test_PandasUtil(unittest.TestCase):
         actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=None)
         assert_frame_equal(expected_df, actual_df)
 
+    def test_convert_matrix_to_dataframe(self):
+        exp_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        act_df = self.pu.convert_matrix_to_dataframe(self.list_of_dicts)
+        assert_frame_equal(exp_df, act_df)
+
     @logit()
     def test_convert_dataframe_to_matrix(self):
         df_orig = self.my_test_df()
@@ -374,22 +379,44 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(self.pu.get_df_headers(df), after_drop)
 
     def test_drop_row_by_criterion(self):
+        _AGE_COL_NAME = 'Age'
+        # Test 1, is_in_place = False
         df = self.my_test_df()
-        before_drop_ages = df['Age']
+        before_drop_ages = df[_AGE_COL_NAME]
         max_age, _ = self.cu.list_max_and_min(before_drop_ages)
         exp_ages = self.cu.remove_all_occurrences(before_drop_ages, max_age)
-        act_df = self.pu.drop_row_by_criterion(df, 'Age', max_age, is_in_place=False)
-        self.assertListEqual(exp_ages, list(act_df['Age']))
+        act_df = self.pu.drop_row_by_criterion(df, _AGE_COL_NAME, max_age, is_in_place=False)
+        self.assertListEqual(exp_ages, list(act_df[_AGE_COL_NAME]), "Test 1 fail")
+        # Test 2, is_in_place = True
+        df = self.my_test_df()
+        before_drop_ages = df[_AGE_COL_NAME]
+        _, min_age = self.cu.list_max_and_min(before_drop_ages)
+        exp_ages = self.cu.remove_all_occurrences(before_drop_ages, min_age)
+        self.pu.drop_row_by_criterion(df, _AGE_COL_NAME, min_age, is_in_place=True)
+        self.assertListEqual(exp_ages, list(df[_AGE_COL_NAME]), "Test 2 fail")
 
     def test_drop_row_if_nan(self):
-        df = self.my_test_df()
-        iq_list = [100, 105, nan, 99, nan]
-        iq = np.array(iq_list)
-        self.pu.add_new_col_from_array(df, 'IQ', iq)
-        exp_iq = [x for x in iq_list if not isnan(x) ]
-        act = self.pu.drop_row_if_nan(df, ['IQ'], is_in_place=False)
-        act_iq = act['IQ']
-        self.assertListEqual(exp_iq, list(act_iq))
+        # From https://www.geeksforgeeks.org/how-to-drop-rows-with-nan-values-in-pandas-dataframe/
+        _INT1_COL_NAME = 'Integers_1'
+        _INT2_COL_NAME = 'Integers_2'
+        nums = {_INT1_COL_NAME: [10,  15, 30, 40,  55, nan, 75, nan, 90, 150, nan],
+                _INT2_COL_NAME: [nan, 21, 22, 23, nan,  24, 25, nan, 26, nan, nan]}
+        df = self.pu.convert_dict_to_dataframe(nums)
+        # Test 1, just Integers_1
+        int1 = nums[_INT1_COL_NAME]
+        exp1 = [x for x in int1 if not isnan(x)]
+        act1 = self.pu.drop_row_if_nan(df, [_INT1_COL_NAME], is_in_place=False)
+        self.assertListEqual(exp1, list(act1[_INT1_COL_NAME]), "Test 1 fail")
+        # Test 2: all of a row is nan.
+        int2 = nums[_INT2_COL_NAME]
+        exp2 = [x for x, y in zip(int1, int2) if not (isnan(x) & isnan(y))] # remove rows where both are nan.
+        act2 = self.pu.drop_row_if_nan(df, column_names=None, is_in_place=False)
+        for exp, act in zip(exp2, list(act2[_INT1_COL_NAME])):
+            if isnan(exp):
+                self.assertTrue(isnan(act), "Test 2 fail: Both elements should be NaN.")
+            else:
+                self.assertEqual(exp, act, f'Test 2 fail: expected {exp} not equal to actual {act}')
+
 
 
     @logit()
@@ -631,6 +658,13 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertFalse(self.pu.is_empty(df))
         df2 = self.pu.empty_df()
         self.assertTrue(self.pu.is_empty(df2))
+
+    def test_get_worksheets(self):
+        # The majority of this is tested elsewhere, so just test for missing filename.
+        expected_log_message = 'Cannot find Excel file'
+        with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
+            self.pu.get_worksheets(excelFileName='NoSuchFile.xlsx')
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
 
     @logit()
     def test_duplicate_rows(self):
@@ -997,11 +1031,14 @@ class Test_PandasDateUtil(unittest.TestCase):
         window_size = 10
         bb_df = self.pdu.add_bollinger(df=df, window=window_size, column_name=self._CLOSE)
 
-        bb_no_nan_df = self.pdu.drop_row_if_nan(bb_df, [self._CLOSE], is_in_place=False)
+        bb_no_nan_df = self.pdu.drop_row_if_nan(bb_df, ['SMA'], is_in_place=False)
 
-        self.assertEqual(len(df) - window_size + 1, len(bb_no_nan_df))
+        self.assertEqual(len(df) - window_size + 1, len(bb_no_nan_df), "unexpected number of NaN rows dropped.")
         ma_df = self.pdu.sma(df, window=window_size)
         for i, row in enumerate(bb_df.iterrows()):
-            self.fail('in progress')  # TODO
+            if i < window_size - 1:
+                self.assertTrue(isnan(row[1]['SMA']))
+            else:
+                self.assertAlmostEqual(bb_df.iloc[i]['SMA'], ma_df.iloc[i][self._CLOSE], 4)
 
 
