@@ -732,8 +732,8 @@ class PandasUtil:
         """
         Coerce the given column_name name to ints or floats.
         :param df:
-        :param column_name:
-        :return: new df with column_name coerced to a numeric.
+        :param columns: a column name (or list of names) to coerce
+        :return: df with columns coerced to a numeric in place.
         """
         if isinstance(columns, str):
             # Make the single str columns into a list with just that one element.
@@ -742,6 +742,17 @@ class PandasUtil:
             cols_as_list = columns
         df[cols_as_list] = df[cols_as_list].apply(pd.to_numeric)
         return df
+
+    def coerece_to_int(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
+        """
+        Coerce the given column name(s) to an int.
+        :param df:
+        :param columns: a column name (or list of names) to coerce
+        :return: df with columns coerced to a numeric in place.
+        """
+        df[columns] = df[columns].astype(int)
+        return df
+
 
     def round(self, df:pd.DataFrame, rounding_dict:dict) -> pd.DataFrame:
         """

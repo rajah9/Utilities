@@ -33,6 +33,7 @@ from Util import Util
 from PandasUtil import PandasUtil
 from StringUtil import StringUtil, LineAccmulator
 from LogitUtil import logit
+from FileUtil import FileUtil
 from CollectionUtil import CollectionUtil
 from math import fabs
 import functools
@@ -264,12 +265,15 @@ See generates_spreadsheets.py as an example.
 """
 from openpyxl import load_workbook, Workbook
 from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.worksheet.copier import WorksheetCopy
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 class ExcelRewriteUtil(ExcelUtil):
     def __init__(self):
         super().__init__()
         self._su = StringUtil()
+        self._fu = FileUtil()
+        self._wb = None
 
     @functools.lru_cache(maxsize=2)
     def init_workbook_to_read(self, filename: str) -> Workbook:
@@ -364,34 +368,50 @@ class ExcelRewriteUtil(ExcelUtil):
         :param attempt_formatting:
         :return:
         """
-        self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+        self.write_df_to_new_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
         self.save_workbook(excelFileName)
 
-    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting: bool = False, write_header: bool = False, write_index: bool = False) -> Worksheet:
+    def write_df_to_new_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting: bool = False, write_header: bool = False, write_index: bool = False) -> Worksheet:
         """
-        Write the given dataframe to an excel worksheet. Attempt to format percents and numbers as percents and numbers, if requested.
+        Initialize the workbook. Then write the given dataframe to an excel worksheet.
+        Attempt to format percents and numbers as percents and numbers, if requested.
         Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
 
         :param df:
-        :param excelWorksheet:
+        :param excelWorksheet: string of worksheet name
         :param write_header:
         :param write_index:
         :return:
         """
         self.init_workbook_to_write()
+        return self.write_df_to_ws(attempt_formatting, df, excelWorksheet, write_header, write_index)
+
+    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False) -> bool:
+        """
+        Refactor of write_df_to_new_ws, which does not init the workbook.
+        Write the given dataframe to an excel worksheet. Attempt to format strings ending in % and strings as numbers as percents and numbers, if requested.
+        Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
+
+        :param df: dataframe to write
+        :param excelWorksheet:
+        :param attempt_formatting: True means attempt to format strings as percents or numbers
+        :param write_header: True if you'd like to write the column names
+        :param write_index: True if you'd like to write the index
+        :return:
+        """
         if excelWorksheet in self.worksheet_names():
             self.logger.warning(f'overwriting existing sheet name {excelWorksheet}')
             ws = self._wb[excelWorksheet]
         else:
             self.logger.debug(f'Creating new worksheet: {excelWorksheet}')
             ws = self._wb.create_sheet(title=excelWorksheet)
-
         formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
-        # Write the whole worksheet
+        # Write the whole dataframe
         for row in dataframe_to_rows(df, index=write_index, header=write_header):
             ws.append(row)
-        if attempt_formatting: # apply formatting if requested.
-            for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row, max_col=ws.max_column):
+        if attempt_formatting:  # apply formatting if requested.
+            for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row,
+                                    max_col=ws.max_column):
                 for cell in row:
                     if isinstance(cell.value, str):
                         c = self._su.convert_string_append_type(cell.value)
@@ -422,11 +442,24 @@ class ExcelRewriteUtil(ExcelUtil):
             self.logger.debug(f'Read in {len(df)} records from file {sourceFileName} and worksheet {sourceWorksheet}.')
             worksheet_name = destWorksheet or sourceWorksheet
             # 2. Create a ws based on the df.
-            ws = self.write_df_to_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+            ws = self.write_df_to_new_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
             return ws
         self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws')
         return None
 
+    def init_template(self, templateExcelFileName: str, templateExcelWorksheet: str,
+                      outputExcelFileName: str, outputExcelWorksheet: str = None) -> bool:
+        if not self._fu.file_exists(qualifiedPath=templateExcelFileName):
+            self.logger.warning(f'Could not find file {templateExcelFileName}!')
+            return False
+        if not outputExcelWorksheet:
+            outputExcelWorksheet = templateExcelWorksheet + '_copy'
+
+        self.init_workbook_to_read(filename=templateExcelFileName)
+        template_ws = self._wb[templateExcelWorksheet]
+        output_ws = self._wb.create_sheet(outputExcelWorksheet)
+        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws
+        wc.copy_worksheet() # copy the requested worksheet
 
 
 class PdfToExcelUtil(ExcelUtil):

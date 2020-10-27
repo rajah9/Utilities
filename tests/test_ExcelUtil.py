@@ -224,11 +224,11 @@ class TestExcelRewriteUtil(TestExcelUtil):
         exp_inc = [self._su.as_float_or_int(x) for x in df['Income']]
         self.assertListEqual(exp_inc, list(df_act['Income']))
 
-    def test_write_df_to_ws(self):
+    def test_write_df_to_new_ws(self):
         # Test 1, no formatting
         df = self.format_test_df()
         ws1_name = "test1"
-        ws = self._rwu.write_df_to_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
         act1 = self._rwu.get_cells(ws, 'D1:D4') # These are the margins
         exp1 = list(df['Margin'])
         self.assertListEqual(exp1, act1)
@@ -237,7 +237,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
         # Test 1
         df = self.format_test_df()
         ws1_name = "test1"
-        ws = self._rwu.write_df_to_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
         act1 = self._rwu.get_cell(ws, 'A1')
         exp1 = df.iloc[0][0]
         self.assertEqual(exp1, act1)
@@ -249,7 +249,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
         # Test 1
         df = self.format_test_df()
         ws1_name = "test1"
-        ws = self._rwu.write_df_to_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
         act1 = self._rwu.get_cells(ws, 'C1:C4') # These are the Incomes
         exp1 = list(df['Income'])
         self.assertListEqual(exp1, act1)
@@ -261,9 +261,23 @@ class TestExcelRewriteUtil(TestExcelUtil):
 
         df = self.format_test_df()
         ws = self._rwu.copy_spreadsheet_to_ws(sourceFileName=self.parent_spreadsheet_name, sourceWorksheet=self.worksheet_name, destWorksheet='copy', header=0, write_header=True)
-        self._rwu.save_workbook(filename=r'c:\temp\thrid.xlsx')
-        #TODO
+        self._rwu.save_workbook(filename=r'c:\temp\third.xlsx')
+        #TODO save to a different spreadsheet.
+        #TODO verify that the spreadsheet was copied correctly
         self.fail('in progress')
+
+    def test_init_template(self):
+        # Test 1, normal
+        df = self.format_test_df()
+        ws_copy_name = 'test2'
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
+        self._rwu.init_template(templateExcelFileName=self.formatting_spreadsheet_name, templateExcelWorksheet=self.worksheet_name, outputExcelFileName=self.parent_spreadsheet_name, outputExcelWorksheet=ws_copy_name)
+        actual_df = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=ws_copy_name, index_col=0)
+        self._pu.drop_row_if_nan(actual_df, is_in_place=True) # delete the blank row after the header
+        actual_df.index = actual_df.index.astype(int) # index was float; make it an int
+        self._pu.coerece_to_int(actual_df, 'Year') # was float; make it int64
+        self._pu.coerece_to_int(df, 'Year')        # was int32; make it int64
+        assert_frame_equal(df, actual_df)
 
 """
 This class tests tabula-py.

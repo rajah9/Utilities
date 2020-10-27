@@ -185,6 +185,24 @@ class Test_PandasUtil(unittest.TestCase):
         actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=None)
         assert_frame_equal(expected_df, actual_df)
 
+    def test_coerece_to_string(self):
+        df = self.my_test_df()
+        age_series = df['Age'].astype(str)
+        self.pu.coerce_to_string(df, 'Age')
+        age_num_series = df['Age']
+        expected = age_series.tolist()
+        actual = list(age_num_series)
+        self.assertListEqual(expected, actual, "Fail test 1")
+
+    def test_coerce_to_int(self):
+        sizes = [4.0, 5.5, 5.5, 10.5, 8.0]
+        col_name = 'Shoe_size'
+        df = pd.DataFrame({col_name: sizes})
+        exp = [int(x) for x in sizes]
+        self.pu.coerece_to_int(df, col_name)
+        act = list(df[col_name])
+        self.assertListEqual(exp, act)
+
     def test_convert_matrix_to_dataframe(self):
         exp_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         act_df = self.pu.convert_matrix_to_dataframe(self.list_of_dicts)
@@ -582,17 +600,27 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_coerce_to_numeric(self):
+        # Test 1: coerce an integer. Using df in-place.
         df = self.my_test_df()
         age_series = df['Age'].astype(str).astype(int)
-        df2 = self.pu.coerce_to_numeric(df, 'Age')
-        age_num_series = df2['Age']
+        self.pu.coerce_to_numeric(df, 'Age')
+        age_num_series = df['Age']
         expected = age_series.tolist()
         actual = list(age_num_series)
-        self.assertListEqual(expected, actual)
+        self.assertListEqual(expected, actual, "Fail test 1")
+        # Test 2: coerce two columns. Using returned df.
         weight_series = df['Weight'].astype(str).astype(int)
         df3 = self.pu.coerce_to_numeric(df, ['Age', 'Weight'])
         weight_num_series = df3['Weight']
-        self.assertListEqual(weight_series.tolist(), weight_num_series.tolist())
+        self.assertListEqual(weight_series.tolist(), weight_num_series.tolist(), "Fail test 2")
+        # Test 3: coerce strings and ints
+        sizes = [4.0, 5.5, '5.5', 10.5, 8]
+        col_name = 'Shoe_size'
+        df = pd.DataFrame({col_name: sizes})
+        exp = [float(x) for x in sizes]
+        self.pu.coerce_to_numeric(df, col_name)
+        act = list(df[col_name])
+        self.assertListEqual(exp, act, 'Fail test 3')
 
     def is_adult(self, age:list):
         return age >= 21
