@@ -1,261 +1,264 @@
 import logging
-        # import pprint
-        # import sys
-        # from copy import copy
-        # from unittest import TestCase, skip
-        # from typing import List
-        # import pandas as pd
-        # from pandas.testing import assert_frame_equal
-        #
-        # from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber
-        # from ExecUtil import ExecUtil
-        # from FileUtil import FileUtil
-        # from PandasUtil import PandasUtil
-        # from StringUtil import StringUtil
-        # from LogitUtil import logit
-        #
-        # logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
-        # logger = logging.getLogger(__name__)
-        #
-        # Strings = List[str]
-        #
-        # """
-        # Interesting Python features:
-        # * Nested Test classes mirror the structure of the class under test.
-        # ** They do a super init.
-        #
-        # """
-        #
-        # class TestExcelUtil(TestCase):
-        #     spreadsheet_name = "first.xlsx"
-        #
-        #     def __init__(self, *args, **kwargs):
-        #         super(TestExcelUtil, self).__init__(*args, **kwargs)
-        #         self._eu = ExcelUtil()
-        #         self._pu = PandasUtil()
-        #         self._fu = FileUtil()
-        #         self._su = StringUtil()
-        #         self.platform = ExecUtil.which_platform()
-        #         logger.debug(f'You seem to be running {self.platform}.')
-        #         self.path = r'c:\temp' if self.platform == 'Windows' else r'/tmp'
-        #         self.parent_spreadsheet_name = self._fu.qualified_path(self.path, self.spreadsheet_name)
-        #         self.worksheet_name = 'test'
-        #
-        #     @classmethod
-        #     def tearDownClass(cls) -> None:
-        #         fu = FileUtil()
-        #         path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
-        #         logger.warning(f'Did not delete {cls.spreadsheet_name}')
-        #         # fu.delete_file(fu.qualified_path(path, cls.spreadsheet_name))
-        #
-        #     # Return a tiny test dataframe
-        #     def my_test_df(self):
-        #         # Example dataframe from https://www.geeksforgeeks.org/python-pandas-dataframe-dtypes/
-        #         df = pd.DataFrame({'Weight': [45, 88, 56, 15, 71],
-        #                            'Name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
-        #                            'Sex' : ['male', 'female', 'male', 'female', 'male'],
-        #                            'Age': [14, 25, 55, 8, 21]})
-        #
-        #         # Create and set the index
-        #         index_ = [0, 1, 2, 3, 4]
-        #         df.index = index_
-        #         return df
-        #
-        #     def test_load_spreadsheet(self):
-        #         df_expected = self.my_test_df()
-        #         self._pu.write_df_to_excel(df=df_expected, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
-        #         df_actual = self._eu.load_spreadsheet(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name)
-        #         assert_frame_equal(df_expected, df_actual)
-        #
-        #     def test_convert_from_A1(self):
-        #         # Normal case
-        #         test1 = "a15"
-        #         exp1 = self._eu.row_col_to_ExcelCell(col=1, row=15)
-        #         self.assertEqual(exp1, self._eu.convert_from_A1_to_cell(test1), "fail test 1")
-        #         test2 = "AB93"
-        #         exp_col = 28
-        #         exp_row = 93
-        #         act_row, act_col = self._eu.convert_from_A1(test2)
-        #         self.assertEqual(exp_row, act_row, "fail test 2 (rows)")
-        #         self.assertEqual(exp_col, act_col, "fail test 2 (cols)")
-        #
-        #     def test_ExcelCell_to_A1(self):
-        #         # Normal case
-        #         tests = ['A2', 'C27', 'AA10', 'ZZ99']
-        #         for test in tests:
-        #             asExcel1 = self._eu.convert_from_A1_to_cell(test)
-        #             self.assertEqual(test, self._eu.ExcelCell_to_A1(asExcel1))
-        #
-        #     def test_get_excel_rectangle_start_to(self):
-        #         # Normal case: rows
-        #         test_start_1 = "a5"
-        #         end_row = 10
-        #         test_end_1 = f'a{end_row}'
-        #         exp1 = [self._eu.row_col_to_ExcelCell(row=row, col=1) for row in range(5, end_row + 1)]
-        #         act1 = self._eu.get_excel_rectangle_start_to(test_start_1, test_end_1)
-        #         self.assertEqual(exp1, act1, "fail test 1")
-        #         # Normal case: cols
-        #         start_col = "A"
-        #         end_col = "I"
-        #         start_col_as_int = ord(start_col) - ord("A") + 1
-        #         end_col_as_int = ord(end_col) - ord("A") + 1
-        #         start_row = 13
-        #         test_start_2 = f'{start_col}{start_row}'
-        #         test_end_2 = f'{end_col}{start_row}'
-        #         exp2 = [self._eu.row_col_to_ExcelCell(col=col, row=start_row) for col in range(start_col_as_int, end_col_as_int + 1)]
-        #         act2 = self._eu.get_excel_rectangle_start_to(test_start_2, test_end_2)
-        #         self.assertListEqual(exp2, act2, "fail case 2")
-        #
-        #     def test_get_values(self):
-        #         # Normal case. A2:A6
-        #         first = "A2"
-        #         last = "A6"
-        #         area1 = self._eu.get_excel_rectangle_start_to(first, last)
-        #         exp_df = self.my_test_df()
-        #         exp1 = list(exp_df['Weight'])
-        #         df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name)
-        #         act1 = self._eu.get_values(df=df, rectangle=area1)
-        #         self.assertListEqual(exp1, act1, "fail normal case 1")
-        #         # Normal case: a6:d6
-        #         area2 = self._eu.get_excel_rectangle_start_to("A6", "D6")
-        #         act2 = self._eu.get_values(df=df, rectangle=area2)
-        #         exp2 = [71, 'Kia', 'male', 21]
-        #         self.assertListEqual(exp2, act2, "fail normal case 2.")
-        #
-        #     def test_convert_range_to_cells(self):
-        #         # Normal case. A2:A6
-        #         first = "A2"
-        #         last = "A6"
-        #         test1 = first + ":" + last
-        #         act_first, act_last = self._eu.convert_range_to_cells(test1)
-        #         self.assertEqual(first, act_first, "fail case 1a")
-        #         self.assertEqual(last, act_last, "fail case 1b")
-        #         # Abnormal case. should not have only a single reference
-        #         test2 = last
-        #         act_first, act_last = self._eu.convert_range_to_cells(test2)
-        #         self.assertIsNone(act_first, "fail case 2a")
-        #         self.assertIsNone(act_last, "fail case 2b")
-        #
-        #     def test_ExcelCell_to_row_col(self):
-        #         col_as_int = 3
-        #         row_as_int = 9
-        #         test = ExcelCell(col=col_as_int, row=row_as_int)
-        #         act_row, act_col = self._eu.ExcelCell_to_row_col(test)
-        #         self.assertEqual(col_as_int, act_col)
-        #         self.assertEqual(row_as_int, act_row)
-        #
-        #     def test_get_excel_rectangle(self):
-        #         excel_range = 'A3:A5'
-        #         expected = [ExcelCell(1,3), ExcelCell(1,4), ExcelCell(1,5)]
-        #         actual = self._eu.get_excel_rectangle(excel_range)
-        #         self.assertListEqual(actual, expected)
-        #
-        # from ExcelUtil import ExcelCompareUtil
-        #
-        # class TestExcelCompareUtil(TestExcelUtil):
-        #     def __init__(self, *args, **kwargs):
-        #         super(TestExcelCompareUtil, self).__init__(*args, **kwargs)
-        #         self._ecu = ExcelCompareUtil()
-        #         pprint.pprint(sys.path)
-        #
-        #     def test_identical(self):
-        #         # Test 1, no scaling
-        #         df = self.my_test_df()
-        #         list1 = list(df.Weight)
-        #         list2 = copy(list1)
-        #         self.assertTrue(self._ecu.identical(list1, list2), "fail test 1")
-        #         # Test 2, scale by float
-        #         scale2 = 2.5
-        #         f_scaled = [el / scale2 for el in list1]
-        #         self.assertTrue(self._ecu.identical(list1, f_scaled, scale2))
-        #         # Test 3, scale by int
-        #         scale3 = 10
-        #         f_scaled = [el / scale3 for el in list1]
-        #         self.assertTrue(self._ecu.identical(list1, f_scaled, scale3))
-        #
-        #
-        # class TestExcelRewriteUtil(TestExcelUtil):
-        #     fmt_spreadsheet_name = "second.xlsx"
-        #
-        #     def __init__(self, *args, **kwargs):
-        #         super(TestExcelRewriteUtil, self).__init__(*args, **kwargs)
-        #         self._rwu = ExcelRewriteUtil()
-        #         self.formatting_spreadsheet_name = self._fu.qualified_path(self.path, self.fmt_spreadsheet_name)
-        #
-        #     @classmethod
-        #     def tearDownClass(cls) -> None:
-        #         fu = FileUtil()
-        #         path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
-        #         logger.warning(f'Did not delete {cls.spreadsheet_name}')
-        #         fu.delete_file(fu.qualified_path(path, cls.fmt_spreadsheet_name))
-        #
-        #     def format_test_df(self):
-        #         df = pd.DataFrame({'Year': [2018, 2019, 2020, 2021],
-        #                            'Era':  ['past', 'past', 'present', 'future'],
-        #                            'Income': ['4,606.18', '4707.19', '4,808.20', '4909.21'],
-        #                            'Margin' : ['18.18%', '19.19%', '20.20%', '21.21%'],
-        #                            })
-        #         return df
-        #
-        #     @skip("Only run from parent test")
-        #     def test_get_values(self):
-        #         pass
-        #
-        #     @logit()
-        #     def test_write_df_to_excel(self):
-        #         # Test 1, no formatting
-        #         df = self.format_test_df()
-        #         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
-        #         df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
-        #         # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
-        #         ok_mask = self._pu.mark_isnull(df_act, 'Year')
-        #         df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
-        #
-        #         ecu = ExcelCompareUtil()
-        #         self.assertTrue(ecu.identical(df['Income'], df_act['Income']))
-        #         self.assertTrue(ecu.identical(df['Year'], df_act['Year']))
-        #
-        #         # Test 2, formatting.
-        #         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=True)
-        #         df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
-        #         # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
-        #         ok_mask = self._pu.mark_isnull(df_act, 'Year')
-        #         df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
-        #         exp_inc = [self._su.as_float_or_int(x) for x in df['Income']]
-        #         self.assertListEqual(exp_inc, list(df_act['Income']))
-        #
-        #     def test_write_df_to_new_ws(self):
-        #         # Test 1, no formatting
-        #         df = self.format_test_df()
-        #         ws1_name = "test1"
-        #         ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
-        #         act1 = self._rwu.get_cells(ws, 'D1:D4') # These are the margins
-        #         exp1 = list(df['Margin'])
-        #         self.assertListEqual(exp1, act1)
-        #
-        #     def test_get_cell(self):
-        #         # Test 1
-        #         df = self.format_test_df()
-        #         ws1_name = "test1"
-        #         ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
-        #         act1 = self._rwu.get_cell(ws, 'A1')
-        #         exp1 = df.iloc[0][0]
-        #         self.assertEqual(exp1, act1)
-        #         act2 = self._rwu.get_cell(ws, 'C2')
-        #         exp2 = df.iloc[1][2]
-        #         self.assertEqual(exp2, act2)
-        #
-        #     def test_get_cells(self):
-        #         # Test 1
-        #         df = self.format_test_df()
-        #         ws1_name = "test1"
-        #         ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
-        #         act1 = self._rwu.get_cells(ws, 'C1:C4') # These are the Incomes
-        #         exp1 = list(df['Income'])
-        #         self.assertListEqual(exp1, act1)
-        #
-        #     def test_copy_spreadsheet_to_ws(self):
-        #         # Test 1, normal
+import pprint
+import sys
+from copy import copy
+from unittest import TestCase, skip
+from typing import List
+import pandas as pd
+from pandas.testing import assert_frame_equal
+
+from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber
+from ExecUtil import ExecUtil
+from FileUtil import FileUtil
+from PandasUtil import PandasUtil
+from StringUtil import StringUtil
+from LogitUtil import logit
+
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+Strings = List[str]
+
+"""
+Interesting Python features:
+* Nested Test classes mirror the structure of the class under test.
+** They do a super init.
+
+"""
+
+class TestExcelUtil(TestCase):
+    spreadsheet_name = "first.xlsx"
+
+    def __init__(self, *args, **kwargs):
+        super(TestExcelUtil, self).__init__(*args, **kwargs)
+        self._eu = ExcelUtil()
+        self._pu = PandasUtil()
+        self._fu = FileUtil()
+        self._su = StringUtil()
+        self.platform = ExecUtil.which_platform()
+        logger.debug(f'You seem to be running {self.platform}.')
+        self.path = r'c:\temp' if self.platform == 'Windows' else r'/tmp'
+        self.parent_spreadsheet_name = self._fu.qualified_path(self.path, self.spreadsheet_name)
+        self.worksheet_name = 'test'
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        fu = FileUtil()
+        path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
+        # logger.warning(f'Did not delete {cls.spreadsheet_name}')
+        fu.delete_file(fu.qualified_path(path, cls.spreadsheet_name))
+
+    # Return a tiny test dataframe
+    def my_test_df(self):
+        # Example dataframe from https://www.geeksforgeeks.org/python-pandas-dataframe-dtypes/
+        df = pd.DataFrame({'Weight': [45, 88, 56, 15, 71],
+                           'Name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+                           'Sex' : ['male', 'female', 'male', 'female', 'male'],
+                           'Age': [14, 25, 55, 8, 21]})
+
+        # Create and set the index
+        index_ = [0, 1, 2, 3, 4]
+        df.index = index_
+        return df
+
+    def test_load_spreadsheet(self):
+        df_expected = self.my_test_df()
+        self._pu.write_df_to_excel(df=df_expected, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+        df_actual = self._eu.load_spreadsheet(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name)
+        assert_frame_equal(df_expected, df_actual)
+
+    def test_convert_from_A1(self):
+        # Normal case
+        test1 = "a15"
+        exp1 = self._eu.row_col_to_ExcelCell(col=1, row=15)
+        self.assertEqual(exp1, self._eu.convert_from_A1_to_cell(test1), "fail test 1")
+        test2 = "AB93"
+        exp_col = 28
+        exp_row = 93
+        act_row, act_col = self._eu.convert_from_A1(test2)
+        self.assertEqual(exp_row, act_row, "fail test 2 (rows)")
+        self.assertEqual(exp_col, act_col, "fail test 2 (cols)")
+
+    def test_ExcelCell_to_A1(self):
+        # Normal case
+        tests = ['A2', 'C27', 'AA10', 'ZZ99']
+        for test in tests:
+            asExcel1 = self._eu.convert_from_A1_to_cell(test)
+            self.assertEqual(test, self._eu.ExcelCell_to_A1(asExcel1))
+
+    def test_get_excel_rectangle_start_to(self):
+        # Normal case: rows
+        test_start_1 = "a5"
+        end_row = 10
+        test_end_1 = f'a{end_row}'
+        exp1 = [self._eu.row_col_to_ExcelCell(row=row, col=1) for row in range(5, end_row + 1)]
+        act1 = self._eu.get_excel_rectangle_start_to(test_start_1, test_end_1)
+        self.assertEqual(exp1, act1, "fail test 1")
+        # Normal case: cols
+        start_col = "A"
+        end_col = "I"
+        start_col_as_int = ord(start_col) - ord("A") + 1
+        end_col_as_int = ord(end_col) - ord("A") + 1
+        start_row = 13
+        test_start_2 = f'{start_col}{start_row}'
+        test_end_2 = f'{end_col}{start_row}'
+        exp2 = [self._eu.row_col_to_ExcelCell(col=col, row=start_row) for col in range(start_col_as_int, end_col_as_int + 1)]
+        act2 = self._eu.get_excel_rectangle_start_to(test_start_2, test_end_2)
+        self.assertListEqual(exp2, act2, "fail case 2")
+
+    def test_get_values(self):
+        # Normal case. A2:A6
+        first = "A2"
+        last = "A6"
+        area1 = self._eu.get_excel_rectangle_start_to(first, last)
+        exp_df = self.my_test_df()
+        exp1 = list(exp_df['Weight'])
+        df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name)
+        act1 = self._eu.get_values(df=df, rectangle=area1)
+        self.assertListEqual(exp1, act1, "fail normal case 1")
+        # Normal case: a6:d6
+        area2 = self._eu.get_excel_rectangle_start_to("A6", "D6")
+        act2 = self._eu.get_values(df=df, rectangle=area2)
+        exp2 = [71, 'Kia', 'male', 21]
+        self.assertListEqual(exp2, act2, "fail normal case 2.")
+
+    def test_convert_range_to_cells(self):
+        # Normal case. A2:A6
+        first = "A2"
+        last = "A6"
+        test1 = first + ":" + last
+        act_first, act_last = self._eu.convert_range_to_cells(test1)
+        self.assertEqual(first, act_first, "fail case 1a")
+        self.assertEqual(last, act_last, "fail case 1b")
+        # Abnormal case. should not have only a single reference
+        test2 = last
+        act_first, act_last = self._eu.convert_range_to_cells(test2)
+        self.assertIsNone(act_first, "fail case 2a")
+        self.assertIsNone(act_last, "fail case 2b")
+
+    def test_ExcelCell_to_row_col(self):
+        col_as_int = 3
+        row_as_int = 9
+        test = ExcelCell(col=col_as_int, row=row_as_int)
+        act_row, act_col = self._eu.ExcelCell_to_row_col(test)
+        self.assertEqual(col_as_int, act_col)
+        self.assertEqual(row_as_int, act_row)
+
+    def test_get_excel_rectangle(self):
+        excel_range = 'A3:A5'
+        expected = [ExcelCell(1,3), ExcelCell(1,4), ExcelCell(1,5)]
+        actual = self._eu.get_excel_rectangle(excel_range)
+        self.assertListEqual(actual, expected)
+
+from ExcelUtil import ExcelCompareUtil
+
+class TestExcelCompareUtil(TestExcelUtil):
+    def __init__(self, *args, **kwargs):
+        super(TestExcelCompareUtil, self).__init__(*args, **kwargs)
+        self._ecu = ExcelCompareUtil()
+        pprint.pprint(sys.path)
+
+    def test_identical(self):
+        # Test 1, no scaling
+        df = self.my_test_df()
+        list1 = list(df.Weight)
+        list2 = copy(list1)
+        self.assertTrue(self._ecu.identical(list1, list2), "fail test 1")
+        # Test 2, scale by float
+        scale2 = 2.5
+        f_scaled = [el / scale2 for el in list1]
+        self.assertTrue(self._ecu.identical(list1, f_scaled, scale2))
+        # Test 3, scale by int
+        scale3 = 10
+        f_scaled = [el / scale3 for el in list1]
+        self.assertTrue(self._ecu.identical(list1, f_scaled, scale3))
+        
+    @skip("Only run from parent test")
+    def test_get_values(self):
+        pass
+
+class TestExcelRewriteUtil(TestExcelUtil):
+    fmt_spreadsheet_name = "second.xlsx"
+
+    def __init__(self, *args, **kwargs):
+        super(TestExcelRewriteUtil, self).__init__(*args, **kwargs)
+        self._rwu = ExcelRewriteUtil()
+        self.formatting_spreadsheet_name = self._fu.qualified_path(self.path, self.fmt_spreadsheet_name)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        fu = FileUtil()
+        path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
+        logger.warning(f'Did not delete {cls.spreadsheet_name}')
+        fu.delete_file(fu.qualified_path(path, cls.fmt_spreadsheet_name))
+
+    def format_test_df(self):
+        df = pd.DataFrame({'Year': [2018, 2019, 2020, 2021],
+                           'Era':  ['past', 'past', 'present', 'future'],
+                           'Income': ['4,606.18', '4707.19', '4,808.20', '4909.21'],
+                           'Margin' : ['18.18%', '19.19%', '20.20%', '21.21%'],
+                           })
+        return df
+
+    @skip("Only run from parent test")
+    def test_get_values(self):
+        pass
+
+    @logit()
+    def test_write_df_to_excel(self):
+        # Test 1, no formatting
+        df = self.format_test_df()
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
+        df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+        # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
+        ok_mask = self._pu.mark_isnull(df_act, 'Year')
+        df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
+
+        ecu = ExcelCompareUtil()
+        self.assertTrue(ecu.identical(df['Income'], df_act['Income']))
+        self.assertTrue(ecu.identical(df['Year'], df_act['Year']))
+
+        # Test 2, formatting.
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=True)
+        df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+        # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
+        ok_mask = self._pu.mark_isnull(df_act, 'Year')
+        df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
+        exp_inc = [self._su.as_float_or_int(x) for x in df['Income']]
+        self.assertListEqual(exp_inc, list(df_act['Income']))
+
+    def test_write_df_to_new_ws(self):
+        # Test 1, no formatting
+        df = self.format_test_df()
+        ws1_name = "test1"
+        ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        act1 = self._rwu.get_cells(ws, 'D1:D4') # These are the margins
+        exp1 = list(df['Margin'])
+        self.assertListEqual(exp1, act1)
+
+    def test_get_cell(self):
+        # Test 1
+        df = self.format_test_df()
+        ws1_name = "test1"
+        ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        act1 = self._rwu.get_cell(ws, 'A1')
+        exp1 = df.iloc[0][0]
+        self.assertEqual(exp1, act1)
+        act2 = self._rwu.get_cell(ws, 'C2')
+        exp2 = df.iloc[1][2]
+        self.assertEqual(exp2, act2)
+
+    def test_get_cells(self):
+        # Test 1
+        df = self.format_test_df()
+        ws1_name = "test1"
+        ws = self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        act1 = self._rwu.get_cells(ws, 'C1:C4') # These are the Incomes
+        exp1 = list(df['Income'])
+        self.assertListEqual(exp1, act1)
+
+    def test_copy_spreadsheet_to_ws(self):
+        # Test 1, normal
         df_expected = self.my_test_df()
         self._pu.write_df_to_excel(df=df_expected, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
 
@@ -337,6 +340,9 @@ class TestPdfToExcelTabula(TestExcelUtil):
         df_list = self._pdf.read_tiled_pdf_tables(pdf_path, rows=2, cols=2, pages='all', tile_by_rows=True, read_many_tables_per_page=False)
         # self.fail('progress') #TODO
 
+    @skip("Only run from parent test")
+    def test_get_values(self):
+        pass
 
 """
 This class tests pdfplumber
