@@ -49,6 +49,7 @@ Floats = List[float]
 Dataframes = List[pd.DataFrame]
 
 _EPSILON = 1.0e-8
+_SIG_CHARS = 12
 ExcelCell = namedtuple('ExcelCell', 'col row')
 
 class ExcelUtil(Util):
@@ -207,12 +208,25 @@ class ExcelCompareUtil(ExcelUtil):
                 self.logger.warning(f'mismatch: {el1} not equal to {el2} * scale {scaling}; difference of {abs(el1 - el2 * scaling)}')
         return ans
 
-    def identical_strings(self, list1: Strings, list2: Strings) -> bool:
+    def identical_strings(self, list1: Strings, list2: Strings, significant_characters: int = None) -> bool:
+        """
+
+        :param list1:
+        :param list2:
+        :param significant_characters:
+        :return:
+        """
         ans = True
         for el1, el2 in zip(list1, list2):
-            if el1 != el2:
-                ans = False
-                self.logger.warning(f'mismatch: {el1} not equal to {el2}.')
+            if significant_characters:
+                if el1 != el2:
+                    ans = False
+                    self.logger.warning(f'mismatch: {el1} not equal to {el2} within the first {significant_characters} characters.')
+            else:
+                if el1 != el2:
+                    ans = False
+                    self.logger.warning(f'mismatch: {el1} not equal to {el2}.')
+
         return ans
 
     def identical(self, list1: Strings, list2: Strings, scaling: Union[float, int] = 1) -> bool:
@@ -223,7 +237,7 @@ class ExcelCompareUtil(ExcelUtil):
         list1_el = list1[0]
         list2_el = list2[0]
         if isinstance(list1_el, str):
-            return self.identical_strings(list1, list2)
+            return self.identical_strings(list1, list2, significant_characters=None)
         elif isinstance(list2_el, (int, np.int64)):
             if isinstance(list1_el, str):
                 self.logger.warning(f'first element of list1 is {list1_el}, but first element of list2 is {list2_el}. They cannot be compared. Returning False. ')
@@ -245,9 +259,9 @@ class ExcelCompareUtil(ExcelUtil):
         :param file2:
         :return:
         """
-        vals1 = self.get_spreadsheet_values(excelDict=file1)
+        vals1 = self.get_spreadsheet_values(excel_file_dict=file1)
         self.logger.debug(f'1: \n{vals1}')
-        vals2 = self.get_spreadsheet_values(excelDict=file2)
+        vals2 = self.get_spreadsheet_values(excel_file_dict=file2)
 
         scaling = self.get_scaling(file2)
 
@@ -384,7 +398,7 @@ class ExcelRewriteUtil(ExcelUtil):
         :return:
         """
         self.init_workbook_to_write()
-        return self.write_df_to_ws(attempt_formatting, df, excelWorksheet, write_header, write_index)
+        return self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
 
     def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False) -> bool:
         """
@@ -447,19 +461,32 @@ class ExcelRewriteUtil(ExcelUtil):
         self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws')
         return None
 
-    def init_template(self, templateExcelFileName: str, templateExcelWorksheet: str,
-                      outputExcelFileName: str, outputExcelWorksheet: str = None) -> bool:
-        if not self._fu.file_exists(qualifiedPath=templateExcelFileName):
-            self.logger.warning(f'Could not find file {templateExcelFileName}!')
+    def init_template(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
+                      output_excel_worksheet: str = None, do_save: bool = True) -> bool:
+        """
+        Read from the given template_excel_file_name and template_excel_worksheet.
+        Create a new copy of the worksheet within the same file. Save the file if do_save is requested.
+        :param template_excel_file_name:
+        :param template_excel_worksheet:
+        :param output_excel_file_name:
+        :param output_excel_worksheet:
+        :param do_save: if True, save the existing template_excel_file_name with the new sheet.
+        :return:
+        """
+        if not self._fu.file_exists(qualifiedPath=template_excel_file_name):
+            self.logger.warning(f'Could not find file {template_excel_file_name}!')
             return False
-        if not outputExcelWorksheet:
-            outputExcelWorksheet = templateExcelWorksheet + '_copy'
+        if not output_excel_worksheet:
+            output_excel_worksheet = template_excel_worksheet + '_copy'
 
-        self.init_workbook_to_read(filename=templateExcelFileName)
-        template_ws = self._wb[templateExcelWorksheet]
-        output_ws = self._wb.create_sheet(outputExcelWorksheet)
+        self.init_workbook_to_read(filename=template_excel_file_name)
+        template_ws = self._wb[template_excel_worksheet]
+        output_ws = self._wb.create_sheet(output_excel_worksheet)
         wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws
         wc.copy_worksheet() # copy the requested worksheet
+        if do_save:
+            self.save_workbook(output_excel_file_name)
+        return True
 
 
 class PdfToExcelUtil(ExcelUtil):
