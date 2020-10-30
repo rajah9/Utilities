@@ -287,6 +287,41 @@ class TestExcelRewriteUtil(TestExcelUtil):
         self._pu.coerece_to_int(df, 'Year')        # was int32; make it int64
         assert_frame_equal(df, actual_df)
 
+    def test_rewrite_worksheet(self):
+        df = self.format_test_df()
+        # Following writes to second.xlsx
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
+
+        # Test 1, one range
+        # Make a copy of the file (from second to first.xlsx)
+        self._fu.copy_file(source_file=self.formatting_spreadsheet_name, destination=self.parent_spreadsheet_name)
+        col_d = ['4018', '4019', '4020', '4021']
+        values = copy(col_d)
+        ranges = ['d3:d6']
+        self._rwu.rewrite_worksheet(excel_filename=self.parent_spreadsheet_name, excel_worksheet=self.worksheet_name, ranges=ranges, vals=values)
+        self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
+        df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0,index_col=0)
+        self._pu.drop_row_if_nan(df)
+        exp = [float(x) for x in values]
+        self.assertListEqual(exp, list(df['Income']), "Failing test 1")
+
+        # Test 2, multiple ranges
+        # Make a copy of the file
+        self._fu.copy_file(source_file=self.formatting_spreadsheet_name, destination=self.parent_spreadsheet_name)
+        values = copy(col_d)
+        col_e = ['1.18', '1.19', '1.20', '1.21']
+        values.extend(col_e)
+        ranges = ['d3:d6', 'e3:e6']
+        self._rwu.rewrite_worksheet(excel_filename=self.parent_spreadsheet_name, excel_worksheet=self.worksheet_name, ranges=ranges, vals=values)
+        self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
+        df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0,index_col=0)
+        self._pu.drop_row_if_nan(df)
+        exp_d = [float(x) for x in col_d]
+        self.assertListEqual(exp_d, list(df['Income']), "Failing test 2 (column d)")
+        exp_e = [float(x) for x in col_e]
+        self.assertListEqual(exp_e, list(df['Margin']), "Failing test 2 (column e)")
+
+
 """
 This class tests tabula-py.
 """

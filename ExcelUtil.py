@@ -338,11 +338,18 @@ class ExcelRewriteUtil(ExcelUtil):
         self.logger.debug(f'1: \n{vals1}')
         scaling = self.get_scaling(file2)
         scaled_vals = [v * scaling for v in vals1]
+        # We have either a single range or many ranges to copy to.
+        try:
+            rectangles = file2['ranges']
+        except KeyError:
+            range_rectangle = file2['range']
+            rectangles = [range_rectangle]
+        self.rewrite_worksheet(excel_filename=file2['filename'], excel_worksheet=file2['worksheet'], ranges=rectangles)
         self.rewrite_worksheet(file2, scaled_vals)
         return True
 
     @logit()
-    def rewrite_worksheet(self, file: dict, vals: list):
+    def rewrite_worksheet(self, excel_filename: str, excel_worksheet: str, ranges: list, vals: list):
         """
         Read in the given filename and worksheet (from the file dictionary).
         Write the values to the given range, preserving formatting.
@@ -351,19 +358,17 @@ class ExcelRewriteUtil(ExcelUtil):
         :param vals: list of values to be written. len(vals) should be the same as the range.
         :return:
         """
-        wb = self.init_workbook_to_read(filename=file['filename'])
-        ws = wb[file['worksheet']]
-        # We have either a single range or many ranges to copy to.
-        try:
-            rectangles = file['ranges']
-        except KeyError:
-            range_rectangle = file['range']
-            rectangles = [range_rectangle]
-        for rectangle in rectangles:
-            local_vals = copy(vals)
-            excel_rect = self.get_excel_rectangle(rectangle) # Will return a list of ExcelCells
-            if len(excel_rect) != len(vals):
-                self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (-{len(excel_rect)}) defined by cell range {rectangle}')
+        wb = self.init_workbook_to_read(excel_filename)
+        ws = wb[excel_worksheet]
+        # Ensure that the sum of the area of the ranges equals the number of variables
+        local_vals = copy(vals)
+        area = 0
+        for rectangle in ranges:
+            area += len(self.get_excel_rectangle(rectangle))  # Will return a list of ExcelCells
+        if area != len(vals):
+            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell range {rectangle}')
+        for rectangle in ranges:
+            excel_rect = self.get_excel_rectangle(rectangle)
             start_cell, end_cell = excel_rect[0], excel_rect[-1]
             self.logger.debug(f'starting cell: {start_cell} / ending cell: {end_cell}')
 
@@ -371,7 +376,7 @@ class ExcelRewriteUtil(ExcelUtil):
                 for col in range (start_cell.col, end_cell.col + 1):
                     val = local_vals.pop(0)
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
-                return
+        return
 
     def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False) -> bool:
         """
@@ -400,7 +405,7 @@ class ExcelRewriteUtil(ExcelUtil):
         self.init_workbook_to_write()
         return self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
 
-    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False) -> bool:
+    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False) -> Worksheet:
         """
         Refactor of write_df_to_new_ws, which does not init the workbook.
         Write the given dataframe to an excel worksheet. Attempt to format strings ending in % and strings as numbers as percents and numbers, if requested.
