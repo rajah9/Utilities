@@ -14,6 +14,34 @@ from ExcelUtil import ExcelCompareUtil
 eu = ExcelCompareUtil()
 """
 
+import functools
+from collections import namedtuple
+from copy import copy
+from math import fabs
+from subprocess import CalledProcessError
+from typing import List, Union, Tuple
+
+import numpy as np
+import pandas as pd
+import pdfplumber
+from tabula import read_pdf, convert_into, errors
+
+from CollectionUtil import CollectionUtil
+from FileUtil import FileUtil
+from LogitUtil import logit
+from PandasUtil import PandasUtil
+from StringUtil import StringUtil, LineAccmulator
+from Util import Util
+
+Strings = List[str]
+Ints = List[int]
+Floats = List[float]
+Dataframes = List[pd.DataFrame]
+
+_EPSILON = 1.0e-8
+_SIG_CHARS = 12
+ExcelCell = namedtuple('ExcelCell', 'col row')
+
 """
 Interesting Python features:
 * Uses a namedtuple for ExcelCell.
@@ -25,32 +53,6 @@ Interesting Python features:
 * In stats, provided an independent way to find slope, intercept, and r.
 * In the init, set the display options to show head() better.
 """
-
-import pandas as pd
-import numpy as np
-from collections import namedtuple
-from Util import Util
-from PandasUtil import PandasUtil
-from StringUtil import StringUtil, LineAccmulator
-from LogitUtil import logit
-from FileUtil import FileUtil
-from CollectionUtil import CollectionUtil
-from math import fabs
-import functools
-from copy import copy
-from typing import List, Union, Tuple
-from tabula import read_pdf, convert_into, errors
-import pdfplumber
-from subprocess import CalledProcessError
-
-Strings = List[str]
-Ints = List[int]
-Floats = List[float]
-Dataframes = List[pd.DataFrame]
-
-_EPSILON = 1.0e-8
-_SIG_CHARS = 12
-ExcelCell = namedtuple('ExcelCell', 'col row')
 
 class ExcelUtil(Util):
     def __init__(self):
@@ -254,7 +256,7 @@ class ExcelCompareUtil(ExcelUtil):
 
     def verify(self, file1: dict, file2: dict) -> bool:
         """
-        Verify that the values in rectangles of file1 and file2 are identical.
+        Verify that the values in rectangles of input_file_dict and output_file_dict are identical.
         :param file1: dict with keys 'filename', 'worksheet', and 'range'
         :param file2:
         :return:
@@ -333,19 +335,27 @@ class ExcelRewriteUtil(ExcelUtil):
             ans.append(self.get_cell(ws, cell_loc))
         return ans
 
-    def load_and_write(self, file1: dict, file2: dict) -> bool:
-        vals1 = self.get_spreadsheet_values(excelDict=file1)
+    def load_and_write(self, input_file_dict: dict, output_file_dict: dict, do_save: bool = True) -> bool:
+        """
+        Load the Excel file and worksheet in input_file_dict and write it (with scaling) to output_file_dict
+        :param input_file_dict: dict with keys 'filename', 'worksheet' and 'range' or 'ranges'
+        :param output_file_dict: dict with keys 'filename', 'worksheet' and 'range' or 'ranges'
+        :return:
+        """
+        vals1 = self.get_spreadsheet_values(excel_file_dict=input_file_dict)
         self.logger.debug(f'1: \n{vals1}')
-        scaling = self.get_scaling(file2)
+        scaling = self.get_scaling(output_file_dict)
         scaled_vals = [v * scaling for v in vals1]
         # We have either a single range or many ranges to copy to.
         try:
-            rectangles = file2['ranges']
+            rectangles = output_file_dict['ranges']
         except KeyError:
-            range_rectangle = file2['range']
+            range_rectangle = output_file_dict['range']
             rectangles = [range_rectangle]
-        self.rewrite_worksheet(excel_filename=file2['filename'], excel_worksheet=file2['worksheet'], ranges=rectangles)
-        self.rewrite_worksheet(file2, scaled_vals)
+        self.rewrite_worksheet(excel_filename=output_file_dict['filename'], excel_worksheet=output_file_dict['worksheet'],
+                               ranges=rectangles, vals=scaled_vals)
+        if do_save:
+            self.save_workbook(output_file_dict['filename'])
         return True
 
     @logit()

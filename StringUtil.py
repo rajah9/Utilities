@@ -351,6 +351,7 @@ class StringUtil:
         Helpful pattern examples:
           [\d,\.]+                  a number like 2,345.67
           r"[\d,\.]+\s+[\d,\.]"     Embedded space between two numbers
+          ^[a-zA-Z]                 Starts with an alphabetic
         :param my_string: Look inside me.
         :param pattern: Pattern to look for, such as r"crime(s)?"
         :return: True iff the pattern was found.

@@ -2,17 +2,18 @@ import logging
 import pprint
 import sys
 from copy import copy
-from unittest import TestCase, skip
 from typing import List
+from unittest import TestCase, skip
+
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
 from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
+from LogitUtil import logit
 from PandasUtil import PandasUtil
 from StringUtil import StringUtil
-from LogitUtil import logit
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ class TestExcelUtil(TestCase):
         self.assertListEqual(exp2, act2, "fail case 2")
 
     def test_get_values(self):
+        # TODO: write first.xlsx.
         # Normal case. A2:A6
         first = "A2"
         last = "A6"
@@ -114,6 +116,7 @@ class TestExcelUtil(TestCase):
         exp_df = self.my_test_df()
         exp1 = list(exp_df['Weight'])
         df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name)
+        self._pu.drop_row_if_nan(df)
         act1 = self._eu.get_values(df=df, rectangle=area1)
         self.assertListEqual(exp1, act1, "fail normal case 1")
         # Normal case: a6:d6
@@ -320,6 +323,44 @@ class TestExcelRewriteUtil(TestExcelUtil):
         self.assertListEqual(exp_d, list(df['Income']), "Failing test 2 (column d)")
         exp_e = [float(x) for x in col_e]
         self.assertListEqual(exp_e, list(df['Margin']), "Failing test 2 (column e)")
+
+    def test_load_and_write(self):
+        df = self.format_test_df()
+        # Following writes to second.xlsx
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
+
+        # Test 1, no scaling
+        in_file_dict = {
+            'filename': self.formatting_spreadsheet_name,
+            'worksheet': self.worksheet_name,
+            'range': 'B3:B6'
+        }
+
+        out_file_dict = {
+            'filename': self.parent_spreadsheet_name,
+            'worksheet': self.worksheet_name,
+            'range': 'A1:A4'
+        }
+
+        self._rwu.load_and_write(in_file_dict, out_file_dict)
+        # the following reads in years 2018..2021 as the index.
+        df2 = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=None, index_col=0)
+        # df2.index.tolist() should be [2018, 2019, 2020, 2021, 2, 3]. The end (2 and 3) was left over from before.
+
+        for act, exp in zip(df2.index.tolist(), df['Year']):
+            self.assertEqual(act, exp)
+
+        # Test 2, scaling
+        out_file_dict['scaling'] = 100
+
+        self._rwu.load_and_write(in_file_dict, out_file_dict)
+        # the following reads in years 201800..202100 as the index.
+        df3 = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=None, index_col=0)
+        # df3.index.tolist() should be [201800, 201900, 202000, 202100, 2, 3]. The end (2 and 3) was left over from before.
+        scaled = [x * 100 for x in df['Year']]
+
+        for act, exp in zip(df3.index.tolist(), scaled):
+            self.assertEqual(act, exp)
 
 
 """
