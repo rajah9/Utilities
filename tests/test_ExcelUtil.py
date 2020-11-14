@@ -108,7 +108,8 @@ class TestExcelUtil(TestCase):
         self.assertListEqual(exp2, act2, "fail case 2")
 
     def test_get_values(self):
-        # TODO: write first.xlsx.
+        df_first = self.my_test_df()
+        self._pu.write_df_to_excel(df=df_first, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
         # Normal case. A2:A6
         first = "A2"
         last = "A6"
@@ -484,7 +485,7 @@ class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
         logging.disable(logging.INFO)
 
         pdf_path = r"./2019-annual-report.pdf"
-        df = self._pdf.read_tiled_pdf_tables(pdf_path, pages=[1,2,3,4,5,6], tables_to_tile=[2,3,4,5], rows=2, cols=2)
+        df = self._pdf.read_tiled_pdf_tables(pdf_path, pages=[1,2,3,4,5,6], tables_to_tile=[3,4,5,6], rows=2, cols=2)
         print (df)
         # Turn logging back on
         logging.disable(logging.DEBUG)

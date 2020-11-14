@@ -523,7 +523,8 @@ class PdfToExcelUtil(ExcelUtil):
         :param pdf_filename:
         :param rows: How many rows across
         :param cols: How many columns down
-        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3]. 1-offset.
+        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3]. ONE-offset.
+        :param tables_to_tile: ONE-offset tables to be read in.
         :param tile_by_rows: True if sequential pages comprise rows, False if they comprise columns.
         :param read_many_tables_per_page: False to read one table per page.
         :param make_NaN_blank: True to make NaN values blank.
@@ -541,7 +542,8 @@ class PdfToExcelUtil(ExcelUtil):
                 return None
             else:
                 self.logger.warning(f'Will use the first {expected_table_count} tables.')
-        for i in tables_to_tile:
+        zero_offset_tables_to_tile = [t - 1 for t in tables_to_tile]
+        for i in zero_offset_tables_to_tile:
             if len(dfs[i]):
                 self.logger.debug(f'Table {i} has {len(dfs[i])} records.')
             else:
@@ -551,7 +553,7 @@ class PdfToExcelUtil(ExcelUtil):
         if not are_tables_ok:
             self.logger.warning(f'Requested tables {tables_to_tile} but one or more were empty.')
 
-        table_layout = self._cu.layout(rows, cols, row_dominant=tile_by_rows, tiling_order=tables_to_tile)
+        table_layout = self._cu.layout(rows, cols, row_dominant=tile_by_rows, tiling_order=zero_offset_tables_to_tile)
 
         # Assemble columns by rows
         row_dfs = []
