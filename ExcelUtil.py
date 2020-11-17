@@ -187,10 +187,32 @@ eu = ExcelCompareUtil()
 
 """
 class ExcelCompareUtil(ExcelUtil):
-    def close_numbers(self, list1: Floats, list2: Floats, scaling: float = 1.0) -> bool:
+    def __init__(self, epsilon: float = None):
+        super().__init__()
+        if epsilon:
+            epsilon_str = f'passed-in value of {epsilon}'
+            self._epsilon = epsilon
+        else:
+            epsilon_str = f'default of {_EPSILON}'
+            self._epsilon = _EPSILON
+
+        self.logger.info('starting ExcelCompareUtil with ' + epsilon_str)
+
+
+    def close_numbers(self, list1: Floats, list2: Floats, scaling: float = 1.0, epsilon: float = None) -> bool:
+        """
+        test list1 against list2. return True if all the numbers are within epsilon.
+        If not set, use the default epsilon for the class.
+        :param list1:
+        :param list2:
+        :param scaling:
+        :param epsilon:
+        :return:
+        """
+        eps = epsilon or self._epsilon
         ans = True
         for el1, el2 in zip(list1, list2):
-            if fabs(el1 - scaling * el2) > _EPSILON:
+            if fabs(el1 - scaling * el2) > eps:
                 ans = False
                 self.logger.warning(f'mismatch: {el1} not equal to {el2} * scale {scaling}; difference of {fabs(el1 - el2 * scaling)}')
         return ans

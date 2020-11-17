@@ -162,6 +162,31 @@ class TestExcelCompareUtil(TestExcelUtil):
         self._ecu = ExcelCompareUtil()
         pprint.pprint(sys.path)
 
+    def test_epsilon(self):
+        # Test 1, default epsilon.
+        list1 = [1.0, 16.0, 256.0]
+        excel_util_epsilon_default = 1.0e-8 # default epsilon is 1.0e-8
+        small_eps = excel_util_epsilon_default / 2.0
+        list2 = [x + small_eps for x in list1]
+        self.assertTrue(self._ecu.identical(list1, list2), "fail test 1a (within epsilon)")
+        list2[1] = list1[1] + excel_util_epsilon_default + small_eps / 2.0 # Should make it 16.0000000125
+        self.assertFalse(self._ecu.identical(list1, list2), "fail test 1b (one number outside epsilon)")
+        # Test 2, different epsilon
+        test_ecu = ExcelCompareUtil(epsilon=1.0e-7)
+        self.assertTrue(test_ecu.identical(list1, list2), "fail test 2 (all numbers within epsilon)")
+
+    def test_close_numbers(self):
+        # Test 1, default epsilon.
+        list1 = [1.0, 16.0, 256.0]
+        excel_util_epsilon_default = 1.0e-8 # default epsilon is 1.0e-8
+        small_eps = excel_util_epsilon_default / 2.0
+        list2 = [x + small_eps for x in list1]
+        self.assertTrue(self._ecu.close_numbers(list1, list2), "fail test 1a (within epsilon)")
+        list2[1] = list1[1] + excel_util_epsilon_default + small_eps / 2.0 # Should make it 16.0000000125
+        self.assertFalse(self._ecu.close_numbers(list1, list2), "fail test 1b (one number outside epsilon)")
+        # Test 2, different epsilon
+        self.assertTrue(self._ecu.close_numbers(list1, list2, epsilon=1.0e-7), "fail test 2 (all numbers within epsilon)")
+
     def test_identical(self):
         # Test 1, no scaling
         df = self.my_test_df()
