@@ -79,16 +79,54 @@ logger = logging.getLogger(__name__)
 class PlotUtil:
     def __init__(self, myplt: plt=plt):
         self.plt = myplt
+        self.fig = None
+        self._ax_array = None
+        self._subplot_rows = 0
+        self._subplot_cols = 0
 
-    # Getters and setters for plt
+    # # Getters and setters for plt
+    # @property
+    # def plt(self):
+    #     return self._p
+    #
+    # # Setter for plt
+    # @plt.setter
+    # def plt(self, p: plt) -> plt:
+    #     self._p = p
+
     @property
-    def plt(self):
-        return self._p
+    def subplot(self):
+        return self._ax_array
 
-    # Setter for plt
-    @plt.setter
-    def plt(self, p: plt) -> plt:
-        self._p = p
+    def init_subplots(self, num_rows:int = 1, num_cols:int = 1):
+        """
+        Initialize the subplots, providing num_rows (or num_rows x num_cols) subplots.
+        :param num_rows: how many rows
+        :param num_cols: how many cols; if None, create a one-dim array
+        :return:
+        """
+        self.fig, self._ax_array = self.plt.subplots(nrows=num_rows, ncols=num_cols)
+        self._subplot_rows = num_rows
+        self._subplot_cols = num_cols
+        return
+
+    def figure_plot3(self, sub_plt, which_row:int = 1, which_col:int = 1):
+        """
+        Place the given subplot correctly
+        :param sub_plt:
+        :param which_row:
+        :param which_col:
+        :return:
+        """
+        if (which_col < 0) or (which_col >= self._subplot_cols):
+            logger.warning(f'Column of {which_col} out of range; must be between 0 and {self._subplot_cols}')
+            return
+
+        if (which_row < 0) or (which_row >= self._subplot_rows):
+            logger.warning(f'Row of {which_row} out of range; must be between 0 and {self._subplot_rows}')
+            return
+
+        self._ax_array[which_row, which_col] = sub_plt
 
     def scatter_plot(self, df: pd.DataFrame, xlabel_col_name: str, ylabel_col_name: str, zlabel_col_name:str=None, color: str = 'r'):
         """
@@ -223,7 +261,6 @@ class PlotUtil:
 
         plt.show()
 
-
     def figure_plots(self, plots: list, rows: int = 1, cols: int = 1, dims: np.array = None):
         """
         Put the given plots list into a single figure. Goes left to right, top to bottom.
@@ -346,4 +383,20 @@ class PlotUtil:
             sns.kdeplot(df1[column_header], bw=0.4, label=df1_name, shade=True, color="r", linestyle="--")
             sns.kdeplot(df2[column_header], bw=0.4, label=df2_name, shade=True, color="y", linestyle=":")
             plt.title(column_header, fontsize=12)
-        plt.show();
+        plt.show()
+
+    def text_plot(self, text: str, x_pos:float = 0.5, y_pos:float = 0.5, fontsize: int = 14, horiz_align: str = 'center',
+                  return_function_do_not_plot: bool = True):
+        """
+        Plot the given string
+        :param text:
+        :param x_pos:
+        :param y_pos:
+        :param fontsize:
+        :param horiz_align:
+        :return:
+        """
+        if return_function_do_not_plot:
+            return self.plt.text(x=x_pos, y=y_pos, s=text, fontsize=fontsize, ha=horiz_align)
+        self.plt.text(x=x_pos, y=y_pos, s=text, fontsize=fontsize, ha=horiz_align)
+        self.plt.show()
