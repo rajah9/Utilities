@@ -1,6 +1,6 @@
 from collections import defaultdict, namedtuple
 from typing import Union, List, Tuple
-from itertools import compress
+from itertools import compress, repeat
 import numpy as np
 from Util import Util
 from copy import copy
@@ -124,7 +124,6 @@ class CollectionUtil(Util):
         """
         return [replace_me if el == find_me else el for el in before_list]
 
-
     @staticmethod
     def named_tuple(clz: str, fields: Union[str, Strings]) :
         """
@@ -161,6 +160,30 @@ class CollectionUtil(Util):
         """
         ans = list(filter(lambda a: a != remove_me, orig_list))
         return ans
+
+    @staticmethod
+    def list_of_x_n_times(x: Union[str, int, float], n: int) -> list:
+        """
+        Return a list of x, repeated n times.
+        :param x: scalar, like 3.14
+        :param n: times to repeat, like 2
+        :return: list like [3.14, 3.14]
+        """
+        ans = list(repeat(x, n))
+        return ans
+
+    @staticmethod
+    def slice_list(my_list: list, start_index: int = 0, end_index: int = None, step: int = 1):
+        """
+        Return a sliced list, given the start_index, end_index, and step.
+        :param my_list: original list to be sliced
+        :param start_index: 0-based first index to use. Defaults to 0 (the first el)
+        :param end_index: end of list index. Defaults to None (which means the end of the list).
+        :param step: how many to skip. 2 means skip every other. Default of 1 means don't skip.
+        :return: sliced array
+        """
+        end_idx = end_index or len(my_list)
+        return my_list[start_index:end_idx:step]
 
 class NumpyUtil(Util):
     def __init__(self):

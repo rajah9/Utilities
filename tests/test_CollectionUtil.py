@@ -169,6 +169,50 @@ class Test_CollectionUtil(TestCase):
         self.assertListEqual(exp, self._cu.remove_all_occurrences(x, remove_me))
         self.assertListEqual(orig, x) # Original list should be unchanged.
 
+    def test_list_of_x_n_times(self):
+        # Test 1, float
+        scalar = 3.14
+        times = 4
+        exp = [scalar] * times
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(scalar, times))
+        # Test 2, int
+        scalar = 42
+        times = 12
+        exp = [scalar] * times
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(scalar, times))
+        # Test 3, string
+        scalar = 'Figaro'
+        times = 3
+        exp = [scalar] * times
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(scalar, times))
+        # Test 4, list
+        my_list = ['do', 'be']
+        times = 2
+        exp = [my_list, my_list]
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(my_list, times))
+
+    def test_slice_list(self):
+        # Test 1, whole list
+        act = list(range(10,100,10)) # [10 .. 90]
+        exp1 = list(range(10,100,10))
+        self.assertListEqual(exp1, CollectionUtil.slice_list(act), 'failed test 1')
+        # Test 2, start on second el and skip every other
+        exp2 = [20, 40, 60, 80]
+        self.assertListEqual(exp2, CollectionUtil.slice_list(act, start_index=1, step=2), 'failed test 2')
+        # Test 3, end early
+        end_here = 5
+        exp3 = act[0:end_here]
+        self.assertListEqual(exp3, CollectionUtil.slice_list(act, end_index=end_here), 'failed test 3')
+        # Test 4, all params
+        start_here = 1
+        my_step = 3
+        exp4 = act[start_here:end_here:my_step]
+        self.assertListEqual(exp4, CollectionUtil.slice_list(act, start_index=start_here, end_index=end_here, step=my_step), 'failed test 4')
+        # Test 5, step = 1
+        exp5 = exp1
+        self.assertListEqual(exp5, CollectionUtil.slice_list(act, step=1), 'failed test 5')
+
+
 
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):

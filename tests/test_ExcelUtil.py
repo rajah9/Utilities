@@ -46,7 +46,6 @@ class TestExcelUtil(TestCase):
     def tearDownClass(cls) -> None:
         fu = FileUtil()
         path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
-        # logger.warning(f'Did not delete {cls.spreadsheet_name}')
         fu.delete_file(fu.qualified_path(path, cls.spreadsheet_name))
 
     # Return a tiny test dataframe
@@ -154,13 +153,22 @@ class TestExcelUtil(TestCase):
         actual = self._eu.get_excel_rectangle(excel_range)
         self.assertListEqual(actual, expected)
 
+
 from ExcelUtil import ExcelCompareUtil
 
 class TestExcelCompareUtil(TestExcelUtil):
+    compare_spreadsheet_name = "third.xlsx"
+
     def __init__(self, *args, **kwargs):
         super(TestExcelCompareUtil, self).__init__(*args, **kwargs)
         self._ecu = ExcelCompareUtil()
-        pprint.pprint(sys.path)
+        self.compare_spreadsheet_name = self._fu.qualified_path(self.path, self.compare_spreadsheet_name)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        fu = FileUtil()
+        path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
+        fu.delete_file(fu.qualified_path(path, cls.compare_spreadsheet_name))
 
     def test_epsilon(self):
         # Test 1, default epsilon.
@@ -196,12 +204,66 @@ class TestExcelCompareUtil(TestExcelUtil):
         # Test 2, scale by float
         scale2 = 2.5
         f_scaled = [el / scale2 for el in list1]
-        self.assertTrue(self._ecu.identical(list1, f_scaled, scale2))
+        self.assertTrue(self._ecu.identical(list1, f_scaled, scale2), 'fail test 2')
         # Test 3, scale by int
         scale3 = 10
         f_scaled = [el / scale3 for el in list1]
-        self.assertTrue(self._ecu.identical(list1, f_scaled, scale3))
-        
+        self.assertTrue(self._ecu.identical(list1, f_scaled, scale3), 'fail test 3')
+        # Test 4, different list lengths
+        list4 = copy(list1)
+        list4.append(999)
+        with self.assertLogs(ExcelUtil.__name__, level='DEBUG') as cm:
+            self.assertFalse(self._ecu.identical(list1, list4), 'fail test 4')
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+
+    def test_identical_ints(self):
+        # Test 1, identical
+        list1 = [1, 1, 2, 3, 5, 8, 11]
+        list2 = list1.copy()
+        self.assertTrue(self._ecu.identical_ints(list1, list2), 'fail test 1')
+        # Test 2, one different
+        list2[1] = -1
+        self.assertFalse(self._ecu.identical_ints(list1, list2), 'fail test 2')
+        # Test 3, scaling
+        factor = 3.0
+        list3 = [x * factor for x in list1]
+        self.assertTrue(self._ecu.identical_ints(list1, list3, scaling=1.0/factor))
+
+    def test_identical_strings(self):
+        # Test 1, identical
+        list1 = ['alfa', 'bravo', 'charlie', 'delta']
+        list2 = list1.copy()
+        self.assertTrue(self._ecu.identical_strings(list1, list2), 'fail test 1')
+        # Test 2, one different
+        list2[0] = 'alpha'
+        self.assertFalse(self._ecu.identical_strings(list1, list2), 'fail test 2')
+        # Test 3, should succeed with 2 sig chars (because ALfa and ALpha would be the same)
+        self.assertTrue(self._ecu.identical_strings(list1, list2, significant_characters=2), 'fail test 3')
+        # Test 4, should fail with 3 sig chars (because ALFa and ALPha would be different)
+        self.assertFalse(self._ecu.identical_strings(list1, list2, significant_characters=3), 'fail test 4')
+
+
+    def test_compare_list_els_against_scalar(self):
+        # Test 1, should equal
+        scalar = 12.5
+        test1 = [scalar] * 7
+        self.assertTrue(self._ecu.compare_list_els_against_scalar(test1, scalar))
+        # Test 2, make one element not equal
+        test1[3] = 12.6
+
+    def test_compare_to_scalar(self):
+        self.fail('in progress') # TODO
+
+    def test_verify(self):
+        df = self.my_test_df()
+        self._pu.write_df_to_excel(df=df, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+        # Now skip every other line
+        df_even = df.iloc[::2]
+        self._pu.write_df_to_excel(df=df_even, excelFileName=self.compare_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+        first_dict = {'filename': self.parent_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a6', 'step': 2}
+        second_dict = {'filename': self.compare_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a4'}
+        self.assertTrue(self._ecu.verify(first_dict, second_dict))
+
     @skip("Only run from parent test")
     def test_get_values(self):
         pass

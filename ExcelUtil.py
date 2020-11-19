@@ -156,14 +156,17 @@ class ExcelUtil(Util):
 
     def get_spreadsheet_values(self, excel_file_dict: dict) -> list:
         """
-        Return the values specified by the efd.filename, efd.worksheet, and efd.range
+        Return the values specified by the efd.filename, efd.worksheet, and efd.range.
+        If there is a (positive) efd.step=n, then keep the first value, step by n.
         :param excel_file_dict:
         :return:
         """
         df = self.load_spreadsheet(excelFileName=excel_file_dict['filename'], excelWorksheet=excel_file_dict['worksheet'])
         area = self.get_excel_rectangle(excel_file_dict['range'])
         vals = self.get_values(df, area)
-        return vals
+        excel_file_dict.setdefault('step', 1)
+        my_step = excel_file_dict['step']
+        return CollectionUtil.slice_list(my_list=vals, step=my_step)
 
     def get_scaling(self, excel_file_dict: dict) -> float:
         """
@@ -243,7 +246,7 @@ class ExcelCompareUtil(ExcelUtil):
         ans = True
         for el1, el2 in zip(list1, list2):
             if significant_characters:
-                if el1 != el2:
+                if el1[:significant_characters] != el2[:significant_characters]:
                     ans = False
                     self.logger.warning(f'mismatch: {el1} not equal to {el2} within the first {significant_characters} characters.')
             else:
@@ -295,6 +298,26 @@ class ExcelCompareUtil(ExcelUtil):
         self.logger.info(f'lists are {report}')
         return ans
 
+    def compare_list_els_against_scalar(self, vals: list, compare_me: Union[float, str]) -> bool:
+        """
+        Compare the elements in the list against the scalar and return true if they are all equal.
+        :param list1: list like [13, 13, 13, 13] or ['Figaro', 'Figaro', 'Figaro']
+        :param compare_me: scalar like 13 or 'Figaro'
+        :return: True if all elements in list1 equal compare_me
+        """
+        scalars = [compare_me] * len(vals)
+        return self.identical(vals, scalars)
+
+    def compare_to_scalar(self, file_dict: dict, compare_me: Union[float, str]) -> bool:
+        """
+        Compare the spreadsheet values and range to the scalar compare_me.
+        Return true if all of the values are equal to the scalar.
+        :param file_dict:
+        :param compare_me:
+        :return:
+        """
+        vals = self.get_spreadsheet_values(excel_file_dict=file_dict)
+        return self.compare_list_els_against_scalar(vals, compare_me)
 
 """
 Following routines are for reading and writing Excel files.

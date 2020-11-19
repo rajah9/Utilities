@@ -309,7 +309,7 @@ class PandasUtil:
     def convert_list_to_dataframe(self, lists: list, column_names: List = None) -> pd.DataFrame:
         """
         Convert a list of lists to a dataframe. If provided, add the column names. If not, provide default col names.
-        :param lists: list of objects
+        :param lists: a list of lists, like [[1,2,3], ['a', 'b', 'c']]
         :param column_names: Column names to use. Defaults to col00, col01, col22, .. col99
         :return:
         """
@@ -494,6 +494,20 @@ class PandasUtil:
         else:
             my_mask = [not x for x in mask]
             return df[my_mask]
+
+    def slice_df(self, df:pd.DataFrame, start_index: int = 0, end_index: int = None, step: int = 1):
+        """
+        Slice the df by the given start, end, and step.
+        NOTE: this does row slicing only.
+        :param df:
+        :param start_index: 0-based first index to use. Defaults to 0 (the first el)
+        :param end_index: end of list index. Defaults to None (which means the end of the list).
+        :param step: how many to skip. 2 means skip every other. Default of 1 means don't skip.
+        :return:
+        """
+        end_idx = end_index or len(df)
+        ans = df.iloc[start_index:end_idx:step]
+        return ans
 
     def set_index(self, df:pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
         """
