@@ -237,11 +237,14 @@ class ExcelCompareUtil(ExcelUtil):
 
     def identical_strings(self, list1: Strings, list2: Strings, significant_characters: int = None) -> bool:
         """
+        Compare the strings in the lists, up to the significant_character.
+        If significant_character is None, then compare the whole string.
+        Return True if all of the values are equal to each other.
 
-        :param list1:
-        :param list2:
-        :param significant_characters:
-        :return:
+        :param list1: List of str
+        :param list2: list of str
+        :param significant_characters: None to compare each el in totality, or an int n to compare the first n chars.
+        :return: True IFF each element matches.
         """
         ans = True
         for el1, el2 in zip(list1, list2):
@@ -258,7 +261,7 @@ class ExcelCompareUtil(ExcelUtil):
 
     def identical(self, list1: Strings, list2: Strings, scaling: Union[float, int] = 1) -> bool:
         if len(list1) != len(list2):
-            self.logger.warning(f'Lists are different sizes. {len(list1)} not equal to {len(list2)})')
+            self.logger.warning(f'Lists are different sizes. {len(list1)} not equal to {len(list2)}')
             return False
 
         list1_el = list1[0]
@@ -308,7 +311,7 @@ class ExcelCompareUtil(ExcelUtil):
         scalars = [compare_me] * len(vals)
         return self.identical(vals, scalars)
 
-    def compare_to_scalar(self, file_dict: dict, compare_me: Union[float, str]) -> bool:
+    def identical_strings(self, file_dict: dict, compare_me: Union[float, str]) -> bool:
         """
         Compare the spreadsheet values and range to the scalar compare_me.
         Return true if all of the values are equal to the scalar.
@@ -402,6 +405,15 @@ class ExcelRewriteUtil(ExcelUtil):
         if do_save:
             self.save_workbook(output_file_dict['filename'])
         return True
+
+    @functools.lru_cache(maxsize=2)
+    def init_workbook(self, filename: str) -> Workbook:
+        self._wb = load_workbook(filename=filename)
+        return self._wb
+
+    @logit(showArgs=True, showRetVal=False)
+    def save_workbook(self, filename: str):
+        self._wb.save(filename=filename)
 
     @logit()
     def rewrite_worksheet(self, excel_filename: str, excel_worksheet: str, ranges: list, vals: list):
@@ -789,4 +801,3 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             line = ''.join(null_to_spc)
             ans.add_line(line)
         return ans.contents
-
