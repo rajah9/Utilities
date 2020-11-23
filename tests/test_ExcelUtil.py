@@ -212,11 +212,17 @@ class TestExcelCompareUtil(TestExcelUtil):
         # Test 4, different list lengths
         list4 = copy(list1)
         list4.append(999)
-        expected_log_message = 'Lists are different sizes'
-        with self.assertLogs(ExcelCompareUtil.__name__, level='WARNING') as cm:
-            self.assertFalse(self._ecu.identical(list1, list4), 'fail test 4')
-            # ALthough cm.output should have a warning, it seems to be blank.
+        self.assertFalse(self._ecu.identical(list1, list4), 'fail test 4')
+            # Although cm.output should have a warning, it seems to be blank.
             # self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+        # Test 5, epsilon
+        list5 = [1.0, 16.0, 256.0]
+        test_epsilon = 1.0e-7 # default epsilon is 1.0e-8
+        small_eps = test_epsilon / 2.0
+        list6 = [x + small_eps for x in list5]
+        self.assertFalse(self._ecu.identical(list5, list6), 'fail test 5a')
+        self.assertTrue(self._ecu.identical(list5, list6, epsilon=test_epsilon), 'fail test 5a')
+
 
     def test_identical_ints(self):
         # Test 1, identical
@@ -230,6 +236,7 @@ class TestExcelCompareUtil(TestExcelUtil):
         factor = 3.0
         list3 = [x * factor for x in list1]
         self.assertTrue(self._ecu.identical_ints(list1, list3, scaling=1.0/factor))
+
 
     def test_identical_strings(self):
         # Test 1, identical
