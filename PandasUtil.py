@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
-from typing import Callable, List, Union, Tuple
+from typing import Callable, List, Union
 import logging
 from LogitUtil import logit
 from FileUtil import FileUtil
 from scipy.stats import linregress
 from io import StringIO, TextIOWrapper, BufferedWriter
 from datetime import datetime
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -309,7 +310,7 @@ class PandasUtil:
     def convert_list_to_dataframe(self, lists: list, column_names: List = None) -> pd.DataFrame:
         """
         Convert a list of lists to a dataframe. If provided, add the column names. If not, provide default col names.
-        :param lists: a list of lists, like [[1,2,3], ['a', 'b', 'c']]
+        :param lists: list of objects
         :param column_names: Column names to use. Defaults to col00, col01, col22, .. col99
         :return:
         """
@@ -495,20 +496,6 @@ class PandasUtil:
             my_mask = [not x for x in mask]
             return df[my_mask]
 
-    def slice_df(self, df:pd.DataFrame, start_index: int = 0, end_index: int = None, step: int = 1):
-        """
-        Slice the df by the given start, end, and step.
-        NOTE: this does row slicing only.
-        :param df:
-        :param start_index: 0-based first index to use. Defaults to 0 (the first el)
-        :param end_index: end of list index. Defaults to None (which means the end of the list).
-        :param step: how many to skip. 2 means skip every other. Default of 1 means don't skip.
-        :return:
-        """
-        end_idx = end_index or len(df)
-        ans = df.iloc[start_index:end_idx:step]
-        return ans
-
     def set_index(self, df:pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
         """
         Set the index of df.
@@ -573,7 +560,7 @@ class PandasUtil:
             headers_to_drop.remove(col)
         return self.drop_col(df=df, columns=headers_to_drop, is_in_place=is_in_place)
 
-    def drop_row_by_criterion(self, df:pd.DataFrame, column_name: str, criterion: Union[int, str], is_in_place:bool = True) -> pd.DataFrame:
+    def drop_row_by_criterion(self, df:pd.DataFrame, column_name: str, criterion: str, is_in_place:bool = True) -> pd.DataFrame:
         """
         Drop the rows that have criterion in the given column.
         :param df:
@@ -582,19 +569,12 @@ class PandasUtil:
         :param is_in_place:
         :return:
         """
-        return df.drop(df[df[column_name] == criterion].index, inplace=is_in_place)
+        ans = df[df[column_name] != criterion]
+        if is_in_place:
+            df = ans
+        else:
+            return ans
 
-    def drop_row_if_nan(self, df:pd.DataFrame, column_names: Strings = None, is_in_place:bool = True) -> pd.DataFrame:
-        """
-        Drop a row if the given column name is NaN.
-        :param df:
-        :param column_names: Drop the rows based in this array of column names. If None, drop every row with all NaNs.
-        :param is_in_place:
-        :return:
-        """
-        if column_names:
-            return df.dropna(axis='index', subset=column_names, inplace=is_in_place)
-        return df.dropna(axis='index', inplace=is_in_place, how='all')
 
     def reorder_cols(self, df:pd.DataFrame, columns: Strings) -> pd.DataFrame:
         """
@@ -746,8 +726,8 @@ class PandasUtil:
         """
         Coerce the given column_name name to ints or floats.
         :param df:
-        :param columns: a column name (or list of names) to coerce
-        :return: df with columns coerced to a numeric in place.
+        :param column_name:
+        :return: new df with column_name coerced to a numeric.
         """
         if isinstance(columns, str):
             # Make the single str columns into a list with just that one element.
@@ -756,17 +736,6 @@ class PandasUtil:
             cols_as_list = columns
         df[cols_as_list] = df[cols_as_list].apply(pd.to_numeric)
         return df
-
-    def coerece_to_int(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
-        """
-        Coerce the given column name(s) to an int.
-        :param df:
-        :param columns: a column name (or list of names) to coerce
-        :return: df with columns coerced to a numeric in place.
-        """
-        df[columns] = df[columns].astype(int)
-        return df
-
 
     def round(self, df:pd.DataFrame, rounding_dict:dict) -> pd.DataFrame:
         """
@@ -893,24 +862,6 @@ class PandasUtil:
         """
         return df.sort_values(columns, ascending=is_asc, inplace=is_in_place, kind='quicksort', na_position='last')
 
-    def largest_index(self, df: pd.DataFrame) -> Tuple[int, int]:
-        """
-        Return the largest index and its value (usually an int and an int).
-        :return:
-        :param df:
-        :return: (index, value of index)
-        """
-        return df.index.argmax(), df.index.max()
-
-    def smallest_index(self, df: pd.DataFrame) -> Tuple[int, int]:
-        """
-        Return the smallest index and its value (usually an int and an int).
-        :return:
-        :param df:
-        :return: (index, value of index)
-        """
-        return df.index.argmin(), df.index.min()
-
 
 """
 DataFrameSplit is a one-off to help split a dataframe into an even number of records. 
@@ -955,105 +906,3 @@ class PandasDateUtil(PandasUtil):
 
     def to_Datetime_index(self, data: Dates) -> pd.DatetimeIndex:
         return pd.DatetimeIndex(data)
-
-    def set_index(self, df:pd.DataFrame, columns: str, is_in_place:bool = True, format:str = '%Y-%m-%d') -> pd.DataFrame:
-        """
-        Set the Datetime index to the column name given in columns. Format it into a datetime object according to format.
-        The columns parameter now takes only a single string, not a list.
-        :param df:
-        :param columns: This is a single string of the column that contains the datetime
-        :param is_in_place: True if it gets changed in place
-        :param format: str of the format. See https://strftime.org.
-        :return: df with newly set index.
-        """
-        df[columns] = pd.to_datetime(df[columns], format=format)
-        return super().set_index(df, columns, is_in_place=is_in_place)
-
-    def read_df_from_csv(self, csv_file_name: str = None, header: int = 0, enc: str = 'utf-8', index_col: str = 'Date',
-                         sep: str = None, format:str = '%Y-%m-%d') -> pd.DataFrame:
-        """
-        Read in the given CSV file, but make the index_col into a date according to the given format.
-        :param csv_file_name:
-        :param header:
-        :param enc:
-        :param index_col:
-        :param sep:
-        :param format:
-        :return:
-        """
-        df = super().read_df_from_csv(csv_file_name=csv_file_name, header=header, enc=enc, sep=sep)
-        self.set_index(df=df, format=format, columns=index_col)
-        return df
-
-    def resample(self, df: pd.DataFrame, column: str, rule: str = 'B') -> pd.core.series.Series:
-        """ was pd.core.resample.DatetimeIndexResampler
-        Resample the df according to the given rule. Return the mean of whatever column is given or the Open-High-Low-Close if the column is ohlc.
-        For a list of rules, See https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases.
-        Here is a subset:
-            B  business day frequency
-            C  custom business day frequency
-            D  calendar day frequency
-            W  weekly frequency
-            M  month end frequency
-            Q  quarter end frequency
-            A, Y  year end frequency
-        :param df:
-        :param column: Column name to resample on. If ohlc, it will transform the open, high, low, and close.
-        :param rule:
-        :return:
-        """
-        if column.lower() == 'ohlc':
-            return df.resample(rule=rule).ohlc()
-        return df[column].resample(rule=rule).mean()
-
-    def rolling(self, df: pd.DataFrame, window: int = 7) -> pd.core.window.rolling.Rolling:
-        """
-        Return a window based on the df.
-        :param df:
-        :param window:
-        :return:
-        """
-        return df.rolling(window)
-
-    def sma(self, df: pd.DataFrame, window: int = 7, col_name_to_average: str = None) -> pd.DataFrame:
-        """
-        Using rolling, provide a simple moving average on the given
-        :param df:
-        :param window:
-        :param col_name_to_average: if specified, get MA for the column, else MA for all.
-        :return:
-        """
-        if col_name_to_average:
-            return self.rolling(df[col_name_to_average], window=window).mean()
-        return self.rolling(df=df, window=window).mean()
-
-    def bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close'):
-        """
-        Add a SMA column and an upper and lower BB Column
-        :param df:
-        :param window:
-        :param column_name:
-        :return: sma, upper, and lower arrays
-        """
-        sma = np.array( self.sma(df=df, col_name_to_average=column_name, window=window), dtype=float)
-        upper = np.array(sma + 2 * (df[column_name].rolling(window).std()))
-        lower = np.array(sma - 2 * (df[column_name].rolling(window).std()))
-        return sma, upper, lower
-
-    def add_bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close', ma_column: str = 'SMA', upper_colname: str = 'Upper BB', lower_colname: str = 'Lower BB'):
-        """
-        Add a SMA column and an upper and lower BB Column to the existing df.
-        :param df:
-        :param window:
-        :param column_name:
-        :param ma_column: name to call the Moving Average column
-        :param upper_colname: Name for upper BB
-        :param lower_colname: Name for lower BB
-        :return: df with three new columns.
-        """
-        sma, upper, lower = self.bollinger(df, window, column_name)
-        self.add_new_col_from_array(df, ma_column, sma)
-        self.add_new_col_from_array(df, upper_colname, upper)
-        self.add_new_col_from_array(df, lower_colname, lower)
-        return df
-

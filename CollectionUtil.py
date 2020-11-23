@@ -1,10 +1,8 @@
 from collections import defaultdict, namedtuple
-from typing import Union, List, Tuple
+from typing import Union, List
 from itertools import compress
 import numpy as np
 from Util import Util
-from copy import copy
-from pandas import Series
 
 Ints = List[int]
 Bools = List[bool]
@@ -38,29 +36,6 @@ class CollectionUtil(Util):
         :return: sorted dictionary
         """
         return {k: v for k, v in sorted(d.items(), reverse=is_descending, key=lambda item: item[1])}
-
-    def sorted_list(self, lst: list, is_descending: bool = False) -> list:
-        """
-        Sort the list. Note: This does a sort in place, so the l passed in is sorted as a side-effect.
-        :param lst:
-        :param is_descending:
-        :return:
-        """
-        lst.sort(reverse=is_descending)
-        return lst
-
-    def list_max_and_min(self, lst: Union[Series, list]) -> Tuple[float, float]:
-        """
-        Return the min and max of the list.
-        This does a (shallow) copy so as not to sort the list as a side-effect.
-        :param lst:
-        :return: max and min of the list.
-        """
-        if isinstance(lst, list):
-            return max(lst), min(lst)
-        # Falls through if it's a Series.
-        return lst.max(), lst.min()
-
 
     def layout(self, rows: int, cols: int, row_dominant: bool = True, tiling_order: Ints = None) -> np.array:
         """
@@ -138,29 +113,6 @@ class CollectionUtil(Util):
         :return:
         """
         return namedtuple(clz, fields)
-
-    @staticmethod
-    def remove_first_occurrence(orig_list: list, remove_me: Union[str, int]) -> list:
-        """
-        Remove the first occurrence of remove_me from orig_list.
-        :param orig_list:
-        :return:
-        """
-        ans = orig_list.copy()
-        ans.remove(remove_me)
-        return ans
-
-    @staticmethod
-    def remove_all_occurrences(orig_list: list, remove_me: Union[str, int]) -> list:
-        """
-        Remove all occurrences of remove_me from the original list.
-        From https://stackoverflow.com/questions/1157106/remove-all-occurrences-of-a-value-from-a-list
-        :param orig_list:
-        :param remove_me:
-        :return:
-        """
-        ans = list(filter(lambda a: a != remove_me, orig_list))
-        return ans
 
 class NumpyUtil(Util):
     def __init__(self):

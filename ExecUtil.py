@@ -1,4 +1,6 @@
-from os.path import abspath
+from os.path import abspath, join, dirname
+from pathlib import Path
+from inspect import getfile, currentframe
 import sys
 import platform
 from subprocess import Popen, PIPE
@@ -36,7 +38,7 @@ class ExecUtil:
             logger.debug('Exception message: {msg}'.format(msg=err))
             return abspath('')
 
-    def executing_directory(self):
+    def executing_directory(self) -> str:
         """
         Get the current executing directory using executing_file and stripping off the filename.
         Note differences between Windows and Linux.
@@ -62,6 +64,14 @@ class ExecUtil:
             logger.debug(f'Adding new path: {newPath} to sys.path.')
             sys.path.append(newPath)
         return sys.path
+
+    def parent_folder(self):
+        """
+        Return the parent path of the current path.
+=        :return: absolute path of parent
+        """
+        path = Path(self.executing_directory())
+        return path.parent
 
     def add_executing_file(self):
         """

@@ -65,9 +65,13 @@ class FileUtil:
             self.logger.error('Exception message: {msg}'.format(msg=err))
 
     @logit()
-    def read_generator(self, filename: str):
+    def read_generator(self, filename: str) -> str:
         """
-        Read the given file and return its lines as a list, one per line.
+        Read the given file and return its lines as a list, one line for each call.
+        Use this to minimize the memory required for large text files.
+
+        :param filename: the text file to read from.
+        :return:  one line (or None in case of an exception).
         """
         self.logger.debug('entering read_generator')
         try:
@@ -183,7 +187,7 @@ class FileUtil:
         From the given dir and filename, return a qualified path. Prepend a /.
         """
         ans = self.qualified_path(dirPath, filename, dir_path_is_array)
-        if self._isWindows:
+        if (ans[0] == sep) or self._isWindows:
             return ans
         return sep + ans
 
@@ -221,56 +225,61 @@ class FileUtil:
         """
         return isfile(qualifiedPath)
 
-    def delete_file(self, qualifiedPath: str) -> bool:
+    def delete_file(self, qualified_path: str) -> bool:
         """
         Delete the given file. Return true if successful.
         """
-        self.logger.debug(f'Attempting to delete {qualifiedPath}.')
-        if not self.file_exists(qualifiedPath):
-            self.logger.error(f'File {qualifiedPath} does not exist, so it cannot be removed.')
+        self.logger.debug(f'Attempting to delete {qualified_path}.')
+        if not self.file_exists(qualified_path):
+            self.logger.error(f'File {qualified_path} does not exist, so it cannot be removed.')
             return False
 
         try:
-            remove(qualifiedPath)
+            remove(qualified_path)
         except OSError as err:
-            self.logger.error('Exception message on {qualifiedPath}: {msg}'.format(qualifiedPath=qualifiedPath, msg=err))
+            self.logger.error('Exception message on {qualifiedPath}: {msg}'.format(qualifiedPath=qualified_path, msg=err))
             return False
 
         return True
 
     # @logit(showArgs=True, showRetVal=False)
-    def ensure_dir(self, dirpath):
+    def ensure_dir(self, dir_path):
         """
         Check if the directory exists, and if it does not, create it.
         """
-        if not self.dir_exists(dirpath):
-            self.logger.debug(f'Creating directory {dirpath}.')
-            makedirs(dirpath)
+        if not self.dir_exists(dir_path):
+            self.logger.debug(f'Creating directory {dir_path}.')
+            makedirs(dir_path)
         else:
-            self.logger.debug(f'The directory {dirpath} exists.')
+            self.logger.debug(f'The directory {dir_path} exists.')
 
-    def dir_exists(self, dirpath):
+    def dir_exists(self, dir_path) -> bool:
         """
         Return True if and only if the directory exists.
         """
-        return isdir(dirpath)
+        return isdir(dir_path)
 
-    def rmdir_and_files(self, dirpath):
+    def rmdir_and_files(self, dir_path:str):
         """
-        Delete any files within the dirPath and remove the dir itself.
+        Delete any files within the dir_path and remove the dir itself.
         """
-        self.logger.debug(f'Deleting the files and removing directory {dirpath}.')
-        rmtree(dirpath, ignore_errors=True)
+        self.logger.debug(f'Deleting the files and removing directory {dir_path}.')
+        rmtree(dir_path, ignore_errors=True)
 
-    def copy_file(self, srcFile: str, dst: str) -> bool:
+    def copy_file(self, source_file: str, destination: str) -> bool:
         """
-        Copy the srcFile to the dst. dst may be a complete file or a directory.
+        Copy the source file to the destination. destination may be a qualified file (with a complete directory and a
+        file name) or a simple directory.
         Return True if the copy was successful.
         """
         try:
-            copy2(srcFile, dst)
-            self.logger.debug(f'Copied file {srcFile} to {dst}.')
+            copy2(source_file, destination)
+            self.logger.debug(f'Copied file {source_file} to {destination}.')
             return True
+        except (FileNotFoundError) as err:
+            self.logger.error('Exception message: {msg}'.format(msg=err))
+            self.logger.error(f'File {source_file} not found.')
+            return False
         except (IOError, error) as err:
             self.logger.error('Exception message: {msg}'.format(msg=err))
             return False
@@ -314,6 +323,17 @@ class FileUtil:
         du = DateUtil()
         statinfo = stat(filename)
         return statinfo.st_mtime
+
+    @logit()
+    def file_size(self, filename: str) -> int:
+        """
+        Return the file size.
+        :param filename:
+        :return:
+        """
+        statinfo = stat(filename)
+        return statinfo.st_size
+
 
     @logit()
     def list_modules(self, module_name: str):

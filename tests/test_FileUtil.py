@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 Interesting Python features:
 * Does a super init
 * Uses tearDownClass (classmethod) to delete test files.
+* Generates lines of a given width in generate_text_lines using some formatting magic.
 * Uses mocking.
 ** with mock.patch('FileUtil.getcwd', return_value=my_mock_dir):
 ** Note that the part within quotes is FileUtil and just getcwd (not os.cwd), because that's how I call it in FileUtil.
@@ -45,7 +46,7 @@ class Test_FileUtil(TestCase):
 
     def __init__(self, *args, **kwargs):
         super(Test_FileUtil, self).__init__(*args, **kwargs)
-        self.path = r'c:\temp' if platform.system() == 'Windows' else r'\tmp'
+        self.path = r'c:\temp' if platform.system() == 'Windows' else r'/tmp'
         self._fu = FileUtil()
         self._du = DateUtil()
         self.features_dict = {'book': "Hitchhiker's Guide", 'characters': {'answer':42, 'name': 'Dent. Arthur Dent.'}}
@@ -53,7 +54,7 @@ class Test_FileUtil(TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         fu = FileUtil()
-        path = r'c:\temp' if platform.system() == 'Windows' else r'\tmp'
+        path = r'c:\temp' if platform.system() == 'Windows' else r'/tmp'
         fu.delete_file(fu.qualified_path(path, cls.yaml))
         fu.delete_file(fu.qualified_path(path, cls.fn))
         fu.delete_file(fu.qualified_path(path, cls.text_fn))
@@ -83,11 +84,14 @@ class Test_FileUtil(TestCase):
         qualifiedPath = self._fu.qualified_path(self.path, self.yaml)
         self._fu.write_text_file(filename=qualifiedPath, lines=writeMe)
 
-    def generate_text_lines(self, how_many: int = 10) -> List[str]:
+    def generate_text_lines(self, how_many: int = 10, width: int = None) -> List[str]:
+        if width:
+            ans = ['{0:*^{width}}'.format(i, width=width) for i in range(how_many)]
+            return ans
         return [f'Line {i}' for i in range(how_many)]
 
-    def create_text_file(self, filename: str, how_many: int = 10):
-        lines = self.generate_text_lines(how_many)
+    def create_text_file(self, filename: str, how_many: int = 10, width : int = None):
+        lines = self.generate_text_lines(how_many, width)
         self._fu.write_text_file(filename, lines)
 
     @logit()
@@ -145,27 +149,42 @@ class Test_FileUtil(TestCase):
 
     @logit()
     def test_qualified_path(self):
-        fn = 'test.txt'
-        shouldBe = self.path + sep + fn
-        actual = self._fu.qualified_path(self.path, fn)
-        logger.debug(f'Actual: {actual}. shouldBe: {shouldBe}.')
-        self.assertEqual(actual, shouldBe)
-        pathArray = ['c:', 'temp']
+        # Test 1. Normal case.
+        expected = self.path + sep + self.fn
+        actual = self._fu.qualified_path(self.path, self.fn)
+        self.assertEqual(actual, expected, "Test 1 failure")
+        # Test 2. Using an array.
+        dir_to_path = sep.join(['dir', 'to', 'path']) # should be dir\to\path for windows or dir/to/path for linux
+        pathArray = dir_to_path.split(sep)
+        logger.debug(f'Splitting {dir_to_path} into path array: {pathArray}')
+        expected = dir_to_path + sep + self.fn
+        actual = self._fu.fully_qualified_path(pathArray, self.fn, dir_path_is_array=True)
+        logger.debug(f'Actual: {actual}. expected: {expected}.')
+        self.assertEqual(actual, expected, "Test 2 failure")
 
     @logit()
     def test_split_qualified_path(self):
         fn = 'test.txt'
         qpath = self._fu.qualified_path(self.path, fn)
+        # Test 1. c:\temp for Windows or /tmp for Linux.
+        which_test = 1
         splitpath, splitfn = self._fu.split_qualified_path(qpath, makeArray=False)
-        self.assertEqual(splitpath, self.path)
-        self.assertEqual(splitfn, fn)
+        self.assertEqual(splitpath, self.path, f'Test {which_test}. Paths should be equal.')
+        self.assertEqual(splitfn, fn, f'Test {which_test}. File names should be equal.')
+        # Test 2. Split paths into arrays.
+        which_test = 2
         pathArray, splitfn = self._fu.split_qualified_path(qpath, makeArray=True)
-        self.assertEqual(pathArray, ['c:', 'temp'])
-        self.assertEqual(splitfn, fn)
-        path = r'C:\Users\Owners\Documents\Tickers.csv'
-        pathArray, splitfn = self._fu.split_qualified_path(path, makeArray=True)
-        self.assertEqual(pathArray, ['C:', 'Users', 'Owners', 'Documents'])
-        self.assertEqual(splitfn, 'Tickers.csv')
+        expected = self.path.split(sep)
+        self.assertEqual(pathArray, expected, f'Test {which_test}. Paths should be equal.')
+        self.assertEqual(splitfn, fn, f'Test {which_test}. File names should be equal.')
+        # Test 3. Try a more complex path.
+        which_test = 3
+        complex_path = r'C:\Users\Owners\Documents\Tickers.csv' if platform.system() == 'Windows' else r'/tmp/parent/child/Tickers.csv'
+        pathArray, splitfn = self._fu.split_qualified_path(complex_path, makeArray=True)
+        expected = complex_path.split(sep)
+        expected.pop() # Pop off the last el, which is the file name.
+        self.assertEqual(pathArray, expected, f'Test {which_test}. Paths should be equal.')
+        self.assertEqual(splitfn, 'Tickers.csv', f'Test {which_test}. File names should be equal.')
 
     @logit()
     def test_split_file_name(self):
@@ -219,12 +238,13 @@ class Test_FileUtil(TestCase):
     @logit()
     def test_copy_file(self):
         self.create_csv()
-        tmp_path = self._fu.qualified_path(self.path, 'tmp')
-        qualifiedPath = self._fu.qualified_path(self.path, self.fn)
-        self._fu.ensure_dir(tmp_path)
-        self._fu.copy_file(qualifiedPath, tmp_path)
-        self.assertTrue(self._fu.file_exists(qualifiedPath))
-        self._fu.rmdir_and_files(tmp_path)
+        copy_fn = self.fn + '.copy'
+        copied_file = self._fu.qualified_path(self.path, copy_fn)
+        source_path = self._fu.qualified_path(self.path, self.fn)
+        self._fu.copy_file(source_path, copied_file)
+        self.assertTrue(self._fu.file_exists(source_path))
+        self.assertTrue(self._fu.file_exists(copied_file))
+        self._fu.delete_file(copied_file)
 
     @logit()
     @mock.patch('FileUtil.copy2')
@@ -253,6 +273,7 @@ class Test_FileUtil(TestCase):
         :return:
         """
         return mock_is_file(args[1])
+
     def isDir_side_effect(*args) -> bool:
         return mock_is_dir(args[1])
 
@@ -299,14 +320,13 @@ class Test_FileUtil(TestCase):
 
     @logit()
     def test_load_logs_and_subdir_names(self):
-        dir_name = r'\nosuchdir'
+        no_such_dir_name = r'\nosuchdir'
         file_list = ['filea.txt', 'fileb.csv', 'otherfile.txt']
-        actual = self._fu.load_logs_and_subdir_names(dir_name)
+        actual = self._fu.load_logs_and_subdir_names(no_such_dir_name)
         self.assertListEqual(actual, [])  # Since no such dir, should be empty list
+
         eu = ExecUtil()
-        exec_file = eu.exec_file_path()
-        dir_name, _ = self._fu.split_qualified_path(exec_file)
-        logger.debug(f'dir name is: {dir_name}')
+        dir_name = eu.executing_directory() # ensures that dir_name is real
 
         with mock.patch('FileUtil.listdir', return_value=file_list):
             # Test with neither prefix nor suffix
@@ -357,7 +377,7 @@ class Test_FileUtil(TestCase):
         filename = self._fu.qualified_path(self.path, self.text_fn)
         with self.assertLogs(FileUtil.__name__, level='DEBUG') as cm:
             for i, line in enumerate(self._fu.read_generator(filename)):
-                x = line # TODO: Redirect stream and capture IOError message
+                x = line
                 logger.debug(f'Read in line {i}, which contains <{x}>.')
                 self.assertIsNone(x)
             logger.debug(f'Caught exception message: {cm.output}')
@@ -385,6 +405,16 @@ class Test_FileUtil(TestCase):
         mod_time = self._fu.file_modify_time2(qualifiedPath)
         mod_timestamp = self._du.as_timestamp(dt=mod_time)
         self.assertTrue((start_time - mod_timestamp) < .1 ) # asserting a difference of < 0.1 seconds.
+
+    @logit()
+    def test_file_size(self):
+        filename = self._fu.qualified_path(self.path, self.text_fn)
+        width = 20
+        how_many_lines = randrange(10) + 2
+        self.create_text_file(filename, how_many_lines, width)
+        eol_len = 2
+        actual = self._fu.file_size(filename)
+        self.assertEqual((width + eol_len) * how_many_lines, actual )
 
     @logit()
     def test_list_modules(self):
