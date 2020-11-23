@@ -46,19 +46,6 @@ class TestPlotUtil(unittest.TestCase):
         self.pltu.plt.show()
 
     @logit()
-    def test_figure_plots(self):
-        x = np.linspace(0, 10, 100)
-        f1 = "plt.plot(x, np.sin(x), '-g', label='sin(x)')"
-        f2 = "plt.plot(x, np.cos(x), '-r', label='cos(x)')"
-        g1 = "plt.text(0.5, 0.5, str((1, 1)),fontsize=18, ha='center')"
-        g2 = "plt.text(0.5, 0.5, str((1, 2)),fontsize=18, ha='center')"
-        self.pltu.figure_plots2(plots=[g1, g2], rows=1, cols=2)
-
-        # f1 = self.pltu.count_plot(df=self.df, xlabel='Age', return_function_do_not_plot=True)
-        # f2 = self.pltu.count_plot(df=self.df, xlabel='Weight', return_function_do_not_plot=True)
-        # self.pltu.figure_plots(plots=[f1, f2], rows=1, cols=2)
-
-    @logit()
     def test_confusion_matrix_plot(self):
         logger.debug('subtest 1: Normal plot.')
         m = [[33,2,0,0,0,0,0,0,0,1,3],
@@ -103,3 +90,20 @@ class TestPlotUtil(unittest.TestCase):
 
         pass
 
+    def test_text_plot(self):
+        self.pltu.text_plot('hello, matplotlib', return_function_do_not_plot=False)
+
+    @logit()
+    def test_figure_plots(self):
+        self.pltu.init_subplots(2,2)
+        # Access the subplot (ax) property
+        self.pltu.subplot[0,0] = self.pltu.text_plot('top left', return_function_do_not_plot=True)
+        # Using the tested function to do the accessing
+        x = self.pltu.text_plot('top right', return_function_do_not_plot=True)
+        self.pltu.figure_plot3(x, 0, 1)
+        y = self.pltu.text_plot('bot left', return_function_do_not_plot=True)
+        self.pltu.figure_plot3(y, 1, 0)
+        z = self.pltu.text_plot('bot right', return_function_do_not_plot=True)
+        self.pltu.figure_plot3(z, 1, 1)
+        self.pltu.plt.show()
+        self.fail('overlaying all text boxes in the lower right')

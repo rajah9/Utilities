@@ -14,6 +14,34 @@ from ExcelUtil import ExcelCompareUtil
 eu = ExcelCompareUtil()
 """
 
+import functools
+from collections import namedtuple
+from copy import copy
+from math import fabs
+from subprocess import CalledProcessError
+from typing import List, Union, Tuple
+
+import numpy as np
+import pandas as pd
+import pdfplumber
+from tabula import read_pdf, convert_into, errors
+
+from CollectionUtil import CollectionUtil
+from FileUtil import FileUtil
+from LogitUtil import logit
+from PandasUtil import PandasUtil
+from StringUtil import StringUtil, LineAccmulator
+from Util import Util
+
+Strings = List[str]
+Ints = List[int]
+Floats = List[float]
+Dataframes = List[pd.DataFrame]
+
+_EPSILON = 1.0e-8
+_SIG_CHARS = 12
+ExcelCell = namedtuple('ExcelCell', 'col row')
+
 """
 Interesting Python features:
 * Uses a namedtuple for ExcelCell.
@@ -26,37 +54,13 @@ Interesting Python features:
 * In the init, set the display options to show head() better.
 """
 
-import pandas as pd
-import numpy as np
-from collections import namedtuple
-from Util import Util
-from PandasUtil import PandasUtil
-from StringUtil import StringUtil, LineAccmulator
-from LogitUtil import logit
-from CollectionUtil import CollectionUtil
-from math import fabs
-import functools
-from copy import copy
-from typing import List, Union, Tuple
-from tabula import read_pdf, convert_into, errors
-import pdfplumber
-from subprocess import CalledProcessError
-
-Strings = List[str]
-Ints = List[int]
-Floats = List[float]
-Dataframes = List[pd.DataFrame]
-
-_EPSILON = 1.0e-8
-ExcelCell = namedtuple('ExcelCell', 'col row')
-
 class ExcelUtil(Util):
     def __init__(self):
         super().__init__()
         self.logger.info('starting ExcelUtil')
         self._pu = PandasUtil()
+        self._su = StringUtil()
         self._wb = None
-
 
     def row_col_to_ExcelCell(self, row:int, col:int) -> ExcelCell:
         """
@@ -80,6 +84,14 @@ class ExcelUtil(Util):
         col = row_col.excel_col_to_int()
         row = row_col.digits_only_as_int()
         return row, col
+
+    def ExcelCell_to_A1(self, ec: ExcelCell) -> str:
+        """
+        convert an ExcelCell to an Excel location
+        :param ec: ExcelCell
+        :return: str
+        """
+        return f'{self._su.int_to_excel_col(ec.col)}{ec.row}'
 
     def convert_from_A1_to_cell(self, convert_me: str) -> ExcelCell:
         """
@@ -125,6 +137,12 @@ class ExcelUtil(Util):
         return self.get_excel_rectangle_start_to(start, to)
 
     def get_values(self, df:pd.DataFrame, rectangle: list) -> list:
+        """
+        Return the values described in rectangle.
+        :param df:
+        :param rectangle: a list, such as returned by get_excel_rectangle_start_to
+        :return:
+        """
         ans = []
         for cell in rectangle:
             val = df.iloc[cell.row - 2, cell.col - 1] # row is -2 because of -1 for header for 0-offset. col is -1 b/c of 0-offset
@@ -138,14 +156,17 @@ class ExcelUtil(Util):
 
     def get_spreadsheet_values(self, excel_file_dict: dict) -> list:
         """
-        Return the values specified by the efd.filename, efd.worksheet, and efd.range
+        Return the values specified by the efd.filename, efd.worksheet, and efd.range.
+        If there is a (positive) efd.step=n, then keep the first value, step by n.
         :param excel_file_dict:
         :return:
         """
         df = self.load_spreadsheet(excelFileName=excel_file_dict['filename'], excelWorksheet=excel_file_dict['worksheet'])
         area = self.get_excel_rectangle(excel_file_dict['range'])
         vals = self.get_values(df, area)
-        return vals
+        excel_file_dict.setdefault('step', 1)
+        my_step = excel_file_dict['step']
+        return CollectionUtil.slice_list(my_list=vals, step=my_step)
 
     def get_scaling(self, excel_file_dict: dict) -> float:
         """
@@ -169,10 +190,32 @@ eu = ExcelCompareUtil()
 
 """
 class ExcelCompareUtil(ExcelUtil):
-    def close_numbers(self, list1: Floats, list2: Floats, scaling: float = 1.0) -> bool:
+    def __init__(self, epsilon: float = None):
+        super().__init__()
+        if epsilon:
+            epsilon_str = f'passed-in value of {epsilon}'
+            self._epsilon = epsilon
+        else:
+            epsilon_str = f'default of {_EPSILON}'
+            self._epsilon = _EPSILON
+
+        self.logger.info('starting ExcelCompareUtil with ' + epsilon_str)
+
+
+    def close_numbers(self, list1: Floats, list2: Floats, scaling: float = 1.0, epsilon: float = None) -> bool:
+        """
+        test list1 against list2. return True if all the numbers are within epsilon.
+        If not set, use the default epsilon for the class.
+        :param list1:
+        :param list2:
+        :param scaling:
+        :param epsilon:
+        :return:
+        """
+        eps = epsilon or self._epsilon
         ans = True
         for el1, el2 in zip(list1, list2):
-            if fabs(el1 - scaling * el2) > _EPSILON:
+            if fabs(el1 - scaling * el2) > eps:
                 ans = False
                 self.logger.warning(f'mismatch: {el1} not equal to {el2} * scale {scaling}; difference of {fabs(el1 - el2 * scaling)}')
         return ans
@@ -192,12 +235,25 @@ class ExcelCompareUtil(ExcelUtil):
                 self.logger.warning(f'mismatch: {el1} not equal to {el2} * scale {scaling}; difference of {abs(el1 - el2 * scaling)}')
         return ans
 
-    def identical_strings(self, list1: Strings, list2: Strings) -> bool:
+    def identical_strings(self, list1: Strings, list2: Strings, significant_characters: int = None) -> bool:
+        """
+
+        :param list1:
+        :param list2:
+        :param significant_characters:
+        :return:
+        """
         ans = True
         for el1, el2 in zip(list1, list2):
-            if el1 != el2:
-                ans = False
-                self.logger.warning(f'mismatch: {el1} not equal to {el2}.')
+            if significant_characters:
+                if el1[:significant_characters] != el2[:significant_characters]:
+                    ans = False
+                    self.logger.warning(f'mismatch: {el1} not equal to {el2} within the first {significant_characters} characters.')
+            else:
+                if el1 != el2:
+                    ans = False
+                    self.logger.warning(f'mismatch: {el1} not equal to {el2}.')
+
         return ans
 
     def identical(self, list1: Strings, list2: Strings, scaling: Union[float, int] = 1) -> bool:
@@ -208,7 +264,7 @@ class ExcelCompareUtil(ExcelUtil):
         list1_el = list1[0]
         list2_el = list2[0]
         if isinstance(list1_el, str):
-            return self.identical_strings(list1, list2)
+            return self.identical_strings(list1, list2, significant_characters=None)
         elif isinstance(list2_el, (int, np.int64)):
             if isinstance(list1_el, str):
                 self.logger.warning(f'first element of list1 is {list1_el}, but first element of list2 is {list2_el}. They cannot be compared. Returning False. ')
@@ -225,14 +281,14 @@ class ExcelCompareUtil(ExcelUtil):
 
     def verify(self, file1: dict, file2: dict) -> bool:
         """
-        Verify that the values in rectangles of file1 and file2 are identical.
+        Verify that the values in rectangles of input_file_dict and output_file_dict are identical.
         :param file1: dict with keys 'filename', 'worksheet', and 'range'
         :param file2:
         :return:
         """
-        vals1 = self.get_spreadsheet_values(excelDict=file1)
+        vals1 = self.get_spreadsheet_values(excel_file_dict=file1)
         self.logger.debug(f'1: \n{vals1}')
-        vals2 = self.get_spreadsheet_values(excelDict=file2)
+        vals2 = self.get_spreadsheet_values(excel_file_dict=file2)
 
         scaling = self.get_scaling(file2)
 
@@ -242,6 +298,26 @@ class ExcelCompareUtil(ExcelUtil):
         self.logger.info(f'lists are {report}')
         return ans
 
+    def compare_list_els_against_scalar(self, vals: list, compare_me: Union[float, str]) -> bool:
+        """
+        Compare the elements in the list against the scalar and return true if they are all equal.
+        :param list1: list like [13, 13, 13, 13] or ['Figaro', 'Figaro', 'Figaro']
+        :param compare_me: scalar like 13 or 'Figaro'
+        :return: True if all elements in list1 equal compare_me
+        """
+        scalars = [compare_me] * len(vals)
+        return self.identical(vals, scalars)
+
+    def compare_to_scalar(self, file_dict: dict, compare_me: Union[float, str]) -> bool:
+        """
+        Compare the spreadsheet values and range to the scalar compare_me.
+        Return true if all of the values are equal to the scalar.
+        :param file_dict:
+        :param compare_me:
+        :return:
+        """
+        vals = self.get_spreadsheet_values(excel_file_dict=file_dict)
+        return self.compare_list_els_against_scalar(vals, compare_me)
 
 """
 Following routines are for reading and writing Excel files.
@@ -249,32 +325,86 @@ They use openpyxl.
 See generates_spreadsheets.py as an example.
 """
 from openpyxl import load_workbook, Workbook
+from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.worksheet.copier import WorksheetCopy
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 class ExcelRewriteUtil(ExcelUtil):
     def __init__(self):
         super().__init__()
         self._su = StringUtil()
-
-    def load_and_write(self, file1: dict, file2: dict) -> bool:
-        vals1 = self.get_spreadsheet_values(excelDict=file1)
-        self.logger.debug(f'1: \n{vals1}')
-        scaling = self.get_scaling(file2)
-        scaled_vals = [v * scaling for v in vals1]
-        self.rewrite_worksheet(file2, scaled_vals)
-        return True
+        self._fu = FileUtil()
+        self._wb = None
 
     @functools.lru_cache(maxsize=2)
-    def init_workbook(self, filename: str) -> Workbook:
+    def init_workbook_to_read(self, filename: str) -> Workbook:
         self._wb = load_workbook(filename=filename)
         return self._wb
+
+    def init_workbook_to_write(self) -> Workbook:
+        self._wb = Workbook()
 
     @logit(showArgs=True, showRetVal=False)
     def save_workbook(self, filename: str):
         self._wb.save(filename=filename)
 
+    def worksheet_names(self) -> list:
+        """
+        Return a list of the worksheet names.
+        :return:
+        """
+        return self._wb.sheetnames
+
+    def get_cell(self, ws: Worksheet, cell_loc: str = 'A1', want_value: bool = True) -> Union[int, float, str]:
+        """
+        Return the cell at the given ExcelCell.
+        :param cell_loc: cell location using Excel notation
+        :return: value at that cell
+        """
+        if want_value:
+            return ws[cell_loc].value
+        return ws[cell_loc]
+
+    def get_cells(self, ws: Worksheet, excel_range: str = 'A1:C3') -> list:
+        """
+        Return the cells in the given range.
+        :param ws:
+        :param excel_range:
+        :return:
+        """
+        start, to = self.convert_range_to_cells(excel_range) # start like 'A1'; to like 'C3'
+        cells = self.get_excel_rectangle_start_to(start, to) # list of cells
+        ans = []
+        for cell in cells:
+            cell_loc = self.ExcelCell_to_A1(cell)
+            ans.append(self.get_cell(ws, cell_loc))
+        return ans
+
+    def load_and_write(self, input_file_dict: dict, output_file_dict: dict, do_save: bool = True) -> bool:
+        """
+        Load the Excel file and worksheet in input_file_dict and write it (with scaling) to output_file_dict
+        :param input_file_dict: dict with keys 'filename', 'worksheet' and 'range' or 'ranges'
+        :param output_file_dict: dict with keys 'filename', 'worksheet' and 'range' or 'ranges'
+        :return:
+        """
+        vals1 = self.get_spreadsheet_values(excel_file_dict=input_file_dict)
+        self.logger.debug(f'1: \n{vals1}')
+        scaling = self.get_scaling(output_file_dict)
+        scaled_vals = [v * scaling for v in vals1]
+        # We have either a single range or many ranges to copy to.
+        try:
+            rectangles = output_file_dict['ranges']
+        except KeyError:
+            range_rectangle = output_file_dict['range']
+            rectangles = [range_rectangle]
+        self.rewrite_worksheet(excel_filename=output_file_dict['filename'], excel_worksheet=output_file_dict['worksheet'],
+                               ranges=rectangles, vals=scaled_vals)
+        if do_save:
+            self.save_workbook(output_file_dict['filename'])
+        return True
+
     @logit()
-    def rewrite_worksheet(self, file: dict, vals: list):
+    def rewrite_worksheet(self, excel_filename: str, excel_worksheet: str, ranges: list, vals: list):
         """
         Read in the given filename and worksheet (from the file dictionary).
         Write the values to the given range, preserving formatting.
@@ -283,19 +413,17 @@ class ExcelRewriteUtil(ExcelUtil):
         :param vals: list of values to be written. len(vals) should be the same as the range.
         :return:
         """
-        wb = self.init_workbook(filename=file['filename'])
-        ws = wb[file['worksheet']]
-        # We have either a single range or many ranges to copy to.
-        try:
-            rectangles = file['ranges']
-        except KeyError:
-            range_rectangle = file['range']
-            rectangles = [range_rectangle]
-        for rectangle in rectangles:
-            local_vals = copy(vals)
-            excel_rect = self.get_excel_rectangle(rectangle) # Will return a list of ExcelCells
-            if len(excel_rect) != len(vals):
-                self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (-{len(excel_rect)}) defined by cell range {rectangle}')
+        wb = self.init_workbook_to_read(excel_filename)
+        ws = wb[excel_worksheet]
+        # Ensure that the sum of the area of the ranges equals the number of variables
+        local_vals = copy(vals)
+        area = 0
+        for rectangle in ranges:
+            area += len(self.get_excel_rectangle(rectangle))  # Will return a list of ExcelCells
+        if area != len(vals):
+            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell range {rectangle}')
+        for rectangle in ranges:
+            excel_rect = self.get_excel_rectangle(rectangle)
             start_cell, end_cell = excel_rect[0], excel_rect[-1]
             self.logger.debug(f'starting cell: {start_cell} / ending cell: {end_cell}')
 
@@ -303,7 +431,7 @@ class ExcelRewriteUtil(ExcelUtil):
                 for col in range (start_cell.col, end_cell.col + 1):
                     val = local_vals.pop(0)
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
-                return
+        return
 
     def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False) -> bool:
         """
@@ -314,15 +442,50 @@ class ExcelRewriteUtil(ExcelUtil):
         :param attempt_formatting:
         :return:
         """
-        self._wb = Workbook()
-        ws = self._wb.active
-        ws.title = excelWorksheet
+        self.write_df_to_new_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+        self.save_workbook(excelFileName)
+
+    def write_df_to_new_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting: bool = False, write_header: bool = False, write_index: bool = False) -> Worksheet:
+        """
+        Initialize the workbook. Then write the given dataframe to an excel worksheet.
+        Attempt to format percents and numbers as percents and numbers, if requested.
+        Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
+
+        :param df:
+        :param excelWorksheet: string of worksheet name
+        :param write_header:
+        :param write_index:
+        :return:
+        """
+        self.init_workbook_to_write()
+        return self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+
+    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False) -> Worksheet:
+        """
+        Refactor of write_df_to_new_ws, which does not init the workbook.
+        Write the given dataframe to an excel worksheet. Attempt to format strings ending in % and strings as numbers as percents and numbers, if requested.
+        Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
+
+        :param df: dataframe to write
+        :param excelWorksheet:
+        :param attempt_formatting: True means attempt to format strings as percents or numbers
+        :param write_header: True if you'd like to write the column names
+        :param write_index: True if you'd like to write the index
+        :return:
+        """
+        if excelWorksheet in self.worksheet_names():
+            self.logger.warning(f'overwriting existing sheet name {excelWorksheet}')
+            ws = self._wb[excelWorksheet]
+        else:
+            self.logger.debug(f'Creating new worksheet: {excelWorksheet}')
+            ws = self._wb.create_sheet(title=excelWorksheet)
         formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
-        # Write the whole worksheet
+        # Write the whole dataframe
         for row in dataframe_to_rows(df, index=write_index, header=write_header):
             ws.append(row)
-        if attempt_formatting: # apply formatting if requested.
-            for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row, max_col=ws.max_column):
+        if attempt_formatting:  # apply formatting if requested.
+            for row in ws.iter_rows(min_row=ws.min_row, min_col=ws.min_column, max_row=ws.max_row,
+                                    max_col=ws.max_column):
                 for cell in row:
                     if isinstance(cell.value, str):
                         c = self._su.convert_string_append_type(cell.value)
@@ -331,7 +494,60 @@ class ExcelRewriteUtil(ExcelUtil):
                             cell.number_format = formatting[c.cellType]
                     else:
                         pass
-        self.save_workbook(excelFileName)
+        return ws
+
+    def copy_spreadsheet_to_ws(self, sourceFileName: str, sourceWorksheet: str, destWorksheet: str = None, header: int = 0,
+                               attempt_formatting: bool = False, write_header: bool = False,
+                               write_index: bool = False) -> Worksheet:
+        """
+        Read the sourceWorksheet into a dataframe and write it to the destWorksheet.
+        :param sourceFileName:
+        :param sourceWorksheet:
+        :param destWorksheet: Title of the destination worksheet (or copy the sourceWorksheet if None)
+        :param header:
+        :param attempt_formatting:
+        :param write_header:
+        :param write_index:
+        :return: copied worksheet
+        """
+        # 1. Read the existing sourceWorksheet.
+        df = self._pu.read_df_from_excel(excelFileName=sourceFileName, excelWorksheet=sourceWorksheet, header=header)
+        if len(df):
+            self.logger.debug(f'Read in {len(df)} records from file {sourceFileName} and worksheet {sourceWorksheet}.')
+            worksheet_name = destWorksheet or sourceWorksheet
+            # 2. Create a ws based on the df.
+            ws = self.write_df_to_new_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+            return ws
+        self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws')
+        return None
+
+    def init_template(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
+                      output_excel_worksheet: str = None, do_save: bool = True) -> bool:
+        """
+        Read from the given template_excel_file_name and template_excel_worksheet.
+        Create a new copy of the worksheet within the same file. Save the file if do_save is requested.
+        :param template_excel_file_name:
+        :param template_excel_worksheet:
+        :param output_excel_file_name:
+        :param output_excel_worksheet:
+        :param do_save: if True, save the existing template_excel_file_name with the new sheet.
+        :return:
+        """
+        if not self._fu.file_exists(qualifiedPath=template_excel_file_name):
+            self.logger.warning(f'Could not find file {template_excel_file_name}!')
+            return False
+        if not output_excel_worksheet:
+            output_excel_worksheet = template_excel_worksheet + '_copy'
+
+        self.init_workbook_to_read(filename=template_excel_file_name)
+        template_ws = self._wb[template_excel_worksheet]
+        output_ws = self._wb.create_sheet(output_excel_worksheet)
+        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws
+        wc.copy_worksheet() # copy the requested worksheet
+        if do_save:
+            self.save_workbook(output_excel_file_name)
+        return True
+
 
 class PdfToExcelUtil(ExcelUtil):
     def __init__(self):
@@ -352,7 +568,8 @@ class PdfToExcelUtil(ExcelUtil):
         :param pdf_filename:
         :param rows: How many rows across
         :param cols: How many columns down
-        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3]. 1-offset.
+        :param pages: Default: 'all'. Could be a str like "1,2,3" or a list like [1,2,3]. ONE-offset.
+        :param tables_to_tile: ONE-offset tables to be read in.
         :param tile_by_rows: True if sequential pages comprise rows, False if they comprise columns.
         :param read_many_tables_per_page: False to read one table per page.
         :param make_NaN_blank: True to make NaN values blank.
@@ -370,7 +587,8 @@ class PdfToExcelUtil(ExcelUtil):
                 return None
             else:
                 self.logger.warning(f'Will use the first {expected_table_count} tables.')
-        for i in tables_to_tile:
+        zero_offset_tables_to_tile = [t - 1 for t in tables_to_tile]
+        for i in zero_offset_tables_to_tile:
             if len(dfs[i]):
                 self.logger.debug(f'Table {i} has {len(dfs[i])} records.')
             else:
@@ -380,7 +598,7 @@ class PdfToExcelUtil(ExcelUtil):
         if not are_tables_ok:
             self.logger.warning(f'Requested tables {tables_to_tile} but one or more were empty.')
 
-        table_layout = self._cu.layout(rows, cols, row_dominant=tile_by_rows, tiling_order=tables_to_tile)
+        table_layout = self._cu.layout(rows, cols, row_dominant=tile_by_rows, tiling_order=zero_offset_tables_to_tile)
 
         # Assemble columns by rows
         row_dfs = []
@@ -571,3 +789,4 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             line = ''.join(null_to_spc)
             ans.add_line(line)
         return ans.contents
+

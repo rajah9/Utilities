@@ -2,6 +2,8 @@ import logging
 from unittest import TestCase
 from CollectionUtil import CollectionUtil, NumpyUtil
 import numpy as np
+from copy import deepcopy
+from pandas import Series
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -30,6 +32,34 @@ class Test_CollectionUtil(TestCase):
         actual2 = list(sort_dsc.values())
         expected2 = sorted(unsorted_dict.values(), reverse=True)
         self.assertListEqual(expected2, actual2)
+
+    def test_sorted_list(self):
+        # Test 1, ascending
+        unsorted_list = [5, 7, 3, 1, 10, 0]
+        is_reversed = False
+        exp1 = deepcopy(unsorted_list)
+        exp1.sort(reverse=is_reversed)
+        self.assertListEqual(exp1, self._cu.sorted_list(unsorted_list, is_descending=is_reversed), "Fail test 1")
+        # Test 2, descending
+        unsorted_list = [5, 7, 3, 1, 10, 0]
+        is_reversed = True
+        exp2 = deepcopy(unsorted_list)
+        exp2.sort(reverse=is_reversed)
+        self.assertListEqual(exp2, self._cu.sorted_list(unsorted_list, is_descending=is_reversed), "Fail test 2")
+
+    def test_list_max_and_min(self):
+        # Test 1, ascending
+        unsorted_list = [5, 7, 3, 1, 10, 0]
+        orig = deepcopy(unsorted_list)
+        act_max, act_min = self._cu.list_max_and_min(unsorted_list)
+        self.assertEqual(0, act_min, 'Test 1 min fail')
+        self.assertEqual(10, act_max, 'Test 1 max fail')
+        self.assertListEqual(orig, unsorted_list, 'Test 1 fail: original list was modified')
+        # Test 2, using a series.
+        unsorted_series = Series(unsorted_list)
+        act_max, act_min = self._cu.list_max_and_min(unsorted_series)
+        self.assertEqual(0, act_min, 'Test 2 min fail')
+        self.assertEqual(10, act_max, 'Test 2 max fail')
 
     def test_layout(self):
         # Test 1, 2 x 3, by rows
@@ -119,6 +149,70 @@ class Test_CollectionUtil(TestCase):
         exp_dict = {k:v for (k,v) in zip(list1, list2)}
         act_dict = self._cu.dict_comprehension(list1, list2)
         self.assertEqual(exp_dict, act_dict)
+
+    def test_remove_first_occurrence(self):
+        # Test 1.
+        orig = [1, 2, 3, 2, 2, 2, 3, 4]
+        x = orig.copy()
+        remove_me = 3
+        exp = x.copy()
+        exp.remove(remove_me)
+        act =  self._cu.remove_first_occurrence(x, remove_me)
+        self.assertListEqual(exp, act)
+        self.assertListEqual(orig, x) # Original list should be unchanged.
+
+    def test_remove_all_occurrences(self):
+        orig = [1, 2, 3, 2, 2, 2, 3, 4]
+        x = orig.copy()
+        remove_me = 3
+        exp = list(filter((remove_me).__ne__, x))
+        self.assertListEqual(exp, self._cu.remove_all_occurrences(x, remove_me))
+        self.assertListEqual(orig, x) # Original list should be unchanged.
+
+    def test_list_of_x_n_times(self):
+        # Test 1, float
+        scalar = 3.14
+        times = 4
+        exp = [scalar] * times
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(scalar, times))
+        # Test 2, int
+        scalar = 42
+        times = 12
+        exp = [scalar] * times
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(scalar, times))
+        # Test 3, string
+        scalar = 'Figaro'
+        times = 3
+        exp = [scalar] * times
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(scalar, times))
+        # Test 4, list
+        my_list = ['do', 'be']
+        times = 2
+        exp = [my_list, my_list]
+        self.assertListEqual(exp, CollectionUtil.list_of_x_n_times(my_list, times))
+
+    def test_slice_list(self):
+        # Test 1, whole list
+        act = list(range(10,100,10)) # [10 .. 90]
+        exp1 = list(range(10,100,10))
+        self.assertListEqual(exp1, CollectionUtil.slice_list(act), 'failed test 1')
+        # Test 2, start on second el and skip every other
+        exp2 = [20, 40, 60, 80]
+        self.assertListEqual(exp2, CollectionUtil.slice_list(act, start_index=1, step=2), 'failed test 2')
+        # Test 3, end early
+        end_here = 5
+        exp3 = act[0:end_here]
+        self.assertListEqual(exp3, CollectionUtil.slice_list(act, end_index=end_here), 'failed test 3')
+        # Test 4, all params
+        start_here = 1
+        my_step = 3
+        exp4 = act[start_here:end_here:my_step]
+        self.assertListEqual(exp4, CollectionUtil.slice_list(act, start_index=start_here, end_index=end_here, step=my_step), 'failed test 4')
+        # Test 5, step = 1
+        exp5 = exp1
+        self.assertListEqual(exp5, CollectionUtil.slice_list(act, step=1), 'failed test 5')
+
+
 
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):

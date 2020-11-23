@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import unittest
 import logging
-from math import sqrt
+from math import sqrt, isnan, nan
 from pandas.testing import assert_frame_equal
 from datetime import datetime
 from typing import List
@@ -12,6 +12,7 @@ from LogitUtil import logit
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
 from DateUtil import DateUtil
+from CollectionUtil import CollectionUtil
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -31,12 +32,13 @@ Interesting Python features:
 * test_replace_col_using_mult_cols uses an inner method to distinguish calculation of the expected value
 * test_select_non_blanks deletes rows based on criteria.
 * in test_join_dfs_by_row, uses `act_names.str.contains(new_guy, regex=False).any()` to test if new_guy is anywhere in act_names.
-
+* in test_sma, tests for NaN. 
 """
 
 class Test_PandasUtil(unittest.TestCase):
     def setUp(self):
         self.pu = PandasUtil()
+        self.cu = CollectionUtil()
         self.spreadsheet_name = 'small.xls'
         self.csv_name = 'small.csv'
         self.worksheet_name = 'test'
@@ -182,6 +184,29 @@ class Test_PandasUtil(unittest.TestCase):
         self.pu.replace_col_names_by_pattern(expected_df, prefix='col', is_in_place=True)
         actual_df = self.pu.convert_list_to_dataframe(lists=lists, column_names=None)
         assert_frame_equal(expected_df, actual_df)
+
+    def test_coerece_to_string(self):
+        df = self.my_test_df()
+        age_series = df['Age'].astype(str)
+        self.pu.coerce_to_string(df, 'Age')
+        age_num_series = df['Age']
+        expected = age_series.tolist()
+        actual = list(age_num_series)
+        self.assertListEqual(expected, actual, "Fail test 1")
+
+    def test_coerce_to_int(self):
+        sizes = [4.0, 5.5, 5.5, 10.5, 8.0]
+        col_name = 'Shoe_size'
+        df = pd.DataFrame({col_name: sizes})
+        exp = [int(x) for x in sizes]
+        self.pu.coerece_to_int(df, col_name)
+        act = list(df[col_name])
+        self.assertListEqual(exp, act)
+
+    def test_convert_matrix_to_dataframe(self):
+        exp_df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        act_df = self.pu.convert_matrix_to_dataframe(self.list_of_dicts)
+        assert_frame_equal(exp_df, act_df)
 
     @logit()
     def test_convert_dataframe_to_matrix(self):
@@ -360,7 +385,6 @@ class Test_PandasUtil(unittest.TestCase):
         actual = self.pu.add_new_col_from_array(df, 'IQ', new_vals)
         self.assertListEqual(new_vals, actual.IQ.tolist())
 
-
     @logit()
     def test_drop_col(self):
         df = self.my_test_df()
@@ -371,6 +395,47 @@ class Test_PandasUtil(unittest.TestCase):
         self.pu.drop_col(df, columns=col_to_drop, is_in_place=True)
         after_drop.remove(col_to_drop)
         self.assertListEqual(self.pu.get_df_headers(df), after_drop)
+
+    def test_drop_row_by_criterion(self):
+        _AGE_COL_NAME = 'Age'
+        # Test 1, is_in_place = False
+        df = self.my_test_df()
+        before_drop_ages = df[_AGE_COL_NAME]
+        max_age, _ = self.cu.list_max_and_min(before_drop_ages)
+        exp_ages = self.cu.remove_all_occurrences(before_drop_ages, max_age)
+        act_df = self.pu.drop_row_by_criterion(df, _AGE_COL_NAME, max_age, is_in_place=False)
+        self.assertListEqual(exp_ages, list(act_df[_AGE_COL_NAME]), "Test 1 fail")
+        # Test 2, is_in_place = True
+        df = self.my_test_df()
+        before_drop_ages = df[_AGE_COL_NAME]
+        _, min_age = self.cu.list_max_and_min(before_drop_ages)
+        exp_ages = self.cu.remove_all_occurrences(before_drop_ages, min_age)
+        self.pu.drop_row_by_criterion(df, _AGE_COL_NAME, min_age, is_in_place=True)
+        self.assertListEqual(exp_ages, list(df[_AGE_COL_NAME]), "Test 2 fail")
+
+    def test_drop_row_if_nan(self):
+        # From https://www.geeksforgeeks.org/how-to-drop-rows-with-nan-values-in-pandas-dataframe/
+        _INT1_COL_NAME = 'Integers_1'
+        _INT2_COL_NAME = 'Integers_2'
+        nums = {_INT1_COL_NAME: [10,  15, 30, 40,  55, nan, 75, nan, 90, 150, nan],
+                _INT2_COL_NAME: [nan, 21, 22, 23, nan,  24, 25, nan, 26, nan, nan]}
+        df = self.pu.convert_dict_to_dataframe(nums)
+        # Test 1, just Integers_1
+        int1 = nums[_INT1_COL_NAME]
+        exp1 = [x for x in int1 if not isnan(x)]
+        act1 = self.pu.drop_row_if_nan(df, [_INT1_COL_NAME], is_in_place=False)
+        self.assertListEqual(exp1, list(act1[_INT1_COL_NAME]), "Test 1 fail")
+        # Test 2: all of a row is nan.
+        int2 = nums[_INT2_COL_NAME]
+        exp2 = [x for x, y in zip(int1, int2) if not (isnan(x) & isnan(y))] # remove rows where both are nan.
+        act2 = self.pu.drop_row_if_nan(df, column_names=None, is_in_place=False)
+        for exp, act in zip(exp2, list(act2[_INT1_COL_NAME])):
+            if isnan(exp):
+                self.assertTrue(isnan(act), "Test 2 fail: Both elements should be NaN.")
+            else:
+                self.assertEqual(exp, act, f'Test 2 fail: expected {exp} not equal to actual {act}')
+
+
 
     @logit()
     def test_set_index(self):
@@ -535,17 +600,27 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_coerce_to_numeric(self):
+        # Test 1: coerce an integer. Using df in-place.
         df = self.my_test_df()
         age_series = df['Age'].astype(str).astype(int)
-        df2 = self.pu.coerce_to_numeric(df, 'Age')
-        age_num_series = df2['Age']
+        self.pu.coerce_to_numeric(df, 'Age')
+        age_num_series = df['Age']
         expected = age_series.tolist()
         actual = list(age_num_series)
-        self.assertListEqual(expected, actual)
+        self.assertListEqual(expected, actual, "Fail test 1")
+        # Test 2: coerce two columns. Using returned df.
         weight_series = df['Weight'].astype(str).astype(int)
         df3 = self.pu.coerce_to_numeric(df, ['Age', 'Weight'])
         weight_num_series = df3['Weight']
-        self.assertListEqual(weight_series.tolist(), weight_num_series.tolist())
+        self.assertListEqual(weight_series.tolist(), weight_num_series.tolist(), "Fail test 2")
+        # Test 3: coerce strings and ints
+        sizes = [4.0, 5.5, '5.5', 10.5, 8]
+        col_name = 'Shoe_size'
+        df = pd.DataFrame({col_name: sizes})
+        exp = [float(x) for x in sizes]
+        self.pu.coerce_to_numeric(df, col_name)
+        act = list(df[col_name])
+        self.assertListEqual(exp, act, 'Fail test 3')
 
     def is_adult(self, age:list):
         return age >= 21
@@ -578,9 +653,6 @@ class Test_PandasUtil(unittest.TestCase):
         # self.assertSequenceEqual(mark, new_mark)
         for male, bob in zip(mark, new_mark):
             self.assertFalse(male ^ bob)
-
-
-
 
     @logit()
     def test_mark_isnull(self):
@@ -646,6 +718,13 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertFalse(self.pu.is_empty(df))
         df2 = self.pu.empty_df()
         self.assertTrue(self.pu.is_empty(df2))
+
+    def test_get_worksheets(self):
+        # The majority of this is tested elsewhere, so just test for missing filename.
+        expected_log_message = 'Cannot find Excel file'
+        with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
+            self.pu.get_worksheets(excelFileName='NoSuchFile.xlsx')
+            self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
 
     @logit()
     def test_duplicate_rows(self):
@@ -823,6 +902,22 @@ class Test_PandasUtil(unittest.TestCase):
         expected_age_25th_percentile = actual['Age']['25%']
         self.assertEqual(expected_age_25th_percentile, actual_age_25th_percentile)
 
+    def test_largest_index(self):
+        df = self.my_test_df()
+        exp = df.index
+        act_argmax, act_max = self.pu.largest_index(df)
+        self.assertEqual(exp.sort_values(ascending=False)[0], act_max)
+        exp_list = list(exp) # convert from Int64Index to a plain list.
+        self.assertEqual(exp_list.index(act_max), act_argmax)
+
+    def test_smallest_index(self):
+        df = self.my_test_df()
+        exp = df.index
+        act_argmin, act_min = self.pu.smallest_index(df)
+        self.assertEqual(exp.sort_values(ascending=True)[0], act_argmin)
+        exp_list = list(exp) # convert from Int64Index to a plain list.
+        self.assertEqual(exp_list.index(act_argmin), act_min)
+
 from PandasUtil import DataFrameSplit
 
 class Test_DataFrameSplit(unittest.TestCase):
@@ -838,13 +933,63 @@ class Test_DataFrameSplit(unittest.TestCase):
         self.assertEqual(len(df), combined_sizes)
 
 class Test_PandasDateUtil(unittest.TestCase):
+    isoFormat = "%Y-%m-%dT%H:%M:%S"
+    _DATETIME = 'datetime' # name of a column
+    _CLOSE = 'Close'
+
     def setUp(self):
         self.du = DateUtil()
         self.pdu = PandasDateUtil()
+        self.cu = CollectionUtil()
         self.spreadsheet_name = 'small.xls'
         self.csv_name = 'small.csv'
 
-    @logit()
+    def my_price(self, day: int, hour: int) -> float:
+        return day * 100 + hour
+
+    def list_of_dicts_with_datetime_str(self, start_day:int=1, end_day:int=9, start_hr:int=9, end_hr:int=9, myFormat='%Y-%m-%d'):
+        """
+        Return a list of dictionaries with a datetime str and a float amount.
+        :param start_day: day of month
+        :param end_day: day of month
+        :param start_hr: 24 hr of day
+        :param end_hr: use the same as start_hr to have only daily
+        :param myFormat: how to format the datetime str, e.g., '%Y-%m-%d'
+        :return: list of dict
+        """
+        list_of_dicts = []
+        if start_hr == end_hr: # Indicates only one hour per day; bump end_hr so that range (start_hr, end_hr) will run once.
+            end_hr += 1
+        for d in range (start_day, end_day):
+            for h in range (start_hr, end_hr):
+                dt = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=d, myHH=h)
+                list_of_dicts.append({self._DATETIME: self.du.asFormattedStr(dt, myFormat=myFormat), self._CLOSE: self.my_price(d, h)})
+        return list_of_dicts
+
+    def my_pdu_test_df(self, start_day:int = 1, end_day:int = 10, start_hr:int = 9, end_hr:int = 17, myFormat:str = "%Y-%m-%dT%H:%M:%S") -> pd.DataFrame:
+        dicts = self.list_of_dicts_with_datetime_str(start_day, end_day, start_hr, end_hr, myFormat)
+        df = self.pdu.convert_dict_to_dataframe(dicts)
+        self.pdu.set_index(df=df, format=self.isoFormat, columns=self._DATETIME)
+        return df
+
+    def wfm_df(self):
+        df = pd.DataFrame({
+            "Date": ["2020-09-01", "2020-09-02", "2020-09-03", "2020-09-04", "2020-09-08", "2020-09-09", "2020-09-10", "2020-09-11", "2020-09-14", "2020-09-15", "2020-09-16", "2020-09-17", "2020-09-18", "2020-09-21", "2020-09-22", "2020-09-23", "2020-09-24", "2020-09-25", "2020-09-28", "2020-09-29", "2020-09-30"],
+            "Open": [24.02, 24.01, 24.799999, 25, 24.280001, 24.01, 24.030001, 23.92, 24.379999, 24.959999, 24.870001, 25.23, 24.940001, 24.450001, 23.98, 23.780001, 22.959999, 23.120001, 23.99, 23.719999, 23.360001],
+            "High": [24.34, 24.66, 25.360001, 25.190001, 24.549999, 24.07, 24.67, 24.32, 24.969999, 25.040001, 26, 25.43, 25.4, 24.52, 24.360001, 24.129999, 23.719999, 23.709999, 24.27, 23.719999, 23.870001],
+            "Low": [23.74, 23.93, 24.299999, 24.25, 23.74, 23.700001, 23.860001, 23.709999, 24.23, 24.559999, 24.75, 24.9, 24.9, 23.719999, 23.530001, 22.83, 22.559999, 23.01, 23.76, 23.07, 23.25],
+            self._CLOSE: [24.049999, 24.57, 24.52, 24.790001, 23.969999, 23.84, 23.950001, 24.27, 24.809999, 24.879999, 25.709999, 25.110001, 25.129999, 24.040001, 23.65, 22.83, 23.32, 23.639999, 23.82, 23.26, 23.51],
+            "Adj Close": [24.049999, 24.57, 24.52, 24.790001, 23.969999, 23.84, 23.950001, 24.27, 24.809999, 24.879999, 25.709999, 25.110001, 25.129999, 24.040001, 23.65, 22.83, 23.32, 23.639999, 23.82, 23.26, 23.51],
+            "Volume": [30541900, 40334000, 42349300, 48745000, 49082900, 49427900, 54211700, 34861100, 49787100, 41954800, 51768200, 51531300, 115153200, 56188400, 39839500, 45697700, 43329100, 30229900, 41103500, 38416300, 43058500],
+        })
+        self.pdu.set_index(df, columns="Date", is_in_place=True)
+        return df
+
+
+    def write_df_to_csv(self):
+        df = self.my_pdu_test_df()
+        self.pdu.write_df_to_csv(df=df, csv_file_name=self.csv_name, write_index=True)
+
     def test_to_Datetime_index(self):
         # Test 1. Send it datetimes.
         dates = []
@@ -861,3 +1006,99 @@ class Test_PandasDateUtil(unittest.TestCase):
         self.assertEqual(min_datetime, actual[0], 'min does not match')
         max_datetime = self.du.intsToDateTime(myYYYY=2020, myMM=9, myDD=end_day-1, myHH=end_hr-1)
         self.assertEqual(max_datetime, actual[len(actual)-1], 'max does not match')
+
+    @logit()
+    def test_set_index(self):
+        # Test 1. Datetimes as yyyy-mm-dd strings
+        regFormat = "%Y-%m-%d"
+        dicts = []
+        start_day = 1
+        start_hr = 9
+        end_day = 10
+        end_hr = 17
+        first_dt = None
+        # Using same start_hr and end_hr to only have one entry per day.
+        dicts = self.list_of_dicts_with_datetime_str(start_day=start_day, end_day=end_day, start_hr=start_hr,
+                                                     end_hr=start_hr, myFormat=regFormat)
+
+        def create_and_test_datetime_indexed_df(dicts: list, my_format: str = '%Y-%m-%d'):
+            df = self.pdu.convert_dict_to_dataframe(dicts)
+            datetimes = [self.du.asDate(d[self._DATETIME], myFormat=my_format) for d in dicts]
+            last_dt, first_dt = self.cu.list_max_and_min(datetimes)
+            self.pdu.set_index(df, columns=self._DATETIME, is_in_place=True)
+            _, act_val = self.pdu.smallest_index(df)
+            self.assertEqual(first_dt, act_val, 'failed to find smallest index')
+            _, act_val = self.pdu.largest_index(df)
+            self.assertEqual(last_dt, act_val, 'failed to find largest index')
+
+        logger.debug('about to test and create first df')
+        create_and_test_datetime_indexed_df(dicts, regFormat)
+        logger.debug('first df created and tested')
+        # Test 2, Datetimes as yyyy-mm-dd hh:MM:ss (isoFormat) strings
+        dicts = []
+        # Using different start_hr and end_hr to ensure many entries per day.
+        dicts = self.list_of_dicts_with_datetime_str(start_day=start_day, end_day=end_day, start_hr=start_hr,
+                                                     end_hr=end_hr, myFormat=self.isoFormat)
+        logger.debug('about to test and create second df')
+        create_and_test_datetime_indexed_df(dicts, self.isoFormat)
+        logger.debug('second df with ISO times created and tested')
+
+    def test_read_df_from_csv(self):
+        self.write_df_to_csv()
+        df = self.pdu.read_df_from_csv(csv_file_name=self.csv_name, index_col=self._DATETIME)
+        exp_df = self.my_pdu_test_df()
+        assert_frame_equal(exp_df, df)
+
+    def test_resample(self):
+        # Test 1, resampling hourly data by days
+        start_day = 1
+        start_hr = 9
+        end_day = 10
+        end_hr = 17
+        orig_df = self.my_pdu_test_df(start_day, end_day, start_hr, end_hr)
+        act_df = self.pdu.resample(orig_df, column=self._CLOSE, rule='D')  # D means sample for calendar days.
+        for i, d in enumerate(range(start_day, end_day)):
+            prices = [self.my_price(d, h) for h in range(start_hr,end_hr)]
+            exp = np.average(np.array(prices, dtype=int))
+            self.assertEqual(exp, act_df[i])
+        # Test 2, resampling hourly data using OHLC.
+        ohlc_df = self.pdu.resample(orig_df, column='ohlc', rule='D')  # D means sample for calendar days.
+        for i, d in enumerate(range(start_day, end_day)):
+            prices = [self.my_price(d, h) for h in range(start_hr,end_hr)]
+            np_prices = np.array(prices, dtype=int)
+            l = np.amin(np_prices)
+            h = np.amax(np_prices)
+            row = ohlc_df.iloc[i]
+            self.assertEqual(l, row[((self._CLOSE, 'low'))])
+            self.assertEqual(h, row[((self._CLOSE, 'high'))])
+
+    def test_sma(self):
+        # Simple SMA
+        df = self.wfm_df()
+        window_size = 5
+        ma_df = self.pdu.sma(df, window=window_size)
+        closes = df[self._CLOSE]
+        for i, row in enumerate(ma_df.iterrows()):
+            if i < window_size - 1:
+                self.assertTrue(isnan(row[1][self._CLOSE]))
+            else:
+                avg = closes[i-window_size+1:i+1].mean() # When i = 4, I'm looking for closes[0:5].
+                self.assertAlmostEqual(avg, row[1][self._CLOSE], 6)
+
+    def test_add_bollinger(self):
+        # Bollinger bands
+        df = self.wfm_df()
+        window_size = 10
+        bb_df = self.pdu.add_bollinger(df=df, window=window_size, column_name=self._CLOSE)
+
+        bb_no_nan_df = self.pdu.drop_row_if_nan(bb_df, ['SMA'], is_in_place=False)
+
+        self.assertEqual(len(df) - window_size + 1, len(bb_no_nan_df), "unexpected number of NaN rows dropped.")
+        ma_df = self.pdu.sma(df, window=window_size)
+        for i, row in enumerate(bb_df.iterrows()):
+            if i < window_size - 1:
+                self.assertTrue(isnan(row[1]['SMA']))
+            else:
+                self.assertAlmostEqual(bb_df.iloc[i]['SMA'], ma_df.iloc[i][self._CLOSE], 4)
+
+
