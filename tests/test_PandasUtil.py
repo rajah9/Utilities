@@ -351,6 +351,38 @@ class Test_PandasUtil(unittest.TestCase):
         logger.debug(f'masked rows are: {actual.head()}')
         assert_frame_equal(expected, actual)
 
+    def test_slice_df(self):
+        # Test 1, whole list
+        lst = list(range(10,100,10)) # [10 .. 90]
+        df = pd.Series(lst).to_frame()
+        exp1 = list(range(10,100,10))
+        df_exp1 = pd.Series(exp1).to_frame()
+        df_act1 = self.pu.slice_df(df_exp1)
+        assert_frame_equal(df_act1, df)
+        # Test 2, start on second row and skip every other
+        lst2 = [20, 40, 60, 80]
+        df_exp2 = pd.Series(lst2).to_frame()
+        df_act2 = self.pu.slice_df(df, start_index=1, step=2)
+        self.pu.drop_index(df_exp2) # had indexes 0,1,2,3
+        self.pu.drop_index(df_act2) # had indexes 1,3,5,7
+        assert_frame_equal(df_exp2, df_act2)
+        # Test 3, end early
+        end_here = 5
+        df3 = df[0:end_here]
+        df_act3 = self.pu.slice_df(df, end_index=end_here)
+        assert_frame_equal(df3, df_act3)
+        # Test 4, all params
+        start_here = 1
+        my_step = 3
+        df_exp4 = df.iloc[start_here:end_here:my_step]
+        df_act4 = self.pu.slice_df(df=df, start_index=start_here, end_index=end_here, step=my_step)
+        assert_frame_equal(df_exp4, df_act4)
+        # Test 5, step = 1
+        df_exp5 = df.copy()
+        df_act5 = self.pu.slice_df(df=df, step=1)
+        assert_frame_equal(df_exp5, df_act5)
+
+
     @logit()
     def test_is_empty(self):
         df = self.my_test_df()
