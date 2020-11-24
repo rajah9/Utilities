@@ -201,6 +201,15 @@ class ExcelCompareUtil(ExcelUtil):
 
         self.logger.info('starting ExcelCompareUtil with ' + epsilon_str)
 
+    # Getters and setters for epsilon
+    @property
+    def epsilon(self):
+        return self._epsilon
+
+    # Setter for epsilon.
+    @epsilon.setter
+    def epsilon(self, eps: float):
+        self._epsilon = eps
 
     def close_numbers(self, list1: Floats, list2: Floats, scaling: float = 1.0, epsilon: float = None) -> bool:
         """

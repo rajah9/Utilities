@@ -183,6 +183,16 @@ class TestExcelCompareUtil(TestExcelUtil):
         test_ecu = ExcelCompareUtil(epsilon=1.0e-7)
         self.assertTrue(test_ecu.identical(list1, list2), "fail test 2 (all numbers within epsilon)")
 
+    def test_epsilon_property(self):
+        # Test 1, getter test using class setter
+        eps = 1.0e-4
+        test_ecu = ExcelCompareUtil(epsilon=eps)
+        self.assertEqual(eps, test_ecu.epsilon, 'fail test 1')
+        # Test 2, setter
+        new_eps = 1.0e-2
+        test_ecu.epsilon = new_eps
+        self.assertEqual(new_eps, test_ecu.epsilon, 'fail test 2')
+
     def test_close_numbers(self):
         # Test 1, default epsilon.
         list1 = [1.0, 16.0, 256.0]
@@ -260,8 +270,26 @@ class TestExcelCompareUtil(TestExcelUtil):
         # Test 2, make one element not equal
         test1[3] = 12.6
 
-    def test_compare_to_scalar(self):
-        self.fail('in progress') # TODO
+    def test_compare_list_els_against_scalar(self):
+        # Test 1, strings
+        name = 'Judy'
+        list1 = [name] * 3
+        self.assertTrue(self._ecu.compare_list_els_against_scalar(list1, name), 'fail test 1')
+        # Test 2, strings with a mismatch
+        list1.append('Bill')
+        self.assertFalse(self._ecu.compare_list_els_against_scalar(list1, name), 'fail test 2')
+        # Test 3, floats (identical)
+        num = 42.0
+        list2 = [num] * 13
+        self.assertTrue(self._ecu.compare_list_els_against_scalar(list2, num), 'fail test 3')
+        # Test 4, floats (one within epsilon)
+        eps = self._ecu.epsilon
+        list2.append(num + eps / 2.0)
+        self.assertTrue(self._ecu.compare_list_els_against_scalar(list2, num), 'fail test 4')
+        # Test 5, floats (one within epsilon, one outside of epsilon)
+        eps = self._ecu.epsilon
+        list2.append(num + eps * 1.1)
+        self.assertFalse(self._ecu.compare_list_els_against_scalar(list2, num), 'fail test 5')
 
     def test_verify(self):
         df = self.my_test_df()
