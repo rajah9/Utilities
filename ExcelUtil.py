@@ -237,11 +237,14 @@ class ExcelCompareUtil(ExcelUtil):
 
     def identical_strings(self, list1: Strings, list2: Strings, significant_characters: int = None) -> bool:
         """
-
-        :param list1:
-        :param list2:
-        :param significant_characters:
-        :return:
+        Compare the strings in the lists, up to the significant_character.
+        If significant_character is None, then compare the whole string.
+        Return True if all of the values are equal to each other.
+        Allow for the floats to be within epsilon and still be considered identical.
+        :param list1: List of str
+        :param list2: list of str
+        :param significant_characters: None to compare each el in totality, or an int n to compare the first n chars.
+        :return: True IFF each element matches.
         """
         ans = True
         for el1, el2 in zip(list1, list2):
@@ -256,9 +259,17 @@ class ExcelCompareUtil(ExcelUtil):
 
         return ans
 
-    def identical(self, list1: Strings, list2: Strings, scaling: Union[float, int] = 1) -> bool:
+    def identical(self, list1:  Union[Ints, Floats, Strings], list2:  Union[Ints, Floats, Strings], scaling: Union[float, int] = 1, epsilon: float = None) -> bool:
+        """
+        Determine if these strings, ints, or floats are identical on an element-by-element comparison.
+        :param list1:
+        :param list2:
+        :param scaling:
+        :param epsilon:
+        :return:
+        """
         if len(list1) != len(list2):
-            self.logger.warning(f'Lists are different sizes. {len(list1)} not equal to {len(list2)})')
+            self.logger.warning(f'Lists are different sizes. {len(list1)} not equal to {len(list2)}')
             return False
 
         list1_el = list1[0]
@@ -274,7 +285,7 @@ class ExcelCompareUtil(ExcelUtil):
             if isinstance(list1_el, str):
                 self.logger.warning(f'first element of list1 is {list1_el}, but first element of list2 is {list2_el}. They cannot be compared. Returning False. ')
                 return False
-            return self.close_numbers(list1, list2, scaling)
+            return self.close_numbers(list1, list2, scaling, epsilon)
         else:
             self.logger.warning(f'list2 should be str, int, or float, but was {type(list2_el)}. Returning False')
             return False
@@ -307,17 +318,6 @@ class ExcelCompareUtil(ExcelUtil):
         """
         scalars = [compare_me] * len(vals)
         return self.identical(vals, scalars)
-
-    def compare_to_scalar(self, file_dict: dict, compare_me: Union[float, str]) -> bool:
-        """
-        Compare the spreadsheet values and range to the scalar compare_me.
-        Return true if all of the values are equal to the scalar.
-        :param file_dict:
-        :param compare_me:
-        :return:
-        """
-        vals = self.get_spreadsheet_values(excel_file_dict=file_dict)
-        return self.compare_list_els_against_scalar(vals, compare_me)
 
 """
 Following routines are for reading and writing Excel files.
@@ -402,6 +402,15 @@ class ExcelRewriteUtil(ExcelUtil):
         if do_save:
             self.save_workbook(output_file_dict['filename'])
         return True
+
+    @functools.lru_cache(maxsize=2)
+    def init_workbook(self, filename: str) -> Workbook:
+        self._wb = load_workbook(filename=filename)
+        return self._wb
+
+    @logit(showArgs=True, showRetVal=False)
+    def save_workbook(self, filename: str):
+        self._wb.save(filename=filename)
 
     @logit()
     def rewrite_worksheet(self, excel_filename: str, excel_worksheet: str, ranges: list, vals: list):
@@ -789,4 +798,3 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             line = ''.join(null_to_spc)
             ans.add_line(line)
         return ans.contents
-
