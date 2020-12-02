@@ -62,7 +62,7 @@ class ExcelUtil(Util):
         self._su = StringUtil()
         self._wb = None
 
-    def row_col_to_ExcelCell(self, row:int, col:int) -> ExcelCell:
+    def row_col_to_ExcelCell(self, row: int, col: int) -> ExcelCell:
         """
         Convert the given row and column to an ExcelCell.
         :param row:
@@ -136,7 +136,7 @@ class ExcelUtil(Util):
         start, to = self.convert_range_to_cells(excel_range)
         return self.get_excel_rectangle_start_to(start, to)
 
-    def get_values(self, df:pd.DataFrame, rectangle: list) -> list:
+    def get_values(self, df: pd.DataFrame, rectangle: list) -> list:
         """
         Return the values described in rectangle.
         :param df:
@@ -180,6 +180,18 @@ class ExcelUtil(Util):
             self.logger.debug("no scaling found; using 1.0")
             scaling = 1.0
         return scaling
+
+    def get_epsilon(self, excel_file_dict: dict) -> float:
+        """
+        Read the excel_file_dict for the 'epsilon' field. If there's none, return 1.0
+        :param excel_file_dict:
+        :return:
+        """
+        try:
+            return excel_file_dict['epsilon']
+        except KeyError:
+            self.logger.debug("no epsilon found; using class default")
+        return None
 
 """
 To import this library, here's a handy import statement:
@@ -313,7 +325,8 @@ class ExcelCompareUtil(ExcelUtil):
         scaling = self.get_scaling(file2)
 
         self.logger.debug(f'2:\n{vals2}')
-        ans = self.identical(vals1, vals2, scaling)
+        eps = self.get_epsilon(file2)
+        ans = self.identical(vals1, vals2, scaling=scaling, epsilon=eps)
         report = 'identical' if ans else 'DIFFERENT'
         self.logger.info(f'lists are {report}')
         return ans
@@ -327,6 +340,17 @@ class ExcelCompareUtil(ExcelUtil):
         """
         scalars = [compare_me] * len(vals)
         return self.identical(vals, scalars)
+
+    def compare_to_scalar(self, file_dict: dict, compare_me: Union[float, str]) -> bool:
+        """
+        Compare the spreadsheet values and range to the scalar compare_me.
+        Return true if all of the values are equal to the scalar.
+        :param file_dict: dict with 'filename', 'worksheet', and 'range'
+        :param compare_me: scalar to compare against
+        :return: True if all elements in the given range are equal to compare_me.
+        """
+        vals = self.get_spreadsheet_values(excel_file_dict=file_dict)
+        return self.compare_list_els_against_scalar(vals, compare_me)
 
 """
 Following routines are for reading and writing Excel files.

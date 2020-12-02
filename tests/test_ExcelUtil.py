@@ -291,7 +291,24 @@ class TestExcelCompareUtil(TestExcelUtil):
         list2.append(num + eps * 1.1)
         self.assertFalse(self._ecu.compare_list_els_against_scalar(list2, num), 'fail test 5')
 
+    def test_compare_to_scalar(self):
+        df_first = self.my_test_df()
+        self._pu.drop_row_by_criterion(df_first, column_name='Sex', criterion='male', is_in_place=True)
+        self._pu.write_df_to_excel(df=df_first, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+        # Test 1, single cell to compare
+        scalar = 88
+        file_dict = {'filename': self.parent_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a2'}
+        self.assertTrue(self._ecu.compare_to_scalar(file_dict, scalar), 'fail test 1')
+        # Test 2, multiple cells to compare
+        scalar = 'female' # Dropped males, so only females left.
+        file_dict['range'] = 'C2:C3'
+        self.assertTrue(self._ecu.compare_to_scalar(file_dict, scalar), 'fail test 2')
+        # Test 3, compare with the adjacent cell and should fail
+        file_dict['range'] = 'b2:c2'
+        self.assertFalse(self._ecu.compare_to_scalar(file_dict, scalar), 'fail test 3')
+
     def test_verify(self):
+        # Test 1, skipping rows.
         df = self.my_test_df()
         self._pu.write_df_to_excel(df=df, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
         # Now skip every other line
@@ -300,6 +317,20 @@ class TestExcelCompareUtil(TestExcelUtil):
         first_dict = {'filename': self.parent_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a6', 'step': 2}
         second_dict = {'filename': self.compare_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a4'}
         self.assertTrue(self._ecu.verify(first_dict, second_dict))
+        # Test 2, with epsilon (and identical)
+        test_eps = 0.01
+        second_dict['epsilon'] = test_eps
+        self.assertTrue(self._ecu.verify(first_dict, second_dict))
+        # Test 3, rewrite file with a larger number that is twice epsilon.
+        ###
+        ### Following test removed because the spreadsheet is buffered (and it won't read in).
+        # df2 = self.my_test_df()
+        # df2.iloc[2, df2.columns.get_loc('Weight')] += test_eps + test_eps # Make sure the iloc points to a weight that won't be skipped.
+        # self._pu.write_df_to_excel(df=df2, excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=False)
+        # first_dict = {'filename': self.parent_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a6', 'step': 2}
+        # second_dict = {'filename': self.compare_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a4'}
+        # self.assertFalse(self._ecu.verify(first_dict, second_dict))
+
 
     @skip("Only run from parent test")
     def test_get_values(self):
