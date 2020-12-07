@@ -255,6 +255,15 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertIsNone(self.pu.get_df_headers(df2))
 
     @logit()
+    def test_set_df_headers(self):
+        # Test 1
+        df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        first_entry = self.list_of_dicts[0]
+        new_header = [f'Column{i}' for i in range(len(first_entry))]
+        self.pu.set_df_headers(df=df, new_headers=new_header)
+        self.assertListEqual(self.pu.get_df_headers(df), new_header)
+
+    @logit()
     def test_without_null_rows2(self):
         df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
         col_to_nullify = 'noSuchColumnInTheDf'

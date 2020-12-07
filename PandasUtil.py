@@ -216,7 +216,7 @@ class PandasUtil:
 
     def get_df_headers(self, df:pd.DataFrame=_EMPTY_DF) -> list:
         """
-        Get a list of the headers.
+        Get a list of the headers. This provides a list of the column NAMES.
         :param df:
         :param self:
         :return: list of headers
@@ -227,6 +227,15 @@ class PandasUtil:
         else:
             logger.warning('df is empty. Returning None for headers')
             return None
+
+    def set_df_headers(self, df: pd.DataFrame, new_headers: list):
+        """
+        This sets the column NAMES.
+        :param df:
+        :param new_headers: list of new headers)
+        :return: None (but side effect of changed df)
+        """
+        df.columns = new_headers
 
     def get_rowCount_colCount(self, df:pd.DataFrame):
         """
@@ -608,6 +617,7 @@ class PandasUtil:
     def replace_col(self, df:pd.DataFrame, column: str, replace_dict: dict) -> pd.DataFrame:
         """
         Replace the values of column_name using replace_dict.
+        This will will replace the column VALUES.
         :param df:
         :param column:
         :param replace_dict: {'origA':'replA', 'origB':'replB'}
@@ -623,6 +633,7 @@ class PandasUtil:
     def replace_col_using_func(self, df:pd.DataFrame, column_name: str, func: Callable[[], list]) -> pd.DataFrame:
         """
         Replace the column contents by each element's value, as determined by func.
+        This will will replace the column VALUES.
         :param df: Dataframe under scrutiny.
         :param column_name: (single column_name) name
         :param func: Function operates on whatever element it is presented, and returns the changed element.
@@ -633,11 +644,12 @@ class PandasUtil:
 
     def replace_col_using_mult_cols(self, df:pd.DataFrame, column_to_replace: str, cols: Strings, func: Callable[[], list]) -> pd.DataFrame:
         """
-
+        Replace column_to_replace, using the given func.
+        This will will replace the column VALUES.
         :param df: Dataframe under scrutiny.
         :param column_to_replace: (single column_name) name
         :param cols: list of columns used for the following func
-        :param func:
+        :param func: Pointer to a local function.
         :return: df with replaced column
         """
         df[column_to_replace] = df[cols].apply(func, axis=1)
@@ -684,6 +696,10 @@ class PandasUtil:
     def join_dfs_by_row(self, dfs: Dataframes) -> pd.DataFrame:
         """
         Return a row-wise join of these dataframes.
+        Note: all the dfs should have the same column names, so you might call it in this way:
+          headers = pu.get_df_headers(big_df)
+          pu.set_df_headers(new_df, headers)
+          df2 = pu.join_dfs_by_row([new_df, big_df])
         :param dfs:
         :return:
         """

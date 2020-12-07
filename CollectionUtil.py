@@ -129,7 +129,7 @@ class CollectionUtil(Util):
         """
         Create a namedtuple.
         Example use:
-          Complex = CollectionUtil('Complex', 'real imaginary')
+          Complex = CollectionUtil.named_tuple('Complex', 'real imaginary')
           c = Complex(3, 2.5) # creates 3 + 2.5i
           print ('Created ' + c.real + ' + ' + c.imaginary + "i")
         :param clz: name of the class of this namedtuple (typically capitalized)

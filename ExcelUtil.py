@@ -20,7 +20,7 @@ from copy import copy
 from math import fabs
 from subprocess import CalledProcessError
 from typing import List, Union, Tuple
-
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import pdfplumber
@@ -484,7 +484,7 @@ class ExcelRewriteUtil(ExcelUtil):
         :param attempt_formatting:
         :return:
         """
-        self.write_df_to_new_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+        self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
         self.save_workbook(excelFileName)
 
     def write_df_to_new_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting: bool = False, write_header: bool = False, write_index: bool = False) -> Worksheet:
@@ -502,7 +502,7 @@ class ExcelRewriteUtil(ExcelUtil):
         self.init_workbook_to_write()
         return self.write_df_to_ws(df=df, excelWorksheet=excelWorksheet, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
 
-    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False) -> Worksheet:
+    def write_df_to_ws(self, df: pd.DataFrame, excelWorksheet: str = "No title", attempt_formatting:bool = False, write_header = False, write_index = False, date_format: str = 'MM/DD/YYYY') -> Worksheet:
         """
         Refactor of write_df_to_new_ws, which does not init the workbook.
         Write the given dataframe to an excel worksheet. Attempt to format strings ending in % and strings as numbers as percents and numbers, if requested.
@@ -513,6 +513,8 @@ class ExcelRewriteUtil(ExcelUtil):
         :param attempt_formatting: True means attempt to format strings as percents or numbers
         :param write_header: True if you'd like to write the column names
         :param write_index: True if you'd like to write the index
+        :param date_format: Date (or time) format, such as 'dd/mm/yy' or 'YY MMM DD'
+               More styles may be found at https://openpyxl.readthedocs.io/en/stable/_modules/openpyxl/styles/numbers.htm.
         :return:
         """
         if excelWorksheet in self.worksheet_names():
@@ -534,6 +536,8 @@ class ExcelRewriteUtil(ExcelUtil):
                         cell.value = c.value
                         if (c.cellType == 'Comma') or (c.cellType == 'Percent'):
                             cell.number_format = formatting[c.cellType]
+                    elif isinstance(cell.value, datetime):
+                        cell.number_format = date_format
                     else:
                         pass
         return ws
