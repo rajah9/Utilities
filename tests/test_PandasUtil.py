@@ -1110,4 +1110,26 @@ class Test_PandasDateUtil(unittest.TestCase):
             else:
                 self.assertAlmostEqual(bb_df.iloc[i]['SMA'], ma_df.iloc[i][self._CLOSE], 4)
 
+    def test_add_sma(self):
+        df = self.wfm_df()
+        length = 10
+        with_sma_col_df = self.pdu.add_sma(df, length=length, column_name=self._CLOSE, ma_column='SMA')
+        sma_no_nan_df = self.pdu.drop_row_if_nan(with_sma_col_df, ['SMA'], is_in_place=False)
+        ma_series = self.pdu.sma(df, window=length, col_name_to_average=self._CLOSE)
+        for i, row in enumerate(with_sma_col_df.iterrows()):
+            if i < length - 1:
+                self.assertTrue(isnan(row[1]['SMA']))
+            else:
+                self.assertAlmostEqual(row[1]['SMA'], ma_series[i], 4)
 
+
+    def test_filter_date_index_by_dates(self):
+        df = self.wfm_df()
+        days = list(df.index) # should have 21 days
+        df_len = len(df)
+        self.assertEqual(df_len, len(days))
+        # Now pick the first three
+        fourth_time = days[2+1] # t0, t1, t2, t3 and we're looking for strictly < t3 and should get t0, t1, t2
+        first_three_df = self.pdu.filter_date_index_by_dates(df, start_date=self.du.intsToDateTime(myYYYY=1970, myMM=1, myDD=1), end_date=fourth_time)
+        orig_first_three = df[0:3]
+        assert_frame_equal(orig_first_three, first_three_df)

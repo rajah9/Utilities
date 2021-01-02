@@ -1022,7 +1022,7 @@ class PandasDateUtil(PandasUtil):
             return df.resample(rule=rule).ohlc()
         return df[column].resample(rule=rule).mean()
 
-    def rolling(self, df: pd.DataFrame, window: int = 7) -> pd.core.window.rolling.Rolling:
+    def rolling(self, df: pd.DataFrame, window: int = 7) -> pd.core.window.Rolling:
         """
         Return a window based on the df.
         :param df:
@@ -1043,6 +1043,20 @@ class PandasDateUtil(PandasUtil):
             return self.rolling(df[col_name_to_average], window=window).mean()
         return self.rolling(df=df, window=window).mean()
 
+    def add_sma(self, df: pd.DataFrame, length: int = 20, column_name: str = 'close', ma_column: str = 'SMA') -> pd.DataFrame:
+        """
+
+        :param df:
+        :param length:
+        :param column_name:
+        :param ma_column:
+        :return:
+        """
+        sma = np.array(self.sma(df=df, col_name_to_average=column_name, window=length), dtype=float)
+        self.add_new_col_from_array(df, ma_column, sma)
+        return df
+
+
     def bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close'):
         """
         Add a SMA column and an upper and lower BB Column
@@ -1051,7 +1065,7 @@ class PandasDateUtil(PandasUtil):
         :param column_name:
         :return: sma, upper, and lower arrays
         """
-        sma = np.array( self.sma(df=df, col_name_to_average=column_name, window=window), dtype=float)
+        sma = np.array(self.sma(df=df, col_name_to_average=column_name, window=window), dtype=float)
         upper = np.array(sma + 2 * (df[column_name].rolling(window).std()))
         lower = np.array(sma - 2 * (df[column_name].rolling(window).std()))
         return sma, upper, lower
@@ -1073,3 +1087,24 @@ class PandasDateUtil(PandasUtil):
         self.add_new_col_from_array(df, lower_colname, lower)
         return df
 
+    def mark_rows_by_dates(self, df: pd.DataFrame, start_date: datetime, end_date: datetime) -> Bools:
+        """
+        Return an array of booleans that fit the given criteria.
+        :param df: df with an index of datetimes.
+        :param start_date:
+        :param end_date:
+        :return:
+        """
+        filter_mask = (df.index > start_date) & (df.index < end_date)
+        return filter_mask
+
+    def filter_date_index_by_dates(self, df: pd.DataFrame, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """
+        Return a new df that contains only the datetimes between the given start_date and end_date.
+        :param df: df with an index of datetimes.
+        :param start_date:
+        :param end_date:
+        :return:
+        """
+        mask = self.mark_rows_by_dates(df, start_date, end_date)
+        return self.masked_df(df, mask)
