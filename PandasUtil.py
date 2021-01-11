@@ -1045,11 +1045,11 @@ class PandasDateUtil(PandasUtil):
 
     def add_sma(self, df: pd.DataFrame, length: int = 20, column_name: str = 'close', ma_column: str = 'SMA') -> pd.DataFrame:
         """
-
-        :param df:
-        :param length:
-        :param column_name:
-        :param ma_column:
+        Add a simple moving average named ma_column to the existing df.
+        :param df: dataframe to add to
+        :param length: length of the SMA window
+        :param column_name: existing column in the dataframe.
+        :param ma_column: new column name of the moving average.
         :return:
         """
         sma = np.array(self.sma(df=df, col_name_to_average=column_name, window=length), dtype=float)

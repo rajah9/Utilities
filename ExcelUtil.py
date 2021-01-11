@@ -93,6 +93,16 @@ class ExcelUtil(Util):
         """
         return f'{self._su.int_to_excel_col(ec.col)}{ec.row}'
 
+    def row_col_to_A1(self, row: int, col: int) -> str:
+        """
+        Convert the given row and column to an A1 format.
+        :param row:
+        :param col:
+        :return: Cell in A1 (Excel) format
+        """
+        ec = self.row_col_to_ExcelCell(row, col)
+        return self.ExcelCell_to_A1(ec)
+
     def convert_from_A1_to_cell(self, convert_me: str) -> ExcelCell:
         """
         Convert a string like A2 to an ExcelCell
@@ -212,6 +222,7 @@ class ExcelCompareUtil(ExcelUtil):
             self._epsilon = _EPSILON
 
         self.logger.info('starting ExcelCompareUtil with ' + epsilon_str)
+        self._compare_log = LineAccmulator()
 
     # Getters and setters for epsilon
     @property
@@ -222,6 +233,14 @@ class ExcelCompareUtil(ExcelUtil):
     @epsilon.setter
     def epsilon(self, eps: float):
         self._epsilon = eps
+
+    # Getter for compare_log.
+    @property
+    def compare_log(self) -> Strings:
+        return self._compare_log.contents # Not the compare_log (a LineAccumulator) but its contents (a list of strings)
+
+    def add_log_line(self, line: str):
+        self._compare_log.add_line(line)
 
     def close_numbers(self, list1: Floats, list2: Floats, scaling: float = 1.0, epsilon: float = None) -> bool:
         """
@@ -326,9 +345,12 @@ class ExcelCompareUtil(ExcelUtil):
 
         self.logger.debug(f'2:\n{vals2}')
         eps = self.get_epsilon(file2)
+        self.add_log_line(f"{0:^23} file {1:100}, worksheet {2:15}, and range {3}".format("Starting comparison of", file1['filename'], file1['worksheet'], file1['range']))
+        self.add_log_line(f"{0:^23} file {1:100}, worksheet {2:15}, and range {3}".format("Starting comparison of", file2['filename'], file2['worksheet'], file2['range']))
         ans = self.identical(vals1, vals2, scaling=scaling, epsilon=eps)
         report = 'identical' if ans else 'DIFFERENT'
         self.logger.info(f'lists are {report}')
+        self.add_log_line(f"{0:^23}:{1}".format("RESULTS", report))
         return ans
 
     def compare_list_els_against_scalar(self, vals: list, compare_me: Union[float, str]) -> bool:
@@ -542,6 +564,36 @@ class ExcelRewriteUtil(ExcelUtil):
                         pass
         return ws
 
+    def copy_ws_to_ws(self, ws_source: Worksheet, ws_source_name: str, ws_target_name: str = None, range: str = None):
+        """
+        Copy from the given worksheet to the currently active workbook.
+        Based on the accepted answer at https://stackoverflow.com/questions/50208440/openpyxl-copy-from-one-workbook-to-another.
+        :param ws_source: Source worksheet
+        :return: None
+        """
+        self.init_workbook_to_write()
+        new_ws_name = ws_target_name or ws_source_name
+        ws_dest = self._wb.create_sheet(new_ws_name)
+        if not range:
+            start_row = ws_source.min_row # Usually 1
+            start_col = ws_source.min_column # usually 1
+            end_row = ws_source.max_row
+            end_col = ws_source.max_column
+        else:
+            raise NotImplementedError('not implemented yet')
+        source_range = self.row_col_to_A1(row=start_row, col=start_col) + ":" + self.row_col_to_A1(row=end_row, col=end_col)
+        for row in ws_source[source_range]:
+            for cell in row:
+                ws_dest[cell.coordinate].value = ws_source[cell.coordinate].value
+                # Following code adopted from https://stackoverflow.com/a/34838233/509840
+                if cell.has_style:
+                    ws_dest[cell.coordinate].font = copy(cell.font)
+                    ws_dest[cell.coordinate].border = copy(cell.border)
+                    ws_dest[cell.coordinate].fill = copy(cell.fill)
+                    ws_dest[cell.coordinate].number_format = copy(cell.number_format)
+                    ws_dest[cell.coordinate].protection = copy(cell.protection)
+                    ws_dest[cell.coordinate].alignment = copy(cell.alignment)
+
     def copy_spreadsheet_to_ws(self, sourceFileName: str, sourceWorksheet: str, destWorksheet: str = None, header: int = 0,
                                attempt_formatting: bool = False, write_header: bool = False,
                                write_index: bool = False) -> Worksheet:
@@ -561,15 +613,16 @@ class ExcelRewriteUtil(ExcelUtil):
         if len(df):
             self.logger.debug(f'Read in {len(df)} records from file {sourceFileName} and worksheet {sourceWorksheet}.')
             worksheet_name = destWorksheet or sourceWorksheet
-            # 2. Create a ws based on the df.
+            # 2. Create a ws_source based on the df.
             ws = self.write_df_to_new_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
             return ws
-        self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws')
+        self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws_source')
         return None
 
-    def init_template(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
+    def init_template_old(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
                       output_excel_worksheet: str = None, do_save: bool = True) -> bool:
         """
+        ** Refactoring and WILL BE DEPRECATED **
         Read from the given template_excel_file_name and template_excel_worksheet.
         Create a new copy of the worksheet within the same file. Save the file if do_save is requested.
         :param template_excel_file_name:
@@ -588,10 +641,38 @@ class ExcelRewriteUtil(ExcelUtil):
         self.init_workbook_to_read(filename=template_excel_file_name)
         template_ws = self._wb[template_excel_worksheet]
         output_ws = self._wb.create_sheet(output_excel_worksheet)
-        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws
+        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws_source
         wc.copy_worksheet() # copy the requested worksheet
         if do_save:
             self.save_workbook(output_excel_file_name)
+        return True
+
+    def init_template(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
+                      output_excel_worksheet: str = None, excel_range: str = None) -> bool:
+        """
+        Read from the given template_excel_file_name and template_excel_worksheet.
+        Copy the template info into the output file and output worksheet.
+        Apply formatting from the template into the output worksheet.
+
+        :param template_excel_file_name:
+        :param template_excel_worksheet:
+        :param output_excel_file_name:
+        :param output_excel_worksheet:
+        :param excel_range: (optional) excel range, like 'A1:G4'. If omitted, use the whole template.
+        :return: True if the worksheet is set up.
+        """
+        if not self._fu.file_exists(qualifiedPath=template_excel_file_name):
+            self.logger.warning(f'Could not find file {template_excel_file_name}!')
+            return False
+        if not output_excel_worksheet:
+            output_excel_worksheet = template_excel_worksheet
+
+        self.init_workbook_to_read(filename=template_excel_file_name)
+        template_ws = self._wb[template_excel_worksheet]
+        self.init_workbook_to_write() # Switching wb to the output.
+        output_ws = self._wb.create_sheet(output_excel_worksheet)
+        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws_source
+        wc.copy_worksheet() # copy the requested worksheet
         return True
 
 

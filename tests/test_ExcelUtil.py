@@ -86,6 +86,13 @@ class TestExcelUtil(TestCase):
             asExcel1 = self._eu.convert_from_A1_to_cell(test)
             self.assertEqual(test, self._eu.ExcelCell_to_A1(asExcel1))
 
+    def test_row_col_to_A1(self):
+        # Normal case
+        tests = [ExcelCell(1, 2), ExcelCell(col=3, row=27), ExcelCell(col=27,row=10), ExcelCell(col=702, row=99)]
+        expected = ['A2', 'C27', 'AA10', 'ZZ99']
+        for exp, test in zip(expected, tests):
+            self.assertEqual(exp, self._eu.row_col_to_A1(row=test.row, col=test.col), f'mismatch for {test}')
+
     def test_get_excel_rectangle_start_to(self):
         # Normal case: rows
         test_start_1 = "a5"
@@ -434,12 +441,32 @@ class TestExcelRewriteUtil(TestExcelUtil):
         # Test 1, normal
         df = self.format_test_df()
         ws_copy_name = 'test2'
+        self._rwu.init_workbook_to_write()
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
         self._rwu.init_template(template_excel_file_name=self.formatting_spreadsheet_name,
                                 template_excel_worksheet=self.worksheet_name,
                                 output_excel_file_name=self.parent_spreadsheet_name,
-                                output_excel_worksheet=ws_copy_name, do_save=True)
+                                output_excel_worksheet=ws_copy_name)
         actual_df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=ws_copy_name, index_col=0)
+        self._pu.drop_row_if_nan(actual_df, is_in_place=True) # delete the blank row after the header
+        actual_df.index = actual_df.index.astype(int) # index was float; make it an int
+        self._pu.coerece_to_int(actual_df, 'Year') # was float; make it int64
+        self._pu.coerece_to_int(df, 'Year')        # was int32; make it int64
+        assert_frame_equal(df, actual_df)
+        self.fail('in progress') # TODO
+
+    def test_copy_ws_to_ws(self):
+        # Test 1, normal
+        df = self.format_test_df()
+        ws_copy_name = 'formatted copy'
+        self._rwu.init_workbook_to_write()
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=False)
+        source_ws = self._rwu.copy_spreadsheet_to_ws(sourceFileName=self.formatting_spreadsheet_name, sourceWorksheet=self.worksheet_name)
+        self._rwu.copy_ws_to_ws(ws_source=source_ws, ws_source_name=ws_copy_name )
+        self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
+
+        actual_df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=ws_copy_name, index_col=0)
+        self._pu.replace_col_names(actual_df, {'Unnamed: 1': 'Year', 'Unnamed: 2':'Era', 'Unnamed: 3':'Income', 'Unnamed: 4': 'Margin'}, is_in_place=True)
         self._pu.drop_row_if_nan(actual_df, is_in_place=True) # delete the blank row after the header
         actual_df.index = actual_df.index.astype(int) # index was float; make it an int
         self._pu.coerece_to_int(actual_df, 'Year') # was float; make it int64

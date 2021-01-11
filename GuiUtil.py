@@ -3,8 +3,8 @@ GuiUtil gets a basic GUI going.
 It is based on https://stackoverflow.com/questions/17466561/best-way-to-structure-a-tkinter-application
 
 """
-
 import tkinter as tk
+import time
 
 class Label(tk.Frame):
     def __init__(self, parent, label, *args, **kwargs):
@@ -20,6 +20,24 @@ class GuiUtil(tk.Frame):
         if label:
             self.label = Label(parent=self, label=label)
 
+    @staticmethod
+    def set_clipboard(text_to_set: str):
+        r = tk.Tk()
+        r.withdraw()
+        r.clipboard_clear()
+        r.clipboard_append(text_to_set)
+
+        r.update()
+        # time.sleep(.2)
+        # r.update()
+
+        r.destroy()
+
+    @staticmethod
+    def get_clipboard() -> str:
+        root = tk.Tk()
+        root.withdraw()
+        return root.clipboard_get()
 
 if __name__ == "__main__":
     root = tk.Tk()
