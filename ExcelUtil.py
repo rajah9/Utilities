@@ -33,6 +33,9 @@ from PandasUtil import PandasUtil
 from StringUtil import StringUtil, LineAccmulator
 from Util import Util
 
+_SUBPERIOD_DIVIDED = 'divided'
+_SUBPERIOD_EQUAL = 'equal'
+
 Strings = List[str]
 Ints = List[int]
 Floats = List[float]
@@ -190,6 +193,32 @@ class ExcelUtil(Util):
             self.logger.debug("no scaling found; using 1.0")
             scaling = 1.0
         return scaling
+
+    def get_repeat(self, excel_file_dict: dict) -> Tuple[int, str] :
+        """
+        Return a tuple of a repeat factor and a string corresponding to the subperiods key.
+        :param excel_file_dict: dict with 'repeat' key and 'subperiods' key.
+        :return:
+        """
+        try:
+            repeat = excel_file_dict['repeat']
+        except KeyError:
+            self.logger.debug("no repeat found; using 1")
+            return 1, 'none'
+        try:
+            func_name = excel_file_dict['subperiod']
+        except KeyError:
+            self.logger.debug("No subperiod found; using equal")
+            return repeat, _SUBPERIOD_EQUAL
+        if func_name == _SUBPERIOD_EQUAL:
+            return repeat, _SUBPERIOD_EQUAL
+        elif func_name == _SUBPERIOD_DIVIDED:
+            return repeat, _SUBPERIOD_DIVIDED
+        else:
+            self.logger.warning(f'Subperiod {func_name} not implemented yet.')
+            return repeat, 'none'
+
+
 
     def get_epsilon(self, excel_file_dict: dict) -> float:
         """
@@ -435,6 +464,70 @@ class ExcelRewriteUtil(ExcelUtil):
             ans.append(self.get_cell(ws, cell_loc))
         return ans
 
+    def _scaled(self, output_file_dict: dict, vals: list) -> list:
+        """
+        Return a scaled version of the vals list, multiplying by the given factor (or 1.0).
+        :param output_file_dict: dict with (optional) key 'scaling'
+        :param vals:
+        :return:
+        """
+        if isinstance(vals[0], str):
+            return vals # First item in list a str, so no scaling needed.
+
+        scaling = self.get_scaling(output_file_dict)
+        scaled_vals = [v * scaling for v in vals]
+        return scaled_vals
+
+    def _repeated(self, output_file_dict: dict, vals: list) -> list:
+        """
+        Repeat each element. If the 'repeat' key is 3, then also look at the subperiods key.
+          subperiods   action
+          equal        repeat each element 3 times. (default)
+          divided      divide each element by 3
+        :param output_file_dict: dict with an (optional) key 'repeat' and an (optional) key subperiods.
+        :param vals:
+        :return:
+        """
+        repeat, subperiod = self.get_repeat(output_file_dict)
+        if repeat == 1:
+            return vals
+        if subperiod == _SUBPERIOD_EQUAL:
+            return self._equal_subperiod(vals, repeat)
+        elif subperiod == _SUBPERIOD_DIVIDED:
+            return self._divided_subperiod(vals, repeat)
+        else:
+            return self._no_subperiod()
+
+
+
+    def _no_subperiod(self):
+        """
+        raise an error.
+        :return:
+        """
+        raise NotImplementedError('no subperiod defined')
+
+    def _equal_subperiod(self, vals: list, repeat: int):
+        """
+        Repeat each el in vals repeat times
+        :param vals: list, like [2, 4, 6, 8]
+        :param repeat: int, like 2
+        :return: list, like [2, 2, 4, 4, 6, 6, 8, 8]
+        """
+        ans = CollectionUtil.repeat_elements_n_times(vals, repeat)
+        return ans
+
+    def _divided_subperiod(self, vals: list, repeat: int):
+        """
+        Repeat each el in vals repeat times, dividing each el by repeat.
+        :param vals: list, like [2, 4, 6, 8]
+        :param repeat: int, like 2
+        :return: list, like [1, 1, 2, 2, 3, 3, 4, 4]
+        """
+        ans = CollectionUtil.repeat_elements_n_times(vals, repeat)
+        return [el / repeat for el in vals]
+
+
     def load_and_write(self, input_file_dict: dict, output_file_dict: dict, do_save: bool = True) -> bool:
         """
         Load the Excel file and worksheet in input_file_dict and write it (with scaling) to output_file_dict
@@ -444,16 +537,16 @@ class ExcelRewriteUtil(ExcelUtil):
         """
         vals1 = self.get_spreadsheet_values(excel_file_dict=input_file_dict)
         self.logger.debug(f'1: \n{vals1}')
-        scaling = self.get_scaling(output_file_dict)
-        scaled_vals = [v * scaling for v in vals1]
+        vals2 = self._repeated(output_file_dict, vals1)
+        scaled_vals = self._scaled(output_file_dict, vals2)
         # We have either a single range or many ranges to copy to.
         try:
             rectangles = output_file_dict['ranges']
         except KeyError:
             range_rectangle = output_file_dict['range']
             rectangles = [range_rectangle]
-        self.rewrite_worksheet(excel_filename=output_file_dict['filename'], excel_worksheet=output_file_dict['worksheet'],
-                               ranges=rectangles, vals=scaled_vals)
+
+        self.write_range_to_worksheet(excel_worksheet=output_file_dict['worksheet'], ranges=rectangles, vals=scaled_vals)
         if do_save:
             self.save_workbook(output_file_dict['filename'])
         return True
@@ -497,6 +590,35 @@ class ExcelRewriteUtil(ExcelUtil):
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
         return
 
+    def write_range_to_worksheet(self, excel_worksheet: str, ranges: list, vals: list):
+        """
+        Write the values to the given range, preserving formatting.
+        Refactor of rewrite_worksheet.
+        :param file: dictionary containing 'filename', 'worksheet', and 'range' keys.
+        :param vals: list of values to be written. len(vals) should be the same as the range.
+        :return:
+        """
+        wb = self.init_workbook_to_write()
+        ws = self._create_worksheet(excel_worksheet)
+        # Ensure that the sum of the area of the ranges equals the number of variables
+        local_vals = copy(vals)
+        area = 0
+        for rectangle in ranges:
+            area += len(self.get_excel_rectangle(rectangle))  # Will return a list of ExcelCells
+        if area != len(vals):
+            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell range {rectangle}')
+        for rectangle in ranges:
+            excel_rect = self.get_excel_rectangle(rectangle)
+            start_cell, end_cell = excel_rect[0], excel_rect[-1]
+            self.logger.debug(f'starting cell: {start_cell} / ending cell: {end_cell}')
+
+            for row in range(start_cell.row, end_cell.row + 1):
+                for col in range (start_cell.col, end_cell.col + 1):
+                    val = local_vals.pop(0)
+                    self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
+        return
+
+
     def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False) -> bool:
         """
         Write the given dataframe to Excel. Attempt to format percents and numbers as percents and numbers, if requested.
@@ -539,12 +661,7 @@ class ExcelRewriteUtil(ExcelUtil):
                More styles may be found at https://openpyxl.readthedocs.io/en/stable/_modules/openpyxl/styles/numbers.htm.
         :return:
         """
-        if excelWorksheet in self.worksheet_names():
-            self.logger.warning(f'overwriting existing sheet name {excelWorksheet}')
-            ws = self._wb[excelWorksheet]
-        else:
-            self.logger.debug(f'Creating new worksheet: {excelWorksheet}')
-            ws = self._wb.create_sheet(title=excelWorksheet)
+        ws = self._create_worksheet(excelWorksheet)
         formatting = {'Normal': 'Normal', 'Percent': '#0.00%', 'Comma': '#,##0.00'}
         # Write the whole dataframe
         for row in dataframe_to_rows(df, index=write_index, header=write_header):
@@ -562,6 +679,20 @@ class ExcelRewriteUtil(ExcelUtil):
                         cell.number_format = date_format
                     else:
                         pass
+        return ws
+
+    def _create_worksheet(self, excelWorksheet: str) -> Worksheet:
+        """
+        Create the worksheet. If it exists, return the existing worksheet.
+        :param excelWorksheet:
+        :return:
+        """
+        if excelWorksheet in self.worksheet_names():
+            self.logger.warning(f'Already have sheet name {excelWorksheet}!')
+            ws = self._wb[excelWorksheet]
+        else:
+            self.logger.debug(f'Creating new worksheet: {excelWorksheet}')
+            ws = self._wb.create_sheet(title=excelWorksheet)
         return ws
 
     def copy_ws_to_ws(self, ws_source: Worksheet, ws_source_name: str, ws_target_name: str = None, range: str = None):
@@ -669,8 +800,11 @@ class ExcelRewriteUtil(ExcelUtil):
 
         self.init_workbook_to_read(filename=template_excel_file_name)
         template_ws = self._wb[template_excel_worksheet]
+        # Probably need a self.copy_ws_to_ws()
         self.init_workbook_to_write() # Switching wb to the output.
         output_ws = self._wb.create_sheet(output_excel_worksheet)
+
+        # Following fails. probably needs a self._rwu.init_workbook_to_write()
         wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws_source
         wc.copy_worksheet() # copy the requested worksheet
         return True

@@ -1,6 +1,6 @@
 from collections import defaultdict, namedtuple
 from typing import Union, List, Tuple
-from itertools import compress, repeat
+from itertools import compress, repeat, chain
 import numpy as np
 from Util import Util
 from copy import copy
@@ -9,6 +9,7 @@ from pandas import Series
 Ints = List[int]
 Bools = List[bool]
 Strings = List[str]
+Floats = List[float]
 
 """
 Interesting Python Featuers:
@@ -171,6 +172,17 @@ class CollectionUtil(Util):
         """
         ans = list(repeat(x, n))
         return ans
+
+    @staticmethod
+    def repeat_elements_n_times(lst: Union[Strings, Ints, Floats], n: int) -> list:
+        """
+        Take each element of the list and repeat it n times.
+        Inspired by: https://stackoverflow.com/questions/24225072/repeating-elements-of-a-list-n-times
+        :param x: list, like [10, 20, 30]
+        :param n: repeat factor, like 2
+        :return: each el in x repeated n times, like [10, 10, 20, 20, 30, 30]
+        """
+        return list(chain.from_iterable(repeat(x, n) for x in lst))
 
     @staticmethod
     def slice_list(my_list: list, start_index: int = 0, end_index: int = None, step: int = 1):

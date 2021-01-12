@@ -212,7 +212,12 @@ class Test_CollectionUtil(TestCase):
         exp5 = exp1
         self.assertListEqual(exp5, CollectionUtil.slice_list(act, step=1), 'failed test 5')
 
-
+    def test_repeat_elements_n_times(self):
+        # Normal
+        test1 = [1.0, 2.71828182846, 3.14159265359]
+        times = 3
+        exp1 = [i for i in test1 for _ in range(times)]
+        self.assertListEqual(exp1, CollectionUtil.repeat_elements_n_times(test1, times))
 
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):

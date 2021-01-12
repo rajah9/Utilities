@@ -374,6 +374,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
     def test_write_df_to_excel(self):
         # Test 1, no formatting
         df = self.format_test_df()
+        self._rwu.init_workbook_to_write() # Avoids AttributeError: 'NoneType' object has no attribute 'sheetnames'
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
         df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
         # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
@@ -385,6 +386,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
         self.assertTrue(ecu.identical(df['Year'], df_act['Year']))
 
         # Test 2, formatting.
+        self._rwu.init_workbook_to_write() # Keeps from having a second copy of the table
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=True)
         df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
         # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
@@ -476,6 +478,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
     def test_rewrite_worksheet(self):
         df = self.format_test_df()
         # Following writes to second.xlsx
+        self._rwu.init_workbook_to_write() # Avoids AttributeError: 'NoneType' object has no attribute 'sheetnames'
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
 
         # Test 1, one range
@@ -510,6 +513,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
     def test_load_and_write(self):
         df = self.format_test_df()
         # Following writes to second.xlsx
+        self._rwu.init_workbook_to_write() # This will avoid the AttributeError: 'NoneType' object has no attribute 'sheetnames'
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
 
         # Test 1, no scaling
