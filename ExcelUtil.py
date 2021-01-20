@@ -218,8 +218,6 @@ class ExcelUtil(Util):
             self.logger.warning(f'Subperiod {func_name} not implemented yet.')
             return repeat, 'none'
 
-
-
     def get_epsilon(self, excel_file_dict: dict) -> float:
         """
         Read the excel_file_dict for the 'epsilon' field. If there's none, return 1.0
@@ -498,8 +496,6 @@ class ExcelRewriteUtil(ExcelUtil):
         else:
             return self._no_subperiod()
 
-
-
     def _no_subperiod(self):
         """
         raise an error.
@@ -525,7 +521,7 @@ class ExcelRewriteUtil(ExcelUtil):
         :return: list, like [1, 1, 2, 2, 3, 3, 4, 4]
         """
         ans = CollectionUtil.repeat_elements_n_times(vals, repeat)
-        return [el / repeat for el in vals]
+        return [el / repeat for el in ans]
 
 
     def load_and_write(self, input_file_dict: dict, output_file_dict: dict, do_save: bool = True) -> bool:

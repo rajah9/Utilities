@@ -160,6 +160,31 @@ class TestExcelUtil(TestCase):
         actual = self._eu.get_excel_rectangle(excel_range)
         self.assertListEqual(actual, expected)
 
+    def test_get_repeat(self):
+        # Test 1. Nothing in the dictionary means repeat = 1
+        test_dict = {}
+        act_repeat, act_subperiods = self._eu.get_repeat(test_dict)
+        self.assertEqual(1, act_repeat)
+        self.assertEqual('none', act_subperiods)
+        # Test 2. Has a repeat but a missing subperiod.
+        test_2_repeat = 7
+        test_dict['repeat'] = test_2_repeat
+        act_repeat, act_subperiods = self._eu.get_repeat(test_dict)
+        self.assertEqual('equal', act_subperiods)
+        self.assertEqual(test_2_repeat, act_repeat)
+        # Test 3, testing 3 values
+        repeats = [1, 6, 9]
+        subperiods = ['equal', 'divided', 'divided']
+        for test_rep, test_sub in zip(repeats, subperiods):
+            d = {'repeat': test_rep, 'subperiod': test_sub}
+            act_repeat, act_subperiods = self._eu.get_repeat(d)
+            self.assertEqual(test_sub, act_subperiods, 'Fail test 3 with subperiods')
+            self.assertEqual(test_rep, act_repeat, 'Fail test 3 with repeat factor')
+        # Test 4, test for a missing subperiod
+
+        test_dict = {'subperiod': 'no such subperiod', 'repeat': 1}
+        act_repeat, act_subperiods = self._eu.get_repeat(test_dict)
+        self.assertEqual('none', act_subperiods)
 
 from ExcelUtil import ExcelCompareUtil
 
@@ -253,7 +278,6 @@ class TestExcelCompareUtil(TestExcelUtil):
         factor = 3.0
         list3 = [x * factor for x in list1]
         self.assertTrue(self._ecu.identical_ints(list1, list3, scaling=1.0/factor))
-
 
     def test_identical_strings(self):
         # Test 1, identical
@@ -549,6 +573,50 @@ class TestExcelRewriteUtil(TestExcelUtil):
         for act, exp in zip(df3.index.tolist(), scaled):
             self.assertEqual(act, exp)
 
+    def test__equal_subperiod(self):
+        # Test 1. Normal repeat
+        test1 = [2, 4, 6, 8]
+        repeat1 = 2
+        exp1 = []
+        for el in test1:
+            for i in range(repeat1):
+                exp1.append(el)
+        self.assertListEqual(exp1, self._rwu._equal_subperiod(vals=test1, repeat=repeat1))
+
+    def test__divided_subperiod(self):
+        # Test 1. Normal div
+        test1 = [2, 4, 6, 8]
+        repeat1 = 2
+        exp1 = []
+        for el in test1:
+            for i in range(repeat1):
+                exp1.append(el / repeat1)
+        self.assertListEqual(exp1, self._rwu._divided_subperiod(vals=test1, repeat=repeat1))
+
+    def test__repeated(self):
+        # Test 1. empty dictionary means repeat=1 and return the same list.
+        d1 = {}
+        test1 = [2, 4, 6, 8]
+        act1 = self._rwu._repeated(d1, test1)
+        self.assertListEqual(test1, act1)
+        # Test 2. Has a repeat but a missing subperiod.
+        test_2_repeat = 3
+        d2 = {'repeat': test_2_repeat}
+        test2 = test1
+        exp2 = []
+        for el in test2:
+            for i in range(test_2_repeat):
+                exp2.append(el)
+        self.assertListEqual(exp2, self._rwu._repeated(d2, test2))
+        # Test3. Has both a repeat and a 'divided' subperiod.
+        test_3_repeat = 2
+        d3 = {'repeat': test_3_repeat, 'subperiod': 'divided'}
+        test3 = test1
+        exp3 = []
+        for el in test3:
+            for i in range(test_3_repeat):
+                exp3.append(el / test_3_repeat)
+        self.assertListEqual(exp3, self._rwu._repeated(d3, test3))
 
 """
 This class tests tabula-py.
