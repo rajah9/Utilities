@@ -33,6 +33,23 @@ class Test_DateUtil(unittest.TestCase):
         lastweek = testday - timedelta(days=7)
         self.assertEqual(lastweek, self.du.changeDay(testday, -7), 'last week test fails')
 
+    def test_changeDate(self):
+        start_yy = 2021
+        start_mm = 6
+        start_dd = 1
+        start_date = self.du.intsToDateTime(myYYYY=start_yy, myMM=start_mm, myDD=start_dd) # Start on 6/1/21
+        # Test 1, normal. Provide monthly changes from last month to Jan of next year.
+        for delta in range(-1, 8):
+            this_mm = start_mm + delta
+            this_yy = start_yy
+            if this_mm > 12:
+                this_mm -= 12
+                this_yy += 1
+            exp_date = self.du.intsToDateTime(myYYYY=this_yy, myMM=this_mm, myDD=start_dd)
+            self.assertEqual(exp_date, self.du.changeDate(start_date, 'months', delta))
+        # Test 2, exception. Should return None if providing a timePeriod of 'eons'.
+        self.assertIsNone(self.du.changeDate(start_date, 'eons', 1))
+
     @logit()
     def test_latestDay(self):
         thur = 3

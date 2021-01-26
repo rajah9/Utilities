@@ -132,6 +132,36 @@ class TestExcelUtil(TestCase):
         exp2 = [71, 'Kia', 'male', 21]
         self.assertListEqual(exp2, act2, "fail normal case 2.")
 
+    def test_get_excel_filename_and_worksheet(self):
+        # Test 1, normal
+        d1 = {'filename': 'abc.xls', 'worksheet': 'My worksheet'}
+        act_fn_1, act_ws_1 = self._eu.get_excel_filename_and_worksheet(d1)
+        self.assertEqual(d1['filename'], act_fn_1)
+        self.assertEqual(d1['worksheet'], act_ws_1)
+        # Test 2, missing filename
+        d2 = {'worksheet': 'My worksheet'}
+        act_fn_2, act_ws_2 = self._eu.get_excel_filename_and_worksheet(d2)
+        self.assertIsNone(act_fn_2)
+        self.assertEqual(d2['worksheet'], act_ws_2)
+
+    def test_get_excel_filename_and_worksheet_and_range(self):
+        # Test 1. normal
+        d1 = {'filename': 'abc.xls', 'worksheet': 'My worksheet', 'range': 'A1:C13'}
+        act_fn_1, act_ws_1, act_range_1 = self._eu.get_excel_filename_and_worksheet_and_range(d1)
+        self.assertEqual(d1['filename'], act_fn_1, "Fail filename test 1")
+        self.assertEqual(d1['worksheet'], act_ws_1, "Fail worksheet test 1")
+        self.assertEqual(d1['range'], act_range_1, "Fail range test 1")
+        # Test 2, missing worksheet
+        d2 = {'filename': 'abc.xls'}
+        _, act_ws_2, act_range_2 = self._eu.get_excel_filename_and_worksheet_and_range(d2)
+        self.assertIsNone(act_ws_2, "Fail test 2 (worksheet)")
+        self.assertIsNone(act_range_2, "Fail test 2 (range)")
+        # Test 3, missing range
+        d3 = {'filename': 'abc.xls', 'worksheet': 'My worksheet'}
+        _, _, act_range_3 = self._eu.get_excel_filename_and_worksheet_and_range(d3)
+        self.assertIsNone(act_range_3, "Fail test 3")
+
+
     def test_convert_range_to_cells(self):
         # Normal case. A2:A6
         first = "A2"
@@ -292,15 +322,6 @@ class TestExcelCompareUtil(TestExcelUtil):
         # Test 4, should fail with 3 sig chars (because ALFa and ALPha would be different)
         self.assertFalse(self._ecu.identical_strings(list1, list2, significant_characters=3), 'fail test 4')
 
-
-    def test_compare_list_els_against_scalar(self):
-        # Test 1, should equal
-        scalar = 12.5
-        test1 = [scalar] * 7
-        self.assertTrue(self._ecu.compare_list_els_against_scalar(test1, scalar))
-        # Test 2, make one element not equal
-        test1[3] = 12.6
-
     def test_compare_list_els_against_scalar(self):
         # Test 1, strings
         name = 'Judy'
@@ -369,11 +390,13 @@ class TestExcelCompareUtil(TestExcelUtil):
 
 class TestExcelRewriteUtil(TestExcelUtil):
     fmt_spreadsheet_name = "second.xlsx"
+    node_excel_name = "node.xlsx"
 
     def __init__(self, *args, **kwargs):
         super(TestExcelRewriteUtil, self).__init__(*args, **kwargs)
         self._rwu = ExcelRewriteUtil()
         self.formatting_spreadsheet_name = self._fu.qualified_path(self.path, self.fmt_spreadsheet_name)
+        self.node_spreadsheet_name = self._fu.qualified_path(self.path, self.node_excel_name)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -487,7 +510,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
         ws_copy_name = 'formatted copy'
         self._rwu.init_workbook_to_write()
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=False)
-        source_ws = self._rwu.copy_spreadsheet_to_ws(sourceFileName=self.formatting_spreadsheet_name, sourceWorksheet=self.worksheet_name)
+        source_ws = self._rwu.copy_spreadsheet_to_ws(sourceFileName=self.formatting_spreadsheet_name,
+                                                     sourceWorksheet=self.worksheet_name)
         self._rwu.copy_ws_to_ws(ws_source=source_ws, ws_source_name=ws_copy_name )
         self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
 
@@ -617,6 +641,47 @@ class TestExcelRewriteUtil(TestExcelUtil):
             for i in range(test_3_repeat):
                 exp3.append(el / test_3_repeat)
         self.assertListEqual(exp3, self._rwu._repeated(d3, test3))
+
+    def test_read_template_and_nodes(self):
+        # Test 1. Normal.
+        df = self.format_test_df()
+        # Following writes to second.xlsx
+        self._rwu.init_workbook_to_write()
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
+        # Following writes to a node that will be read in by read_template_and_nodes.
+        df_node = pd.DataFrame({
+                           'name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+                           'score': [100, 200, 300, 400, 500]})
+        self._pu.write_df_to_excel(df=df_node, excelFileName=self.node_spreadsheet_name, excelWorksheet=self.worksheet_name)
+
+        in_file_dict = {
+            'filename': self.formatting_spreadsheet_name,
+            'worksheet': self.worksheet_name,
+            'range': 'B3:B6'
+        }
+
+        # output file is first.xlsx.
+        out_file_dict = {
+            'filename': self.parent_spreadsheet_name,
+            'worksheet': self.worksheet_name,
+            'range': 'A1:A4'
+        }
+        # Node file is node.xlsx.
+        node_file_dict = {
+            'filename': self.node_spreadsheet_name,
+            'worksheet': self.worksheet_name,
+            'range': 'b2:b6',
+            'outputrange': 'a7:e7'
+        }
+        dict_list = [node_file_dict]
+        self._rwu.read_template_and_nodes(template_dict=in_file_dict, output_dict=out_file_dict, dicts=dict_list)
+        # Now verify that the node file(s) were written
+        ecu = ExcelCompareUtil()
+        for file_dict in dict_list:
+            exp_values = df_node['score'].values.tolist()
+            act_values = self._rwu.get_spreadsheet_values(file_dict)
+            self.assertTrue(ecu.identical(exp_values, act_values))
+
 
 """
 This class tests tabula-py.

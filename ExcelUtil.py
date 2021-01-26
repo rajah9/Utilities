@@ -167,6 +167,41 @@ class ExcelUtil(Util):
         df = self._pu.read_df_from_excel(excelFileName = excelFileName, excelWorksheet=excelWorksheet)
         return df
 
+    def get_excel_filename_and_worksheet(self, excel_file_dict: dict) -> Tuple[str, str]:
+        """
+        Return the filename and worksheet in the given dictionary. If either is missing, return None for the missing field.
+        :param excel_file_dict:
+        :return:
+        """
+        filename, worksheet = None, None
+        try:
+            filename = excel_file_dict['filename']
+        except KeyError:
+            self.logger.warning(f'File name required in dictionary {excel_file_dict}, but it is missing.')
+        try:
+            worksheet = excel_file_dict['worksheet']
+        except KeyError:
+            self.logger.warning(f'Worksheet required in dictionary {excel_file_dict}, but it is missing.')
+        return filename, worksheet
+
+    def get_excel_filename_and_worksheet_and_range(self, excel_file_dict: dict) -> Tuple[str, str, str]:
+        """
+        Return the filename, worksheet and range in the given dictionary. If any is missing, return None for the missing field.
+        :param excel_file_dict:
+        :return:
+        """
+        filename, worksheet = self.get_excel_filename_and_worksheet(excel_file_dict)
+        range = None
+        try:
+            range = excel_file_dict['range']
+        except KeyError:
+            self.logger.warning(f'Range required in dictionary {excel_file_dict}, but it is missing.')
+        return filename, worksheet, range
+
+    def _generate_excel_dict(self, excel_file_name: str, excel_worksheet: str, excel_range: str):
+        excel_file_dict = {'filename': excel_file_name, 'worksheet': excel_worksheet, 'range': excel_range}
+        return excel_file_dict
+
     def get_spreadsheet_values(self, excel_file_dict: dict) -> list:
         """
         Return the values specified by the efd.filename, efd.worksheet, and efd.range.
@@ -174,8 +209,9 @@ class ExcelUtil(Util):
         :param excel_file_dict:
         :return:
         """
-        df = self.load_spreadsheet(excelFileName=excel_file_dict['filename'], excelWorksheet=excel_file_dict['worksheet'])
-        area = self.get_excel_rectangle(excel_file_dict['range'])
+        fn, wks, range = self.get_excel_filename_and_worksheet_and_range(excel_file_dict)
+        df = self.load_spreadsheet(excelFileName=fn, excelWorksheet=wks)
+        area = self.get_excel_rectangle(excel_range=range)
         vals = self.get_values(df, area)
         excel_file_dict.setdefault('step', 1)
         my_step = excel_file_dict['step']
@@ -372,8 +408,10 @@ class ExcelCompareUtil(ExcelUtil):
 
         self.logger.debug(f'2:\n{vals2}')
         eps = self.get_epsilon(file2)
-        self.add_log_line(f"{0:^23} file {1:100}, worksheet {2:15}, and range {3}".format("Starting comparison of", file1['filename'], file1['worksheet'], file1['range']))
-        self.add_log_line(f"{0:^23} file {1:100}, worksheet {2:15}, and range {3}".format("Starting comparison of", file2['filename'], file2['worksheet'], file2['range']))
+        file1_fn, file1_wks, file1_range = self.get_excel_filename_and_worksheet_and_range(file1)
+        file2_fn, file2_wks, file2_range = self.get_excel_filename_and_worksheet_and_range(file2)
+        self.add_log_line(f"{0:^23} file {1:100}, worksheet {2:15}, and range {3}".format("Starting comparison of", file1_fn, file1_wks, file1_range))
+        self.add_log_line(f"{0:^23} file {1:100}, worksheet {2:15}, and range {3}".format("Starting comparison of", file2_fn, file2_wks, file2_range))
         ans = self.identical(vals1, vals2, scaling=scaling, epsilon=eps)
         report = 'identical' if ans else 'DIFFERENT'
         self.logger.info(f'lists are {report}')
@@ -552,10 +590,6 @@ class ExcelRewriteUtil(ExcelUtil):
         self._wb = load_workbook(filename=filename)
         return self._wb
 
-    @logit(showArgs=True, showRetVal=False)
-    def save_workbook(self, filename: str):
-        self._wb.save(filename=filename)
-
     @logit()
     def rewrite_worksheet(self, excel_filename: str, excel_worksheet: str, ranges: list, vals: list):
         """
@@ -586,7 +620,7 @@ class ExcelRewriteUtil(ExcelUtil):
                     self.logger.debug(f'cell at row {row} / col {col} is {ws.cell(row=row, column=col, value=val).value}')
         return
 
-    def write_range_to_worksheet(self, excel_worksheet: str, ranges: list, vals: list):
+    def write_range_to_worksheet(self, excel_worksheet: str, ranges: list, vals: list, init_workbook: bool = True):
         """
         Write the values to the given range, preserving formatting.
         Refactor of rewrite_worksheet.
@@ -594,7 +628,8 @@ class ExcelRewriteUtil(ExcelUtil):
         :param vals: list of values to be written. len(vals) should be the same as the range.
         :return:
         """
-        wb = self.init_workbook_to_write()
+        if init_workbook:
+            wb = self.init_workbook_to_write()
         ws = self._create_worksheet(excel_worksheet)
         # Ensure that the sum of the area of the ranges equals the number of variables
         local_vals = copy(vals)
@@ -721,9 +756,10 @@ class ExcelRewriteUtil(ExcelUtil):
                     ws_dest[cell.coordinate].protection = copy(cell.protection)
                     ws_dest[cell.coordinate].alignment = copy(cell.alignment)
 
-    def copy_spreadsheet_to_ws(self, sourceFileName: str, sourceWorksheet: str, destWorksheet: str = None, header: int = 0,
-                               attempt_formatting: bool = False, write_header: bool = False,
-                               write_index: bool = False) -> Worksheet:
+    def copy_spreadsheet_to_ws(self, sourceFileName: str, sourceWorksheet: str, destWorksheet: str = None,
+                               header: int = 0, attempt_formatting: bool = False, write_header: bool = False,
+                               write_index: bool = False, create_new_ws: bool = True, input_range=None,
+                               output_range=None) -> Worksheet:
         """
         Read the sourceWorksheet into a dataframe and write it to the destWorksheet.
         :param sourceFileName:
@@ -733,6 +769,9 @@ class ExcelRewriteUtil(ExcelUtil):
         :param attempt_formatting:
         :param write_header:
         :param write_index:
+        :param create_new_ws: set True to create a new worksheet. False uses the existing.
+        :param input_range: string like A9:A15 (8 cells down)
+        :param output_range: string like A12:H12 (8 cells across)
         :return: copied worksheet
         """
         # 1. Read the existing sourceWorksheet.
@@ -741,10 +780,22 @@ class ExcelRewriteUtil(ExcelUtil):
             self.logger.debug(f'Read in {len(df)} records from file {sourceFileName} and worksheet {sourceWorksheet}.')
             worksheet_name = destWorksheet or sourceWorksheet
             # 2. Create a ws_source based on the df.
-            ws = self.write_df_to_new_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
-            return ws
+            if create_new_ws:
+                ws = self.write_df_to_new_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+                return ws
+            else:
+                if not input_range:
+                    ws = self.write_df_to_ws(df=df, excelWorksheet=worksheet_name, attempt_formatting=attempt_formatting, write_header=write_header, write_index=write_index)
+                    return ws
+                else:
+                    file_dict = self._generate_excel_dict(excel_file_name=sourceFileName, excel_worksheet=worksheet_name, excel_range=input_range)
+                    vals = self.get_spreadsheet_values(excel_file_dict=file_dict)
+                    self.write_range_to_worksheet(excel_worksheet=worksheet_name, ranges=[output_range], vals=vals, init_workbook=False)
+            return
+
         self.logger.warning(f'Read in no records from file {sourceFileName} and worksheet {sourceWorksheet}. Returning an empty ws_source')
         return None
+
 
     def init_template_old(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
                       output_excel_worksheet: str = None, do_save: bool = True) -> bool:
@@ -805,6 +856,37 @@ class ExcelRewriteUtil(ExcelUtil):
         wc.copy_worksheet() # copy the requested worksheet
         return True
 
+    def read_template_and_nodes(self, template_dict: dict, output_dict: dict, dicts: list):
+        """
+        Read the template file and create an active worksheet. Read the filenames and worksheets and ranges in dicts
+        and write the ranges to the active worksheet. Finally write the worksheet to the filename in the output_dict.
+        :param template_dict: dict with 'filename' and 'worksheet' keys.
+        :param output_dict:  dict with 'filename' and 'worksheet' keys.
+        :param dicts: dict with  'filename' and 'worksheet' and 'range' or 'namedrange' keys.
+        :return:
+        """
+        template_fn, template_wks, template_range = self.get_excel_filename_and_worksheet_and_range(template_dict)
+        output_fn, output_wks, output_range = self.get_excel_filename_and_worksheet_and_range(output_dict)
+        self.init_workbook_to_write()
+        new_index = 0                                               # adding 26Jan21
+        ws = self._wb.create_sheet(output_wks, index=new_index)     # adding 26Jan21
+        self._wb.active = new_index                                 # adding 26Jan21
+        ws = self.copy_spreadsheet_to_ws(sourceFileName=template_fn, sourceWorksheet=template_wks,
+                                         destWorksheet=output_wks, create_new_ws=True)
+        # Now loop through the list of dicts.
+        for file_dict in dicts:
+            file_fn, file_wks, file_range = self.get_excel_filename_and_worksheet_and_range(file_dict)
+            self.logger.debug(f'processing spreadsheet {file_fn} in worksheet {file_wks} with range {file_range}')
+            # TODO Add processing here
+            try:
+                out_range = file_dict['outputrange']
+                self.copy_spreadsheet_to_ws(sourceFileName=file_fn, sourceWorksheet=file_wks, destWorksheet=output_wks,
+                                            create_new_ws=False, input_range=file_range, output_range=out_range)
+            except KeyError:
+                self.logger.warning(f'The node dictionary {file_dict} is missing the key <outputrange>. Returning.')
+                return
+        self.save_workbook(filename=output_fn)
+        return
 
 class PdfToExcelUtil(ExcelUtil):
     def __init__(self):

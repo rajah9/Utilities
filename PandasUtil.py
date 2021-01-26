@@ -358,6 +358,15 @@ class PandasUtil:
         logger.warning(f'Dataframe should have exactly one column, but contains {len(cols)}. Returning None.')
         return None
 
+    def convert_dataframe_col_to_list(self, df: pd.DataFrame, column_name: str) -> list:
+        """
+        Convert the given dataframe column to a list.
+        :param df:
+        :param column_name: a column name, like 'age'
+        :return: a list of that column
+        """
+        return df[column_name].values.tolist()
+
     def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
         """
         Return a DataFrame without the rows that are null in the given column_name.

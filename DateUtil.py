@@ -3,6 +3,7 @@ This script provides some date utilties.
 """
 import logging
 from datetime import timedelta, datetime
+from dateutil.relativedelta import relativedelta
 from LogitUtil import logit
 from pytz import timezone
 from typing import Union, Tuple
@@ -112,6 +113,23 @@ class DateUtil:
             pass
 
         return myDate + timedelta(days=deltaDay)
+
+    def changeDate(self, myDate: datetime, timePeriod: str = 'months', delta: int = 1) -> datetime:
+        """
+        Return a date in the future or past, incremented by the given timePeriod.
+        :param myDate: datetime, like "Jan 1, 2021"
+        :param timePeriod: string that relativeDelta understands, such as 'days', 'weeks', 'months', 'years', for example.
+        :param delta: how many timePeriods in the future (if > 0)  or past (if < 0), example: 12
+        :return: a datetime in the future or past, for example, "Jan 12, 2022"
+        """
+        relative_dict = {timePeriod: delta} # This is usually like {'months': 1}
+        try:
+            ans = myDate + relativedelta(**relative_dict)
+        except TypeError as e:
+            logger.warning(f'Got exception: {e}')
+            logger.warning(f'Cannot handle a relative delta with a timeperiod of {timePeriod} and a delta of {delta}. Returning None.')
+            return None
+        return ans
 
     @logit()
     def asDateTime(self, strToConvert: str, strFormat: str = "%Y-%m-%d %H:%M:%S", use_localize: bool = False) -> datetime:

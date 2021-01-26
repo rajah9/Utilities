@@ -226,6 +226,13 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(list(expected), list(actual), "Failure test 1")
 
     @logit()
+    def test_convert_dataframe_col_to_list(self):
+        df = self.my_test_df()
+        col_to_check = 'Age'
+        expected = df[col_to_check]
+        self.assertListEqual(list(expected), self.pu.convert_dataframe_col_to_list(df, col_to_check))
+
+    @logit()
     def test_sort(self):
         df_orig = self.my_test_df()
         df = self.pu.drop_col_keeping(df_orig, cols_to_keep='Weight', is_in_place=False)
