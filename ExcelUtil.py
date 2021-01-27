@@ -475,6 +475,32 @@ class ExcelRewriteUtil(ExcelUtil):
         """
         return self._wb.sheetnames
 
+    def index_of_worksheet_name(self, find_this_worksheet: str) -> int:
+        """
+        Find the index of the given worksheet by name.
+        :param find_this_worksheet: name of worksheet, like 'Sheet'
+        :return: 0-based offset of the worksheet, or raise a ValueError if not found.
+        """
+        ws_names = self.worksheet_names()
+        try:
+            return ws_names.index(find_this_worksheet)
+        except ValueError as e:
+            self.logger.warning(f'Unable to find the worksheet named {find_this_worksheet}')
+            raise e
+
+    def set_active(self, make_active: str) -> bool:
+        """
+        Set the given sheet to active.
+        :param make_active: name of the sheet to make active.
+        :return: True if successfully made active.
+        """
+        try:
+            index = self.index_of_worksheet_name(make_active)
+            self._wb.active = index
+            return True
+        except ValueError:
+            return False
+
     def get_cell(self, ws: Worksheet, cell_loc: str = 'A1', want_value: bool = True) -> Union[int, float, str]:
         """
         Return the cell at the given ExcelCell.
@@ -596,8 +622,10 @@ class ExcelRewriteUtil(ExcelUtil):
         Read in the given filename and worksheet (from the file dictionary).
         Write the values to the given range, preserving formatting.
 
-        :param file: dictionary containing 'filename', 'worksheet', and 'range' keys.
-        :param vals: list of values to be written. len(vals) should be the same as the range.
+        :param excel_filename:
+        :param excel_worksheet:
+        :param ranges:
+        :param vals:
         :return:
         """
         wb = self.init_workbook_to_read(excel_filename)
@@ -608,7 +636,7 @@ class ExcelRewriteUtil(ExcelUtil):
         for rectangle in ranges:
             area += len(self.get_excel_rectangle(rectangle))  # Will return a list of ExcelCells
         if area != len(vals):
-            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell range {rectangle}')
+            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell ranges {ranges}')
         for rectangle in ranges:
             excel_rect = self.get_excel_rectangle(rectangle)
             start_cell, end_cell = excel_rect[0], excel_rect[-1]
@@ -637,7 +665,7 @@ class ExcelRewriteUtil(ExcelUtil):
         for rectangle in ranges:
             area += len(self.get_excel_rectangle(rectangle))  # Will return a list of ExcelCells
         if area != len(vals):
-            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell range {rectangle}')
+            self.logger.warning(f'mismatch between source length (={len(vals)}) and target length (={area}) defined by cell ranges {ranges}')
         for rectangle in ranges:
             excel_rect = self.get_excel_rectangle(rectangle)
             start_cell, end_cell = excel_rect[0], excel_rect[-1]
@@ -650,7 +678,7 @@ class ExcelRewriteUtil(ExcelUtil):
         return
 
 
-    def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False) -> bool:
+    def write_df_to_excel(self, df: pd.DataFrame, excelFileName:str, excelWorksheet:str="No title", attempt_formatting:bool=False, write_header=False, write_index=False):
         """
         Write the given dataframe to Excel. Attempt to format percents and numbers as percents and numbers, if requested.
         Code adapted from https://openpyxl.readthedocs.io/en/stable/pandas.html .
@@ -797,34 +825,6 @@ class ExcelRewriteUtil(ExcelUtil):
         return None
 
 
-    def init_template_old(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
-                      output_excel_worksheet: str = None, do_save: bool = True) -> bool:
-        """
-        ** Refactoring and WILL BE DEPRECATED **
-        Read from the given template_excel_file_name and template_excel_worksheet.
-        Create a new copy of the worksheet within the same file. Save the file if do_save is requested.
-        :param template_excel_file_name:
-        :param template_excel_worksheet:
-        :param output_excel_file_name:
-        :param output_excel_worksheet:
-        :param do_save: if True, save the existing template_excel_file_name with the new sheet.
-        :return:
-        """
-        if not self._fu.file_exists(qualifiedPath=template_excel_file_name):
-            self.logger.warning(f'Could not find file {template_excel_file_name}!')
-            return False
-        if not output_excel_worksheet:
-            output_excel_worksheet = template_excel_worksheet + '_copy'
-
-        self.init_workbook_to_read(filename=template_excel_file_name)
-        template_ws = self._wb[template_excel_worksheet]
-        output_ws = self._wb.create_sheet(output_excel_worksheet)
-        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws_source
-        wc.copy_worksheet() # copy the requested worksheet
-        if do_save:
-            self.save_workbook(output_excel_file_name)
-        return True
-
     def init_template(self, template_excel_file_name: str, template_excel_worksheet: str, output_excel_file_name: str,
                       output_excel_worksheet: str = None, excel_range: str = None) -> bool:
         """
@@ -856,28 +856,63 @@ class ExcelRewriteUtil(ExcelUtil):
         wc.copy_worksheet() # copy the requested worksheet
         return True
 
-    def read_template_and_nodes(self, template_dict: dict, output_dict: dict, dicts: list):
+
+    def read_template(self, output_dict: dict, template_dict: dict) -> Tuple[str, str]:
         """
-        Read the template file and create an active worksheet. Read the filenames and worksheets and ranges in dicts
-        and write the ranges to the active worksheet. Finally write the worksheet to the filename in the output_dict.
-        :param template_dict: dict with 'filename' and 'worksheet' keys.
-        :param output_dict:  dict with 'filename' and 'worksheet' keys.
-        :param dicts: dict with  'filename' and 'worksheet' and 'range' or 'namedrange' keys.
+        Read the template file and create an active worksheet.
+        Modified 26Jan21.
+        :param output_dict:
+        :param template_dict:
         :return:
         """
         template_fn, template_wks, template_range = self.get_excel_filename_and_worksheet_and_range(template_dict)
         output_fn, output_wks, output_range = self.get_excel_filename_and_worksheet_and_range(output_dict)
         self.init_workbook_to_write()
-        new_index = 0                                               # adding 26Jan21
-        ws = self._wb.create_sheet(output_wks, index=new_index)     # adding 26Jan21
-        self._wb.active = new_index                                 # adding 26Jan21
-        ws = self.copy_spreadsheet_to_ws(sourceFileName=template_fn, sourceWorksheet=template_wks,
+        new_index = 0  # adding 26Jan21
+        self._wb.create_sheet(output_wks, index=new_index)  # adding 26Jan21
+        self._wb.active = new_index  # adding 26Jan21
+        self.copy_spreadsheet_to_ws(sourceFileName=template_fn, sourceWorksheet=template_wks,
                                          destWorksheet=output_wks, create_new_ws=True)
+        return output_fn, output_wks
+
+
+    def read_template_and_nodes(self, template_dict: dict, output_dict: dict, dicts: list):
+        """
+        Read the template file and create an active worksheet. Read the filenames and worksheets and ranges in dicts
+        and write the ranges to the active worksheet. Finally write the worksheet to the filename in the output_dict.
+        Can be called like this:
+                    in_file_dict = {
+                'filename': self.formatting_spreadsheet_name,
+                'worksheet': self.worksheet_name,
+                'range': 'B3:B6'
+            }
+
+            # output file is first.xlsx.
+            out_file_dict = {
+                'filename': self.parent_spreadsheet_name,
+                'worksheet': self.worksheet_name,
+                'range': 'A1:A4'
+            }
+            # Node file is node.xlsx.
+            node_file_dict = {
+                'filename': self.node_spreadsheet_name,
+                'worksheet': self.worksheet_name,
+                'range': 'b2:b6',
+                'outputrange': 'a7:e7'
+            }
+            dict_list = [node_file_dict]
+            self._rwu.read_template_and_nodes(template_dict=in_file_dict, output_dict=out_file_dict, dicts=dict_list)
+
+        :param template_dict: dict with 'filename' and 'worksheet' keys.
+        :param output_dict:  dict with 'filename' and 'worksheet' keys.
+        :param dicts: dict with  'filename' and 'worksheet' and 'range' or 'namedrange' keys.
+        :return:
+        """
+        output_fn, output_wks = self.read_template(output_dict, template_dict)
         # Now loop through the list of dicts.
         for file_dict in dicts:
             file_fn, file_wks, file_range = self.get_excel_filename_and_worksheet_and_range(file_dict)
             self.logger.debug(f'processing spreadsheet {file_fn} in worksheet {file_wks} with range {file_range}')
-            # TODO Add processing here
             try:
                 out_range = file_dict['outputrange']
                 self.copy_spreadsheet_to_ws(sourceFileName=file_fn, sourceWorksheet=file_wks, destWorksheet=output_wks,
@@ -887,6 +922,21 @@ class ExcelRewriteUtil(ExcelUtil):
                 return
         self.save_workbook(filename=output_fn)
         return
+
+    def stream_df_to_ws(self, df: pd.DataFrame, worksheet_name: str):
+        """
+        Stream the given df to the end of the active worksheet.
+        Code adopted from the openpyxl documentation: https://openpyxl.readthedocs.io/en/stable/pandas.html
+        :param df:
+        :return:
+        """
+        if not self.set_active(make_active=worksheet_name):
+            self.logger.warning(f'Could not find spreadsheet named {worksheet_name}! Not writing further.')
+
+        ws = self._wb.active
+
+        for r in dataframe_to_rows(df, index=True, header=True):
+            ws.append(r)
 
 class PdfToExcelUtil(ExcelUtil):
     def __init__(self):

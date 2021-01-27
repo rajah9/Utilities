@@ -682,6 +682,34 @@ class TestExcelRewriteUtil(TestExcelUtil):
             act_values = self._rwu.get_spreadsheet_values(file_dict)
             self.assertTrue(ecu.identical(exp_values, act_values))
 
+    def test_stream_df_to_ws(self):
+        # Test 1. Normal.
+        df = self.format_test_df()
+        # Following writes to second.xlsx
+        self._rwu.init_workbook_to_write()
+        self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
+        # Following creates a df that will be streamed to the existing workbook.
+        df = pd.DataFrame({
+                           'name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+                           'score': [100, 200, 300, 400, 500]})
+        self._rwu.stream_df_to_ws(df, self.worksheet_name)
+        self._rwu.save_workbook(self.parent_spreadsheet_name) # Writes to first.xlsx
+        # Now test to see if the df wrote out ok.
+        exp_names = df['name'].values.tolist()
+        # output file is first.xlsx.
+        out_file_dict = {
+            'filename': self.parent_spreadsheet_name,
+            'worksheet': self.worksheet_name,
+            'range': 'b9:b13'
+        }
+        ecu = ExcelCompareUtil()
+        act_values = self._rwu.get_spreadsheet_values(out_file_dict)
+        self.assertTrue(ecu.identical(exp_names, act_values), 'Fail test 1 (names)')
+        exp_scores = df['score'].values.tolist()
+        out_file_dict['range'] = 'c9:c13'
+        act_values = self._rwu.get_spreadsheet_values(out_file_dict)
+        self.assertTrue(ecu.identical(exp_scores, act_values), 'Fail test 1 (scores)')
+
 
 """
 This class tests tabula-py.

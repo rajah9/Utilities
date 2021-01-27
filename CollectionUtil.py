@@ -97,6 +97,24 @@ class CollectionUtil(Util):
             return list(compress(range(len(bool_list)), bool_list))
         return list(np.where(bool_list)[0])
 
+    @staticmethod
+    def index_in_list(lst: list, find_me: Union[str, int, float], throws_error_if_not_found: bool = True) -> int:
+        """
+        Return the index of find_me within list. Throw a ValueError if it's not found (or -1 if you set throws_error_not_found to False)
+
+        :param lst:
+        :param find_me:
+        :param throws_error_if_not_found: if True and not found, throw a ValueError.
+        :return: The index of find_me within lst (or -1 if throws_error_if_not_found is set to False)
+        """
+        try:
+            return lst.index(find_me)
+        except ValueError as e:
+            if throws_error_if_not_found:
+                raise e
+            else:
+                return -1
+
     def any_string_contains(self, lines: Strings, find_me: str) -> bool:
         """
         Return True iff any of the strings contains find_me.
