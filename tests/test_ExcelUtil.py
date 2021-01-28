@@ -8,7 +8,7 @@ from unittest import TestCase, skip
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
-from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber
+from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber, DfHelper
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
 from LogitUtil import logit
@@ -838,3 +838,39 @@ class TestPdfToExcelUtilPdfPlumber(TestExcelUtil):
         logging.disable(logging.DEBUG)
         logger.info('Enabling logging for test_read_tiled_pdf_tables.')
         self.fail('in progress')
+
+class TestDfHelper(TestCase):
+    def __init__(self, *args, **kwargs):
+        super(TestDfHelper, self).__init__(*args, **kwargs)
+        self._df_helper = DfHelper()
+
+    @logit()
+    def test_set_column_names(self):
+        # Test 1, column names supplied.
+        cols = ['name', 'rank', 'serial_no']
+        self._df_helper.set_column_names(col_name_list=cols)
+        self.assertListEqual(cols, self._df_helper.column_names)
+        # Test 2, both column names and col count supplied. Ignore col count and use column names.
+        cols = ['Exactly', 'three', 'elements']
+        self._df_helper.set_column_names(col_name_list=cols, col_count=8)
+        self.assertListEqual(cols, self._df_helper.column_names)
+        # Test 3, col count only.
+        exp = ['col00', 'col01', 'col02', 'col03', 'col04', 'col05', 'col06', 'col07',]
+        self._df_helper.set_column_names(col_count=8)
+        self.assertListEqual(exp, self._df_helper.column_names)
+
+    @logit()
+    def test_add_row_and_clear(self):
+        # Test 1, add a couple of columns
+        df = pd.DataFrame({
+                           'name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+                           'score': [100, 200, 300, 400, 500]})
+        self._df_helper.set_column_names(col_name_list=['name', 'score'])
+        names = df['name'].values.tolist()
+        scores = df['score'].values.tolist()
+        for name, score in zip(names, scores):
+            self._df_helper.build_row(col_name='name', value=name)
+            self._df_helper.build_row(col_name='score', value=score)
+            self._df_helper.add_row_and_clear()
+        act_df = self._df_helper.built_df()
+        assert_frame_equal(df, act_df)

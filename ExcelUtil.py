@@ -125,7 +125,7 @@ class ExcelUtil(Util):
         cell_range = str_range.split_on_delimiter(delim=':')
         if len(cell_range) == 2:
             return cell_range[0], cell_range[1]
-        self.logger.warn(f'Should have exactly one cell before a colon and one after, but is: {range}. Returning (None, None)')
+        self.logger.warning(f'Should have exactly one cell before a colon and one after, but is: {range}. Returning (None, None)')
         return None, None
 
     def get_excel_rectangle_start_to(self, start: str, to: str) -> list:
@@ -1178,3 +1178,87 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             line = ''.join(null_to_spc)
             ans.add_line(line)
         return ans.contents
+
+
+"""
+DfHelper helps create a dataframe that works with ExcelRewriteUtil
+  _rows is a list of dictionaries that can are added to.
+  _column_names are the column names for the dataframe.
+"""
+
+def generate_col_names(prefix: str) -> str:
+    """
+    Generator for col00 through col99.
+    Copied from PandasUtil.
+    Invoke it like this:
+      gen = generate_col_names('pfx')
+      for i in range(3):
+        print next(gen)  # prints pfx00, pfx01, pfx02.
+
+    :return:
+    """
+    nums = range(100)  # Only 0 .. 99
+    for i in nums:
+        yield f'{prefix}{i:02d}'
+
+class DfHelper(ExcelUtil):
+    def __init__(self):
+        super().__init__()
+        self._pu = PandasUtil()
+        self._cols = None
+        self._rows = []
+        self._row = {}
+
+    @property
+    def column_names(self):
+        return self._cols
+
+    def set_column_names(self, col_name_list: Strings = None, col_count: int = 0):
+        """
+        Set the column names for the dataframe. Either go from the existing list, or generate names from the col_name
+        of the form col00, col01, col02...
+        :param col_name_list: list of str with column names. If empty, use col_count. If filled, col_count is ignored.
+        :param col_count: how many columns to be used. If col_name_list has one or more names, don't use.
+        :return:
+        """
+        if col_name_list:
+            self._cols = col_name_list
+        elif col_count:
+            gen = generate_col_names('col')
+            ans = [next(gen) for k in range(col_count)]
+            self._cols = ans
+        else:
+            self.logger.warning('set_column_names must have either a non-empty list of column names or a column count. No column names set.')
+
+    def build_row(self, col_name: str, value: Union[int, float, str]):
+        """
+        Add the value to the column name to (but don't save; use add_row_and_clear to do that).
+        :param col_name:
+        :param value:
+        :return:
+        """
+        self._row[col_name] = value
+
+    def add_row_and_clear(self):
+        """
+        Add the given row and then clear it.
+        :return:
+        """
+        self._rows.append(self._row)
+        self._row = {}
+
+    def built_df(self) -> pd.DataFrame:
+        """
+        Return all the dictionaries as a dataframe.
+        :return:
+        """
+        return self._pu.convert_dict_to_dataframe(self._rows)
+
+    def init_col_value(self, col_name: str, value: Union[int, float, str, datetime]):
+        """
+        Initialize the col name to the initial value.
+        :param col_name:
+        :param value:
+        :return:
+        """
+        pass # TODO Continue here
