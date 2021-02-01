@@ -380,21 +380,30 @@ class ExcelCompareUtil(ExcelUtil):
 
         list1_el = list1[0]
         list2_el = list2[0]
-        if isinstance(list1_el, str):
+
+        # Both strings
+        if isinstance(list1_el, str) and isinstance(list2_el, str):
             return self.identical_strings(list1, list2, significant_characters=None)
-        elif isinstance(list2_el, (int, np.int64)):
-            if isinstance(list1_el, str):
-                self.logger.warning(f'first element of list1 is {list1_el}, but first element of list2 is {list2_el}. They cannot be compared. Returning False. ')
-                return False
+
+        # Both ints
+        if isinstance(list1_el, (int, np.int64)) and isinstance(list2_el, (int, np.int64)):
             return self.identical_ints(list1, list2, scaling)
-        elif isinstance(list2_el, float):
-            if isinstance(list1_el, str):
-                self.logger.warning(f'first element of list1 is {list1_el}, but first element of list2 is {list2_el}. They cannot be compared. Returning False. ')
-                return False
+
+        # If comparing ints to floats, then coerce one vector to floats.
+        if isinstance(list1_el, (int, np.int64)):
+            list1 = [float(x) for x in list1]
+            list1_el = list1[0]
+        if isinstance(list2_el, (int, np.int64)):
+            list2 = [float(x) for x in list2]
+            list2_el = list2[0]
+
+        # Both floats
+        if isinstance(list1_el, float) and isinstance(list2_el, float):
             return self.close_numbers(list1, list2, scaling, epsilon)
-        else:
-            self.logger.warning(f'list2 should be str, int, or float, but was {type(list2_el)}. Returning False')
-            return False
+
+        # raise a warning about types.
+        self.logger.warning(f'first element of list1 is {list1_el}, but first element of list2 is {list2_el}. They cannot be compared. Returning False. ')
+        return False
 
     def verify(self, file1: dict, file2: dict) -> bool:
         """
@@ -1088,34 +1097,6 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         self.table_settings["text_tolerance"] = 9
         self.table_settings["text_x_tolerance"] = 9
         self.table_settings["text_y_tolerance"] = 5
-
-
-    def read_pdf_table_old(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
-                       read_many_tables_per_page=False) -> Dataframes:
-        """
-        Using pdfplumber, read the designated pages from the PDF.
-        :param pdf_filename: full path and filename to PDF file. May be a URL.
-        :param pages: page to read in (defaults to 'all')
-        :param read_many_tables_per_page: False to read one table per page.
-        :return: a list of dataframes, where each el is a table
-        """
-        self.logger.debug(f'About to read from {pdf_filename} using PdfPlumber. Pages are 1-offset: {pages}')
-        pdf = pdfplumber.open(pdf_filename)
-        ans = []
-        table_count = 0
-        if isinstance(pages, str):
-            self.logger.warning(f'Please use a list of pages instead of a string <{pages}>. Returning an empty list.')
-            return ans
-        for p in pages:
-            page = pdf.pages[p]
-            table = page.extract_table(table_settings=self.table_settings)
-            if table:
-                self.logger.debug(f'First 5 rows:\n{table[:5]}')
-                df = pd.DataFrame(table[1:], columns=table[0])
-                ans.append(df)
-                table_count += 1
-        self.logger.debug(f'Found {table_count} tables in pages: {pages}')
-        return ans
 
     def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
                        read_many_tables_per_page=False) -> Dataframes:

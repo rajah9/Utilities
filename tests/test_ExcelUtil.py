@@ -287,8 +287,8 @@ class TestExcelCompareUtil(TestExcelUtil):
         list4 = copy(list1)
         list4.append(999)
         self.assertFalse(self._ecu.identical(list1, list4), 'fail test 4')
-            # Although cm.output should have a warning, it seems to be blank.
-            # self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
+        # Although cm.output should have a warning, it seems to be blank.
+        # self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
         # Test 5, epsilon
         list5 = [1.0, 16.0, 256.0]
         test_epsilon = 1.0e-7 # default epsilon is 1.0e-8
@@ -296,6 +296,13 @@ class TestExcelCompareUtil(TestExcelUtil):
         list6 = [x + small_eps for x in list5]
         self.assertFalse(self._ecu.identical(list5, list6), 'fail test 5a')
         self.assertTrue(self._ecu.identical(list5, list6, epsilon=test_epsilon), 'fail test 5a')
+        # Test 6, list type mismatch (list1 is str, list2 is int64)
+        list6a = ['a', 'b']
+        list6b = [1234, 5678]
+
+        # with self.assertLogs(ExcelUtil.__name__, level='WARNING') as cm:
+        self.assertFalse(self._ecu.identical(list6a, list6b))
+            # self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
 
 
     def test_identical_ints(self):
@@ -385,6 +392,12 @@ class TestExcelCompareUtil(TestExcelUtil):
         # second_dict = {'filename': self.compare_spreadsheet_name, 'worksheet': self.worksheet_name, 'range': 'a2:a4'}
         # self.assertFalse(self._ecu.verify(first_dict, second_dict))
 
+    def test_logging(self):
+        # Test 1, normal.
+        lines = ['line 1', 'line 2', 'line 3', 'line 4']
+        for line in lines:
+            self._ecu.add_log_line(line)
+        self.assertListEqual(lines, self._ecu.compare_log)
 
     @skip("Only run from parent test")
     def test_get_values(self):
@@ -452,6 +465,16 @@ class TestExcelRewriteUtil(TestExcelUtil):
         act1 = self._rwu.get_cells(ws, 'D1:D4') # These are the margins
         exp1 = list(df['Margin'])
         self.assertListEqual(exp1, act1)
+
+    def test_set_active(self):
+        # Test 1, setting active an existing worksheet.
+        df = self.format_test_df()
+        ws1_name = "test1"
+        self._rwu.write_df_to_new_ws(df, excelWorksheet=ws1_name, attempt_formatting=False)
+        self.assertTrue(self._rwu.set_active(ws1_name))
+        # Test 2. Does not exist.
+        ws2_name = "NoSuchWorksheetXX"
+        self.assertFalse(self._rwu.set_active(ws2_name))
 
     def test_get_cell(self):
         # Test 1
