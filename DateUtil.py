@@ -117,6 +117,7 @@ class DateUtil:
     def changeDate(self, myDate: datetime, timePeriod: str = 'months', delta: int = 1) -> datetime:
         """
         Return a date in the future or past, incremented by the given timePeriod.
+        For more information on timePeriod, see https://dateutil.readthedocs.io/en/stable/relativedelta.html.
         :param myDate: datetime, like "Jan 1, 2021"
         :param timePeriod: string that relativeDelta understands, such as 'days', 'weeks', 'months', 'years', for example.
         :param delta: how many timePeriods in the future (if > 0)  or past (if < 0), example: 12

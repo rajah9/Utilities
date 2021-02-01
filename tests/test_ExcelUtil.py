@@ -7,10 +7,12 @@ from unittest import TestCase, skip
 
 import pandas as pd
 from pandas.testing import assert_frame_equal
+from dateutil.relativedelta import relativedelta
 
 from ExcelUtil import ExcelUtil, ExcelCell, ExcelRewriteUtil, PdfToExcelUtilTabula, PdfToExcelUtilPdfPlumber, DfHelper
 from ExecUtil import ExecUtil
 from FileUtil import FileUtil
+from DateUtil import DateUtil
 from LogitUtil import logit
 from PandasUtil import PandasUtil
 from StringUtil import StringUtil
@@ -843,6 +845,8 @@ class TestDfHelper(TestCase):
     def __init__(self, *args, **kwargs):
         super(TestDfHelper, self).__init__(*args, **kwargs)
         self._df_helper = DfHelper()
+        self._du = DateUtil()
+        self._pu = PandasUtil()
 
     @logit()
     def test_set_column_names(self):
@@ -863,8 +867,8 @@ class TestDfHelper(TestCase):
     def test_add_row_and_clear(self):
         # Test 1, add a couple of columns
         df = pd.DataFrame({
-                           'name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
-                           'score': [100, 200, 300, 400, 500]})
+            'name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+            'score': [100, 200, 300, 400, 500]})
         self._df_helper.set_column_names(col_name_list=['name', 'score'])
         names = df['name'].values.tolist()
         scores = df['score'].values.tolist()
@@ -874,3 +878,59 @@ class TestDfHelper(TestCase):
             self._df_helper.add_row_and_clear()
         act_df = self._df_helper.built_df()
         assert_frame_equal(df, act_df)
+
+    @logit()
+    def test_add_row_and_clear2(self):
+        df = pd.DataFrame({
+            'name': ['Sam', 'Andrea', 'Alex', 'Robin', 'Kia'],
+            'score': [100, 200, 300, 400, 500]})
+        names = df['name'].values.tolist()
+        scores = df['score'].values.tolist()
+        # Test 1, build the rows one at a time, using init_col_value and increment_col_value
+        dates = [self._du.intsToDateTime(myYYYY=2021, myDD=1, myMM=mm) for mm in range(1, len(names) + 1)]
+        self._pu.add_new_col_from_array(df, 'date', dates) # Adds a new col to df called 'dates' with '1/1/2021', '2/1/21' ... '5/1/21'
+        aDate = self._du.intsToDateTime(myYYYY=2021, myDD=1, myMM=1)
+        aScore = 100
+        original = {'name': 'constant', 'score': aScore, 'date': aDate}
+        self._df_helper.set_column_names(col_name_list=list(original.keys()))
+        for col_name, value in original.items():
+            self._df_helper.init_col_value(col_name=col_name, value=value)
+        for name in names:
+            self._df_helper.init_col_value('name', name) # to make it 'Sam', 'Adam', ... 'Kia'
+            self._df_helper.add_row_and_clear()
+            self._df_helper.increment_col_value('score', 100)
+            self._df_helper.increment_col_value('date', 1, 'months')
+        act_df = self._df_helper.built_df()
+        assert_frame_equal(df, act_df)
+
+    @logit()
+    def test_init_col_value(self):
+        # Test 1
+        aDate = self._du.intsToDateTime(myYYYY=2021, myDD=1, myMM=1)
+        exp_1 = {'monthNo': 1, 'name': 'constant', 'date': aDate}
+        self._df_helper.set_column_names(col_name_list=list(exp_1.keys()))
+        for col_name, value in exp_1.items():
+            self._df_helper.init_col_value(col_name=col_name, value=value)
+        self.assertEqual(exp_1, self._df_helper.staticColumn)
+
+    @logit()
+    def test_increment_col_value(self):
+        aDate = self._du.intsToDateTime(myYYYY=2021, myDD=1, myMM=1)
+        original = {'monthNo': 1, 'name': 'constant', 'date': aDate}
+        self._df_helper.set_column_names(col_name_list=['monthNo', 'name', 'date'])
+        for col_name, value in original.items():
+            self._df_helper.init_col_value(col_name=col_name, value=value)
+        # Test 1 - increment monthNo by 12
+        monthNo_increment = 12
+        self._df_helper.increment_col_value(col_name='monthNo', delta=monthNo_increment)
+        act_dict = self._df_helper.staticColumn
+        self.assertEqual(original['monthNo'] + monthNo_increment, act_dict['monthNo'], 'Fail test 1')
+        # Test 2 - increment date by 1 month
+        date_increment = 1 # and 'month'
+        self._df_helper.increment_col_value(col_name='date', delta=date_increment, timePeriod='months')
+        act_dict = self._df_helper.staticColumn
+        exp_date = original['date'] + relativedelta(months=date_increment)
+        self.assertEqual(exp_date, act_dict['date'], 'Fail test 2')
+        # Test 3 - the name didn't get incremented and should be the same.
+        act_dict = self._df_helper.staticColumn
+        self.assertEqual(original['name'], act_dict['name'])

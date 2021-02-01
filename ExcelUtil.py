@@ -15,18 +15,21 @@ eu = ExcelCompareUtil()
 """
 
 import functools
+import numbers
 from collections import namedtuple
 from copy import copy
+from datetime import datetime
 from math import fabs
 from subprocess import CalledProcessError
 from typing import List, Union, Tuple
-from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import pdfplumber
 from tabula import read_pdf, convert_into, errors
 
 from CollectionUtil import CollectionUtil
+from DateUtil import DateUtil
 from FileUtil import FileUtil
 from LogitUtil import logit
 from PandasUtil import PandasUtil
@@ -1201,17 +1204,28 @@ def generate_col_names(prefix: str) -> str:
     for i in nums:
         yield f'{prefix}{i:02d}'
 
+
 class DfHelper(ExcelUtil):
     def __init__(self):
         super().__init__()
         self._pu = PandasUtil()
+        self._du = DateUtil()
         self._cols = None
         self._rows = []
         self._row = {}
+        self._static_columns = {}
 
     @property
     def column_names(self):
         return self._cols
+
+    @property
+    def staticColumn(self):
+        return self._static_columns
+    @staticColumn.setter
+    def staticColumn(self, values_dict: dict):
+        self._staticColumn = values_dict
+
 
     def set_column_names(self, col_name_list: Strings = None, col_count: int = 0):
         """
@@ -1239,11 +1253,20 @@ class DfHelper(ExcelUtil):
         """
         self._row[col_name] = value
 
+    def add_static_columns_to_row(self):
+        """
+        Add static column values (if any) to the current row.
+        :return:
+        """
+        for k, v in self._static_columns.items():
+            self.build_row(k, v)
+
     def add_row_and_clear(self):
         """
         Add the given row and then clear it.
         :return:
         """
+        self.add_static_columns_to_row()
         self._rows.append(self._row)
         self._row = {}
 
@@ -1257,8 +1280,46 @@ class DfHelper(ExcelUtil):
     def init_col_value(self, col_name: str, value: Union[int, float, str, datetime]):
         """
         Initialize the col name to the initial value.
-        :param col_name:
-        :param value:
+        :param col_name: column name to initialize, like 'col00'
+        :param value: value to initialize it to.
         :return:
         """
-        pass # TODO Continue here
+        if not col_name in self.column_names:
+            self.logger.warning(f'Unable to find col_name {col_name} in current list. Please initialize with set_column_names.')
+            return
+
+        self._static_columns[col_name] = value
+        return
+
+    def increment_col_value(self, col_name: str, delta: int = 1, timePeriod: str = None):
+        """
+        Increment the given col name by delta (which may be negative). If this column contains a numeric, then change it by delta.
+        If this column is a datetime, then also look at timePeriod (which should be a string like 'months' or 'days';
+        see documentation at https://dateutil.readthedocs.io/en/stable/relativedelta.html.)
+        If the column name is a string, then return an error (for now; future versions might go to the next letter in the alphabet).
+        :param col_name: column name to initialize, like 'col00'
+        :param delta:    a number, like 1
+        :param timePeriod: (optional; for datetime only) string that relativeDelta understands, such as 'days', 'weeks', 'months', or 'years'.
+        :return:
+        """
+        if not col_name in self.column_names:
+            self.logger.warning(f'Unable to find col_name {col_name} in current list. Taking no action.')
+            return
+        try:
+            cur_value = self._static_columns[col_name]
+        except KeyError:
+            self.logger.warning(f'Unable to find col_name {col_name} in current list. Please initialize with set_column_names.')
+            return
+        if isinstance(cur_value, numbers.Number):
+            self._static_columns[col_name] = cur_value + delta
+        elif isinstance(cur_value, datetime):
+            new_date = self._du.changeDate(cur_value, timePeriod=timePeriod, delta=delta)
+            self._static_columns[col_name] = new_date
+        elif isinstance(cur_value, str):
+            self.logger.warning(f'I do not know how to increment {cur_value} yet.')
+            raise NotImplementedError
+        else:
+            self.logger.warning(f'attempting to increment {cur_value}')
+            raise TypeError
+
+
