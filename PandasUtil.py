@@ -216,7 +216,7 @@ class PandasUtil:
 
     def get_df_headers(self, df:pd.DataFrame=_EMPTY_DF) -> list:
         """
-        Get a list of the headers.
+        Get a list of the headers. This provides a list of the column NAMES.
         :param df:
         :param self:
         :return: list of headers
@@ -227,6 +227,15 @@ class PandasUtil:
         else:
             logger.warning('df is empty. Returning None for headers')
             return None
+
+    def set_df_headers(self, df: pd.DataFrame, new_headers: list):
+        """
+        This sets the column NAMES.
+        :param df:
+        :param new_headers: list of new headers)
+        :return: None (but side effect of changed df)
+        """
+        df.columns = new_headers
 
     def get_rowCount_colCount(self, df:pd.DataFrame):
         """
@@ -348,6 +357,15 @@ class PandasUtil:
             return df.to_numpy().reshape(-1,)
         logger.warning(f'Dataframe should have exactly one column, but contains {len(cols)}. Returning None.')
         return None
+
+    def convert_dataframe_col_to_list(self, df: pd.DataFrame, column_name: str) -> list:
+        """
+        Convert the given dataframe column to a list.
+        :param df:
+        :param column_name: a column name, like 'age'
+        :return: a list of that column
+        """
+        return df[column_name].values.tolist()
 
     def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
         """
@@ -608,6 +626,7 @@ class PandasUtil:
     def replace_col(self, df:pd.DataFrame, column: str, replace_dict: dict) -> pd.DataFrame:
         """
         Replace the values of column_name using replace_dict.
+        This will will replace the column VALUES.
         :param df:
         :param column:
         :param replace_dict: {'origA':'replA', 'origB':'replB'}
@@ -623,6 +642,7 @@ class PandasUtil:
     def replace_col_using_func(self, df:pd.DataFrame, column_name: str, func: Callable[[], list]) -> pd.DataFrame:
         """
         Replace the column contents by each element's value, as determined by func.
+        This will will replace the column VALUES.
         :param df: Dataframe under scrutiny.
         :param column_name: (single column_name) name
         :param func: Function operates on whatever element it is presented, and returns the changed element.
@@ -633,11 +653,12 @@ class PandasUtil:
 
     def replace_col_using_mult_cols(self, df:pd.DataFrame, column_to_replace: str, cols: Strings, func: Callable[[], list]) -> pd.DataFrame:
         """
-
+        Replace column_to_replace, using the given func.
+        This will will replace the column VALUES.
         :param df: Dataframe under scrutiny.
         :param column_to_replace: (single column_name) name
         :param cols: list of columns used for the following func
-        :param func:
+        :param func: Pointer to a local function.
         :return: df with replaced column
         """
         df[column_to_replace] = df[cols].apply(func, axis=1)
@@ -684,6 +705,10 @@ class PandasUtil:
     def join_dfs_by_row(self, dfs: Dataframes) -> pd.DataFrame:
         """
         Return a row-wise join of these dataframes.
+        Note: all the dfs should have the same column names, so you might call it in this way:
+          headers = pu.get_df_headers(big_df)
+          pu.set_df_headers(new_df, headers)
+          df2 = pu.join_dfs_by_row([new_df, big_df])
         :param dfs:
         :return:
         """
@@ -1006,7 +1031,7 @@ class PandasDateUtil(PandasUtil):
             return df.resample(rule=rule).ohlc()
         return df[column].resample(rule=rule).mean()
 
-    def rolling(self, df: pd.DataFrame, window: int = 7) -> pd.core.window.rolling.Rolling:
+    def rolling(self, df: pd.DataFrame, window: int = 7) -> pd.core.window.Rolling:
         """
         Return a window based on the df.
         :param df:
@@ -1027,6 +1052,20 @@ class PandasDateUtil(PandasUtil):
             return self.rolling(df[col_name_to_average], window=window).mean()
         return self.rolling(df=df, window=window).mean()
 
+    def add_sma(self, df: pd.DataFrame, length: int = 20, column_name: str = 'close', ma_column: str = 'SMA') -> pd.DataFrame:
+        """
+        Add a simple moving average named ma_column to the existing df.
+        :param df: dataframe to add to
+        :param length: length of the SMA window
+        :param column_name: existing column in the dataframe.
+        :param ma_column: new column name of the moving average.
+        :return:
+        """
+        sma = np.array(self.sma(df=df, col_name_to_average=column_name, window=length), dtype=float)
+        self.add_new_col_from_array(df, ma_column, sma)
+        return df
+
+
     def bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close'):
         """
         Add a SMA column and an upper and lower BB Column
@@ -1035,7 +1074,7 @@ class PandasDateUtil(PandasUtil):
         :param column_name:
         :return: sma, upper, and lower arrays
         """
-        sma = np.array( self.sma(df=df, col_name_to_average=column_name, window=window), dtype=float)
+        sma = np.array(self.sma(df=df, col_name_to_average=column_name, window=window), dtype=float)
         upper = np.array(sma + 2 * (df[column_name].rolling(window).std()))
         lower = np.array(sma - 2 * (df[column_name].rolling(window).std()))
         return sma, upper, lower
@@ -1057,3 +1096,24 @@ class PandasDateUtil(PandasUtil):
         self.add_new_col_from_array(df, lower_colname, lower)
         return df
 
+    def mark_rows_by_dates(self, df: pd.DataFrame, start_date: datetime, end_date: datetime) -> Bools:
+        """
+        Return an array of booleans that fit the given criteria.
+        :param df: df with an index of datetimes.
+        :param start_date:
+        :param end_date:
+        :return:
+        """
+        filter_mask = (df.index > start_date) & (df.index < end_date)
+        return filter_mask
+
+    def filter_date_index_by_dates(self, df: pd.DataFrame, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """
+        Return a new df that contains only the datetimes between the given start_date and end_date.
+        :param df: df with an index of datetimes.
+        :param start_date:
+        :param end_date:
+        :return:
+        """
+        mask = self.mark_rows_by_dates(df, start_date, end_date)
+        return self.masked_df(df, mask)

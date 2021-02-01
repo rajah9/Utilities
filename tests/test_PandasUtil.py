@@ -226,6 +226,13 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(list(expected), list(actual), "Failure test 1")
 
     @logit()
+    def test_convert_dataframe_col_to_list(self):
+        df = self.my_test_df()
+        col_to_check = 'Age'
+        expected = df[col_to_check]
+        self.assertListEqual(list(expected), self.pu.convert_dataframe_col_to_list(df, col_to_check))
+
+    @logit()
     def test_sort(self):
         df_orig = self.my_test_df()
         df = self.pu.drop_col_keeping(df_orig, cols_to_keep='Weight', is_in_place=False)
@@ -253,6 +260,15 @@ class Test_PandasUtil(unittest.TestCase):
         # Test 2
         df2 = self.pu.empty_df()
         self.assertIsNone(self.pu.get_df_headers(df2))
+
+    @logit()
+    def test_set_df_headers(self):
+        # Test 1
+        df = self.pu.convert_dict_to_dataframe(self.list_of_dicts)
+        first_entry = self.list_of_dicts[0]
+        new_header = [f'Column{i}' for i in range(len(first_entry))]
+        self.pu.set_df_headers(df=df, new_headers=new_header)
+        self.assertListEqual(self.pu.get_df_headers(df), new_header)
 
     @logit()
     def test_without_null_rows2(self):
@@ -1101,4 +1117,26 @@ class Test_PandasDateUtil(unittest.TestCase):
             else:
                 self.assertAlmostEqual(bb_df.iloc[i]['SMA'], ma_df.iloc[i][self._CLOSE], 4)
 
+    def test_add_sma(self):
+        df = self.wfm_df()
+        length = 10
+        with_sma_col_df = self.pdu.add_sma(df, length=length, column_name=self._CLOSE, ma_column='SMA')
+        sma_no_nan_df = self.pdu.drop_row_if_nan(with_sma_col_df, ['SMA'], is_in_place=False)
+        ma_series = self.pdu.sma(df, window=length, col_name_to_average=self._CLOSE)
+        for i, row in enumerate(with_sma_col_df.iterrows()):
+            if i < length - 1:
+                self.assertTrue(isnan(row[1]['SMA']))
+            else:
+                self.assertAlmostEqual(row[1]['SMA'], ma_series[i], 4)
 
+
+    def test_filter_date_index_by_dates(self):
+        df = self.wfm_df()
+        days = list(df.index) # should have 21 days
+        df_len = len(df)
+        self.assertEqual(df_len, len(days))
+        # Now pick the first three
+        fourth_time = days[2+1] # t0, t1, t2, t3 and we're looking for strictly < t3 and should get t0, t1, t2
+        first_three_df = self.pdu.filter_date_index_by_dates(df, start_date=self.du.intsToDateTime(myYYYY=1970, myMM=1, myDD=1), end_date=fourth_time)
+        orig_first_three = df[0:3]
+        assert_frame_equal(orig_first_three, first_three_df)

@@ -8,6 +8,11 @@ from pandas import Series
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+"""
+Interesting Python features:
+* Tests for an exception in test_index_in_list.
+"""
+
 class Test_CollectionUtil(TestCase):
     def __init__(self, *args, **kwargs):
         super(Test_CollectionUtil, self).__init__(*args, **kwargs)
@@ -98,6 +103,19 @@ class Test_CollectionUtil(TestCase):
         act2 = self._cu.indices_of_True(test2)
         self.assertListEqual(exp2, act2)
 
+    def test_index_in_list(self):
+        # Test 1, element requested is in the list
+        lst = [0, 7, 10, 14]
+        for el in lst:
+            exp = lst.index(el)
+            self.assertEqual(exp, CollectionUtil.index_in_list(lst, el), 'Fail test 1')
+        # Test 2, not found throwing error
+        with self.assertRaises(ValueError):
+            CollectionUtil.index_in_list(lst, -999, throws_error_if_not_found=True)
+
+        # Test 3, not found and returning -1
+        self.assertEqual(-1, CollectionUtil.index_in_list(lst, -999, throws_error_if_not_found=False), 'Fail test 3')
+
     def test_any_string_contains(self):
         # Test 1, yes, it's there
         test1 = ["To be, or not to be: that is the question:", "Whether 'tis nobler in the mind to suffer",
@@ -110,16 +128,6 @@ class Test_CollectionUtil(TestCase):
         self.assertTrue(self._cu.any_string_contains(test1, "suffer"))
         # Test 4, no, it's not there
         self.assertFalse(self._cu.any_string_contains(test1, "this"))
-
-    def test_dict_comprehension(self):
-        # Test 1, basic
-        keys = ['one', 'ten', 'hundred', 'thousand']
-        values = [1, 10, 100, 1000]
-        exp = {}
-        for k, v in zip(keys, values):
-            exp[k] = v
-        act = self._cu.dict_comprehension(keys, values)
-        self.assertEqual(exp, act)
 
     def test_replace_elements_in_list(self):
         # Test 1, basic
@@ -149,6 +157,14 @@ class Test_CollectionUtil(TestCase):
         exp_dict = {k:v for (k,v) in zip(list1, list2)}
         act_dict = self._cu.dict_comprehension(list1, list2)
         self.assertEqual(exp_dict, act_dict)
+        # Test 2, basic
+        keys = ['one', 'ten', 'hundred', 'thousand']
+        values = [1, 10, 100, 1000]
+        exp = {}
+        for k, v in zip(keys, values):
+            exp[k] = v
+        act = self._cu.dict_comprehension(keys, values)
+        self.assertEqual(exp, act)
 
     def test_remove_first_occurrence(self):
         # Test 1.
@@ -212,7 +228,12 @@ class Test_CollectionUtil(TestCase):
         exp5 = exp1
         self.assertListEqual(exp5, CollectionUtil.slice_list(act, step=1), 'failed test 5')
 
-
+    def test_repeat_elements_n_times(self):
+        # Normal
+        test1 = [1.0, 2.71828182846, 3.14159265359]
+        times = 3
+        exp1 = [i for i in test1 for _ in range(times)]
+        self.assertListEqual(exp1, CollectionUtil.repeat_elements_n_times(test1, times))
 
 class Test_NumpyUtil(TestCase):
     def __init__(self, *args, **kwargs):

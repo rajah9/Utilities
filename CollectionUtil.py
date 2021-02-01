@@ -1,6 +1,6 @@
 from collections import defaultdict, namedtuple
 from typing import Union, List, Tuple
-from itertools import compress, repeat
+from itertools import compress, repeat, chain
 import numpy as np
 from Util import Util
 from copy import copy
@@ -9,6 +9,7 @@ from pandas import Series
 Ints = List[int]
 Bools = List[bool]
 Strings = List[str]
+Floats = List[float]
 
 """
 Interesting Python Featuers:
@@ -96,6 +97,24 @@ class CollectionUtil(Util):
             return list(compress(range(len(bool_list)), bool_list))
         return list(np.where(bool_list)[0])
 
+    @staticmethod
+    def index_in_list(lst: list, find_me: Union[str, int, float], throws_error_if_not_found: bool = True) -> int:
+        """
+        Return the index of find_me within list. Throw a ValueError if it's not found (or -1 if you set throws_error_not_found to False)
+
+        :param lst:
+        :param find_me:
+        :param throws_error_if_not_found: if True and not found, throw a ValueError.
+        :return: The index of find_me within lst (or -1 if throws_error_if_not_found is set to False)
+        """
+        try:
+            return lst.index(find_me)
+        except ValueError as e:
+            if throws_error_if_not_found:
+                raise e
+            else:
+                return -1
+
     def any_string_contains(self, lines: Strings, find_me: str) -> bool:
         """
         Return True iff any of the strings contains find_me.
@@ -129,7 +148,7 @@ class CollectionUtil(Util):
         """
         Create a namedtuple.
         Example use:
-          Complex = CollectionUtil('Complex', 'real imaginary')
+          Complex = CollectionUtil.named_tuple('Complex', 'real imaginary')
           c = Complex(3, 2.5) # creates 3 + 2.5i
           print ('Created ' + c.real + ' + ' + c.imaginary + "i")
         :param clz: name of the class of this namedtuple (typically capitalized)
@@ -171,6 +190,17 @@ class CollectionUtil(Util):
         """
         ans = list(repeat(x, n))
         return ans
+
+    @staticmethod
+    def repeat_elements_n_times(lst: Union[Strings, Ints, Floats], n: int) -> list:
+        """
+        Take each element of the list and repeat it n times.
+        Inspired by: https://stackoverflow.com/questions/24225072/repeating-elements-of-a-list-n-times
+        :param x: list, like [10, 20, 30]
+        :param n: repeat factor, like 2
+        :return: each el in x repeated n times, like [10, 10, 20, 20, 30, 30]
+        """
+        return list(chain.from_iterable(repeat(x, n) for x in lst))
 
     @staticmethod
     def slice_list(my_list: list, start_index: int = 0, end_index: int = None, step: int = 1):
