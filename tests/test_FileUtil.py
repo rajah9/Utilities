@@ -1,15 +1,19 @@
 import logging
 import platform
-from io import StringIO
+from copy import deepcopy
 from os import sep
 from random import randrange
 from typing import List
 from unittest import TestCase, mock, main
+
 from yaml import YAMLError
+
 from DateUtil import DateUtil
-from FileUtil import FileUtil
 from ExecUtil import ExecUtil
+from FileUtil import FileUtil
 from LogitUtil import logit
+
+_BACKSLASH = '\\'
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -95,6 +99,19 @@ class Test_FileUtil(TestCase):
         self._fu.write_text_file(filename, lines)
 
     @logit()
+    def test_is_windows(self):
+        with mock.patch('platform.system') as mocked_platform:
+            mocked_platform.return_value = 'Linux'
+            mocked_fu = FileUtil()
+            test1 = mocked_fu.is_Windows
+            self.assertFalse(test1)
+
+        with mock.patch('platform.system') as mocked_platform:
+            mocked_platform.return_value = 'Windows'
+            mocked_fu = FileUtil()
+            self.assertTrue(mocked_fu.is_Windows)
+
+    @logit()
     def test_dump_yaml(self):
         yaml_fn = self._fu.qualified_path(self.path, self.yaml)
         self._fu.dump_yaml(yaml_fn, self.features_dict)
@@ -153,14 +170,28 @@ class Test_FileUtil(TestCase):
         expected = self.path + sep + self.fn
         actual = self._fu.qualified_path(self.path, self.fn)
         self.assertEqual(actual, expected, "Test 1 failure")
-        # Test 2. Using an array.
+        # Test 2. Using an array and a Linux mock.
         dir_to_path = sep.join(['dir', 'to', 'path']) # should be dir\to\path for windows or dir/to/path for linux
         pathArray = dir_to_path.split(sep)
         logger.debug(f'Splitting {dir_to_path} into path array: {pathArray}')
         expected = dir_to_path + sep + self.fn
-        actual = self._fu.fully_qualified_path(pathArray, self.fn, dir_path_is_array=True)
-        logger.debug(f'Actual: {actual}. expected: {expected}.')
-        self.assertEqual(actual, expected, "Test 2 failure")
+
+        with mock.patch('platform.system') as mocked_platform:
+            mocked_platform.return_value = 'Linux'
+            mocked_fu = FileUtil()
+            self.assertEqual(expected, mocked_fu.fully_qualified_path(pathArray, self.fn, dir_path_is_array=True), "Test 2 failure")
+
+        # Test 3, using a windows path with a drive
+        exp3 = r'c:\temp\subdir\subsubdir'
+        exp3_array = exp3.split(_BACKSLASH)
+        test3_with_fn = deepcopy(exp3_array)
+        test3_with_fn.append(self.fn)
+        test3 = _BACKSLASH.join(test3_with_fn)
+
+        with mock.patch('platform.system') as mocked_platform:
+            mocked_platform.return_value = 'Windows'
+            mocked_fu = FileUtil()
+            self.assertEqual(test3, mocked_fu.qualified_path(dirPath=exp3_array, filename=self.fn, dir_path_is_array=True))
 
     @logit()
     def test_split_qualified_path(self):

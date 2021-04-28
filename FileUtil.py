@@ -44,6 +44,10 @@ class FileUtil:
             self.logger.addHandler(logging.NullHandler())
         self._isWindows = platform.system() == 'Windows'
 
+    @property
+    def is_Windows(self) -> bool:
+        return self._isWindows
+
     def current_directory(self) -> str:
         """
         Get the current working directory.
@@ -173,21 +177,33 @@ class FileUtil:
         """
         From the given dir and filename, return the qualified path.
         11Dec18 Fixed a problem that was making the dirPath longer by creating a deepcopy.
+        28Apr21 Fixed a Windows vs Linux variation.
         """
+        def combined_file_components(file_component_array: list) -> str:
+            """
+            Given an array of file components, provide a platform-appropriate absolute path.
+            :param file_component_array: list like ['c:', 'temp','subdir','subsubdir']
+            :return: string like 'c:\temp\subdir\subsubdir'
+            """
+            self.logger.debug(f'Before splat: {file_component_array}')
+            # If it's Windows, add an extra separator.
+            if self.is_Windows:
+                file_component_array.insert(1, sep)
+            return join(*file_component_array) # The * (splat) helps os.path.join treat the args as one arg.
+
         if dir_path_is_array:
             r = copy.deepcopy(dirPath)
             r.append(filename)
-            self.logger.debug(f'Before splat: {r}')
-            return join(*r)  # The * (splat) helps os.path.join treat the args as one arg.
+            return combined_file_components(r)
         else:
             return join(dirPath, filename)
 
     def fully_qualified_path(self, dirPath: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
-        From the given dir and filename, return a qualified path. Prepend a /.
+        From the given dir and filename, return a qualified path. Prepend a / for Linux systems.
         """
         ans = self.qualified_path(dirPath, filename, dir_path_is_array)
-        if (ans[0] == sep) or self._isWindows:
+        if (ans[0] == sep) or not self.is_Windows:
             return ans
         return sep + ans
 
@@ -197,6 +213,7 @@ class FileUtil:
         From the given qualified path, return the dir and filename.
         if makeArray is False, make the path a string, like '/users/owner/'
         if makeArray is True, make the path an array, like ['users', 'owner']
+        return a tuple of (path string, filename).
         """
         path, filename = split(qualified_path)
         if makeArray:
@@ -305,7 +322,7 @@ class FileUtil:
         :return: the datetime (timezone unaware!)
         """
         du = DateUtil()
-        if self._isWindows:
+        if self.is_Windows:
             date_str = getctime(filename)
             ans = du.asDate(date_str, myFormat=DateUtil.iso_format)
         else:
