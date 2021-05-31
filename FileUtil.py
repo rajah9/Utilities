@@ -48,6 +48,14 @@ class FileUtil:
     def is_Windows(self) -> bool:
         return self._isWindows
 
+    @property
+    def separator(self) -> str:
+        # This could return os.sep, but because I may be testing Linux on a Windows env, I'm making it a property.
+        if self.is_Windows:
+            return '\\'
+        return '/'
+
+
     def current_directory(self) -> str:
         """
         Get the current working directory.
@@ -188,7 +196,7 @@ class FileUtil:
             self.logger.debug(f'Before splat: {file_component_array}')
             # If it's Windows, add an extra separator.
             if self.is_Windows:
-                file_component_array.insert(1, sep)
+                file_component_array.insert(1, self.separator)
             return join(*file_component_array) # The * (splat) helps os.path.join treat the args as one arg.
 
         if dir_path_is_array:
@@ -196,16 +204,18 @@ class FileUtil:
             r.append(filename)
             return combined_file_components(r)
         else:
-            return join(dirPath, filename)
+            # dirPath is a string; simply join it.
+            # return join(dirPath, filename) Doesn't work if testing Linux in a Windows env!
+            return dirPath + self.separator + filename
 
     def fully_qualified_path(self, dirPath: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
         From the given dir and filename, return a qualified path. Prepend a / for Linux systems.
         """
         ans = self.qualified_path(dirPath, filename, dir_path_is_array)
-        if (ans[0] == sep) or not self.is_Windows:
-            return ans
-        return sep + ans
+        if not self.is_Windows and (ans[0] != self.separator):
+            return self.separator + ans
+        return ans
 
     @logit(showArgs=True, showRetVal=True)
     def split_qualified_path(self, qualified_path:str, makeArray=False):

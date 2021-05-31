@@ -1,9 +1,12 @@
 import logging
 from unittest import TestCase
 from CollectionUtil import CollectionUtil, NumpyUtil
+from _collections import OrderedDict
+from operator import getitem
 import numpy as np
 from copy import deepcopy
 from pandas import Series
+from collections import namedtuple
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -37,6 +40,95 @@ class Test_CollectionUtil(TestCase):
         actual2 = list(sort_dsc.values())
         expected2 = sorted(unsorted_dict.values(), reverse=True)
         self.assertListEqual(expected2, actual2)
+
+    def test_sort_by_inner_dict(self):
+        # Example dict from https://www.geeksforgeeks.org/python-sort-nested-dictionary-by-key/
+        d1 = {'Nikhil' : { 'roll' : 24, 'marks' : 17},
+              'Akshat' : {'roll' : 54, 'marks' : 12},
+              'Akash' : { 'roll' : 12, 'marks' : 15}}
+        # Test 1, sort by 'marks'
+        field1 = 'marks'
+        exp1 = OrderedDict(sorted(d1.items(), key=lambda x: getitem(x[1], field1)))
+        self.assertEqual(exp1, self._cu.sort_by_inner_dict(d=d1, field=field1))
+        # Test 2, sort by 'marks' in reverse.
+        exp2 = OrderedDict(sorted(d1.items(), key=lambda x: getitem(x[1], field1), reverse=True))
+        act2 = self._cu.sort_by_inner_dict(d=d1, field=field1, is_descending=True)
+        self.assertEqual(exp2, act2)
+
+    def test_recursive_dict_search(self):
+        # Test 1, simple case.
+        exp_1 = 2
+        d1 = {"B": {"A": exp_1}}
+        self.assertEqual(self._cu.recursive_dict_search(d1, "A"), exp_1, "test 1 fail")
+        # Test 2, No such key
+        self.assertIsNone(self._cu.recursive_dict_search(d1, "NoSuchKey"))
+        # Test 3, Default value set
+        default = 'nope'
+        self.assertEqual(self._cu.recursive_dict_search(d1, "NoSuchKey", default), default)
+        # Test 4, pepper data from https://stackabuse.com/python-with-pandas-dataframe-tutorial-with-examples/
+        pepperData = {
+            "Bell pepper": {
+                'Scoville': 50,
+                'price': {'amt': 1.25, 'currency': 'USD'},
+                'color': 'green'},
+            "Espelette pepper": {
+                'Scoville': 5000,
+                'price': {'amt': 4.25, 'currency': 'USD'},
+                'color': 'red'},
+            "Chocolate habanero": {
+                'Scoville': 50000,
+                'price': {'amt': 3.75, 'currency': 'USD'},
+                'color': 'chocolate'},
+        }
+        # expecting the color of the first pepper
+        key_to_examine = "color"
+        exp4 = pepperData["Bell pepper"][key_to_examine]
+        self.assertEqual(exp4, self._cu.recursive_dict_search(pepperData, key_to_examine))
+
+    def test_sort_by_nested_dict(self):
+        # Test 1. Sort by a deeply-nested dict.
+
+        d5 = {'node1': {'input_file': {'filename': 'xyz', 'worksheet': 'sheet1'},
+                        'output_file': {'output_file_handle': 'out1'}},
+              'node2': {'input_file': {'filename': 'xyz', 'worksheet': 'sheet1'},
+                        'output_file': {'output_file_handle': 'out2'}},
+              'node3': {'input_file': {'filename': 'xyz', 'worksheet': 'sheet1'},
+                        'output_file': {'output_file_handle': 'out1'}}}
+        field5 = 'output_file_handle'
+
+        NestingDict = namedtuple('NestingDict', ['key', 'nestedDict', 'sortByMe'])
+        unsorted_dicts = []
+        for k, v in d5.items():
+            nd = NestingDict(key=k, nestedDict=v, sortByMe=self._cu.recursive_dict_search(v, field5))
+            unsorted_dicts.append(nd)
+
+        sorted_list = sorted(unsorted_dicts, key=lambda x: x.sortByMe)
+        exp5 = {}
+        for l in sorted_list:
+            exp5[l.key] = l.nestedDict
+        logger.debug(f'Expected dict is {exp5}')
+        act5 = self._cu.sort_by_nested_dict(d=d5, field=field5)
+        self.assertEqual(exp5, act5)
+
+    def test_remove_key(self):
+        # Test 1, normal.
+        key_to_remove = 'attribute'
+        d = {
+            'name': 'Bill',
+            key_to_remove: 'wild',
+            'age': 42
+        }
+        exp1 = d[key_to_remove]
+        act1 = self._cu.remove_key(d, key_to_remove)
+        self.assertEqual(exp1, act1, 'Test 1 fail')
+        # Test 2, Missing key
+        key_to_remove = 'not in this list'
+        act2 = self._cu.remove_key(d, key_to_remove)
+        self.assertIsNone(act2, 'Test 2 fail')
+        # Test 3, Missing key, not-default value
+        new_default = 'xyzzy'
+        act3 = self._cu.remove_key(d, key_to_remove, default=new_default)
+        self.assertEqual(new_default, act3, 'Test 3 fail')
 
     def test_sorted_list(self):
         # Test 1, ascending
