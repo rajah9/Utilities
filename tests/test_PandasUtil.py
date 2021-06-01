@@ -69,6 +69,12 @@ class Test_PandasUtil(unittest.TestCase):
         return df
 
     @logit()
+    def test_pandas_verson(self):
+        major, minor, sub = self.pu.pandas_version()
+        logger.debug(f'You are running Pandas version {major}.{minor}.{sub}')
+        self.assertTrue(((major>0) and (minor>=1) or ((major==0) and (minor>=21))))
+
+    @logit()
     def test_unique_values(self):
         col_name = 'number'
         expected = [x[col_name] for x in self.list_of_dicts]

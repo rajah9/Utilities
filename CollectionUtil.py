@@ -1,4 +1,4 @@
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, OrderedDict
 from typing import Union, List, Tuple
 from itertools import compress, repeat, chain
 import numpy as np
@@ -39,6 +39,86 @@ class CollectionUtil(Util):
         :return: sorted dictionary
         """
         return {k: v for k, v in sorted(d.items(), reverse=is_descending, key=lambda item: item[1])}
+
+    def sort_by_inner_dict(self, d:dict, field: str, is_descending: bool = False) -> dict:
+        """
+        Sort a dict of dicts by a key from the FIRST-LEVEL inner dictionary.
+
+        :param d: dictionary, like test_dict = {'Nikhil' : { 'roll' : 24, 'marks' : 17},
+             'Akshat' : {'roll' : 54, 'marks' : 12},
+             'Akash' : { 'roll' : 12, 'marks' : 15}}
+        :param field: key name in the first-level inner dictionary
+        :param is_descending: Set True to sort from largest to smallest.
+        :return: Dictionary sorted by inner dict key specified by field.
+        """
+        ans = OrderedDict(sorted(d.items(), key=lambda x: x[1][field], reverse=is_descending))
+        return ans
+
+    def sort_by_nested_dict(self, d:dict, field: str, is_descending: bool = False) -> dict:
+        """
+        Sort a dict of dicts by a key from a NESTED dictionary. This can be deeper than the first level.
+        :param d: nested dictionary, like d5 =
+        {'node1': {'input_file': {'filename': 'xyz', 'worksheet': 'sheet1'},
+                'output_file': {'output_file_handle': 'out1'}},
+        'node2': {'input_file': {'filename': 'xyz', 'worksheet': 'sheet1'},
+                'output_file': {'output_file_handle': 'out2'}},
+        'node3': {'input_file': {'filename': 'xyz', 'worksheet': 'sheet1'},
+                'output_file': {'output_file_handle': 'out1'}}}
+        :param field: key name in an inner dictionary, like 'output_file_handle'
+        :param is_descending: Set True to sort from largest to smallest.
+        :return: Dictionary sorted by inner dict key specified by field.
+        """
+        NestingDict = namedtuple('NestingDict', ['key', 'nestedDict', 'sortByMe'])
+        # Create a working list with key, dict, and the key to sort by.
+        # Place them in a named tuple.
+        # This is a little clearer with the list comprehension spelled out.
+        unsorted_dicts = []
+        for k, v in d.items():
+            nd = NestingDict(key=k, nestedDict=v, sortByMe=self.recursive_dict_search(v, field))
+            unsorted_dicts.append(nd)
+
+        # Now sort the named tuples.
+        sorted_list = sorted(unsorted_dicts, key=lambda x: x.sortByMe, reverse=is_descending)
+        # Place the sorted named tuples in an order.
+        # This is a little clearer with the dict comprehension spelled out.
+        d = {}
+        for l in sorted_list:
+            d[l.key] = l.nestedDict
+        return d
+
+    def recursive_dict_search(self, d: dict, key: str, default=None):
+        """Return a value corresponding to the specified key in the (possibly
+        nested) dictionary d. If there is no item with that key, return
+        default. From https://stackoverflow.com/a/43184871/509840.
+        Uses a stack of iterators pattern; see https://garethrees.org/2016/09/28/pattern/.
+        """
+        stack = [iter(d.items())]
+        while stack:
+            for k, v in stack[-1]:
+                if isinstance(v, dict):
+                    stack.append(iter(v.items()))
+                    break
+                elif k == key:
+                    return v
+            else:
+                stack.pop()
+        return default
+
+    def remove_key(self, d: dict, key: str, default=None):
+        """
+        Remove the key from the given dictionary.
+        SIDE EFFECT: d is altered.
+        If not found, return default.
+        Return the value at the given key.
+        Adopted from https://stackoverflow.com/a/11277439/509840.
+
+        :param d: dict to examine
+        :param key: key to be removed
+        :param default: what gets return for a KeyError
+        :return: the key just removed.
+        """
+        ans = d.pop(key, default)
+        return ans
 
     def sorted_list(self, lst: list, is_descending: bool = False) -> list:
         """

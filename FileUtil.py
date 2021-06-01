@@ -44,6 +44,18 @@ class FileUtil:
             self.logger.addHandler(logging.NullHandler())
         self._isWindows = platform.system() == 'Windows'
 
+    @property
+    def is_Windows(self) -> bool:
+        return self._isWindows
+
+    @property
+    def separator(self) -> str:
+        # This could return os.sep, but because I may be testing Linux on a Windows env, I'm making it a property.
+        if self.is_Windows:
+            return '\\'
+        return '/'
+
+
     def current_directory(self) -> str:
         """
         Get the current working directory.
@@ -173,23 +185,37 @@ class FileUtil:
         """
         From the given dir and filename, return the qualified path.
         11Dec18 Fixed a problem that was making the dirPath longer by creating a deepcopy.
+        28Apr21 Fixed a Windows vs Linux variation.
         """
+        def combined_file_components(file_component_array: list) -> str:
+            """
+            Given an array of file components, provide a platform-appropriate absolute path.
+            :param file_component_array: list like ['c:', 'temp','subdir','subsubdir']
+            :return: string like 'c:\temp\subdir\subsubdir'
+            """
+            self.logger.debug(f'Before splat: {file_component_array}')
+            # If it's Windows, add an extra separator.
+            if self.is_Windows:
+                file_component_array.insert(1, self.separator)
+            return join(*file_component_array) # The * (splat) helps os.path.join treat the args as one arg.
+
         if dir_path_is_array:
             r = copy.deepcopy(dirPath)
             r.append(filename)
-            self.logger.debug(f'Before splat: {r}')
-            return join(*r)  # The * (splat) helps os.path.join treat the args as one arg.
+            return combined_file_components(r)
         else:
-            return join(dirPath, filename)
+            # dirPath is a string; simply join it.
+            # return join(dirPath, filename) Doesn't work if testing Linux in a Windows env!
+            return dirPath + self.separator + filename
 
     def fully_qualified_path(self, dirPath: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
-        From the given dir and filename, return a qualified path. Prepend a /.
+        From the given dir and filename, return a qualified path. Prepend a / for Linux systems.
         """
         ans = self.qualified_path(dirPath, filename, dir_path_is_array)
-        if (ans[0] == sep) or self._isWindows:
-            return ans
-        return sep + ans
+        if not self.is_Windows and (ans[0] != self.separator):
+            return self.separator + ans
+        return ans
 
     @logit(showArgs=True, showRetVal=True)
     def split_qualified_path(self, qualified_path:str, makeArray=False):
@@ -197,6 +223,7 @@ class FileUtil:
         From the given qualified path, return the dir and filename.
         if makeArray is False, make the path a string, like '/users/owner/'
         if makeArray is True, make the path an array, like ['users', 'owner']
+        return a tuple of (path string, filename).
         """
         path, filename = split(qualified_path)
         if makeArray:
@@ -305,7 +332,7 @@ class FileUtil:
         :return: the datetime (timezone unaware!)
         """
         du = DateUtil()
-        if self._isWindows:
+        if self.is_Windows:
             date_str = getctime(filename)
             ans = du.asDate(date_str, myFormat=DateUtil.iso_format)
         else:

@@ -22,7 +22,7 @@ from datetime import datetime
 from math import fabs
 from subprocess import CalledProcessError
 from typing import List, Union, Tuple
-
+from abc import abstractmethod
 import numpy as np
 import pandas as pd
 import pdfplumber
@@ -269,6 +269,10 @@ class ExcelUtil(Util):
             self.logger.debug("no epsilon found; using class default")
         return None
 
+    @abstractmethod
+    def decode_named_range(self, excel_file_dict: dict) -> dict:
+        pass
+
 """
 To import this library, here's a handy import statement:
 from ExcelUtil import ExcelCompareUtil
@@ -472,6 +476,7 @@ class ExcelRewriteUtil(ExcelUtil):
     def init_workbook_to_read(self, filename: str) -> Workbook:
         self._wb = load_workbook(filename=filename)
         return self._wb
+
 
     def init_workbook_to_write(self) -> Workbook:
         self._wb = Workbook()
