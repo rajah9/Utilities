@@ -41,33 +41,35 @@ class ParserUtil:
                 continue
             yacc.parse(s)
 
-class HelloWorld(ParserUtil):
+class Sas(ParserUtil):
     # All keywords must be uppercase
     # Helpful to have the following tuple end in an extra comma.
     keywords = (
-        'HELLO',
+        'PROC',
+        'MEANS',
+        'DATA',
+        'EOL',
+        'RUN',
     )
     # Helpful to have the following tuple end in an extra comma.
     tokens = keywords + (
-        'NAME',
-        'COMMA',
+        'DATASETNAME',
+#        'ID',
     )
 
     # Tokens
-    t_HELLO = '(?i)hello'
-    t_COMMA = ','
+    t_EOL = ';'
+    t_ignore = ' \t'
 
-    def t_NAME(self, t):
-        r'[A-Za-z][A-Za-z]*'
-        tupper = t.value.upper()
+    def t_DATASETNAME(self, t):
+        r'[A-Za-z][A-Za-z0-9\.]*'
+        tupper = str(t.value).upper()
         if tupper in self.keywords:
             t.type = tupper
             logger.debug(f'interpreting as keyword: {t.value}')
         else:
-            logger.debug(f'encountering name: {t.value}')
+            logger.debug(f'encountering datasetname: {t.value}')
         return t
-
-    t_ignore = " \t"
 
     def t_newline(self, t):
         r'\n+'
@@ -77,18 +79,21 @@ class HelloWorld(ParserUtil):
         logger.error(f'Illegal character {t.value[0]}')
         t.lexer.skip(1)
 
-    # Parser rules
-    def p_statement_greet(self, p):
+    # Parsing rules
+    def p_statement_proc(self, p):
         '''
-        statement : HELLO
-                  | HELLO NAME
-                  | HELLO COMMA NAME
+        statement : procdecl
         '''
-        lexdata = " "
-        for lexeme in p:
-            if lexeme:
-                lexdata += str(lexeme) + " "
-        logger.debug(f'greeting encountered: {lexdata}')
+
+    def p_procdecl(self, p):
+        '''
+        procdecl : procmeans
+        '''
+
+    def p_procmeans(self, p):
+        '''
+        procmeans : PROC MEANS EOL
+        '''
 
     def p_error(self, p):
         if p:
@@ -97,5 +102,8 @@ class HelloWorld(ParserUtil):
             logger.error('Syntax error at EOF')
 
 if __name__ == '__main__':
-    p = HelloWorld()
-    p.run()
+    # Test HelloWorld
+#    p = HelloWorld()
+#    p.run()
+    s = Sas()
+    s.run()
