@@ -41,6 +41,23 @@ class ParserUtil:
                 continue
             yacc.parse(s)
 
+    # Token rules that don't need to be reimplemented.
+    def t_newline(self, t):
+        r'\n+'
+        t.lexer.lineno += t.value.count('\n')
+
+    def t_error(self, t):
+        logger.error(f'Illegal character {t.value[0]}')
+        t.lexer.skip(1)
+
+    # Parser rules that should be called with super().p_<something>
+    def p_error(self, p):
+        if p:
+            logger.error(f'Syntax error at {p.value}')
+        else:
+            logger.error('Syntax error at EOF')
+
+
 class Sas(ParserUtil):
     # All keywords must be uppercase
     # Helpful to have the following tuple end in an extra comma.
@@ -71,13 +88,6 @@ class Sas(ParserUtil):
             logger.debug(f'encountering datasetname: {t.value}')
         return t
 
-    def t_newline(self, t):
-        r'\n+'
-        t.lexer.lineno += t.value.count('\n')
-
-    def t_error(self, t):
-        logger.error(f'Illegal character {t.value[0]}')
-        t.lexer.skip(1)
 
     # Parsing rules
     def p_statement_proc(self, p):
@@ -92,18 +102,20 @@ class Sas(ParserUtil):
 
     def p_procmeans(self, p):
         '''
-        procmeans : PROC MEANS EOL
+        procmeans : procmeansdecl procend
         '''
 
-    def p_error(self, p):
-        if p:
-            logger.error(f'Syntax error at {p.value}')
-        else:
-            logger.error('Syntax error at EOF')
+    def p_proc_means_decl(self, p):
+        '''
+        procmeansdecl : PROC MEANS EOL
+        '''
+
+    def p_proc_end(self, p):
+        '''
+        procend : RUN EOL
+        '''
+        logger.debug('encountered RUN statement')
 
 if __name__ == '__main__':
-    # Test HelloWorld
-#    p = HelloWorld()
-#    p.run()
     s = Sas()
     s.run()
