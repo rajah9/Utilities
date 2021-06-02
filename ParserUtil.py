@@ -71,12 +71,14 @@ class Sas(ParserUtil):
     # Helpful to have the following tuple end in an extra comma.
     tokens = keywords + (
         'DATASETNAME',
+        'EQUALS', 
 #        'ID',
     )
 
     # Tokens
     t_EOL = ';'
     t_ignore = ' \t'
+    t_EQUALS = '='
 
     def t_DATASETNAME(self, t):
         r'[A-Za-z][A-Za-z0-9\.]*'
@@ -108,6 +110,23 @@ class Sas(ParserUtil):
     def p_proc_means_decl(self, p):
         '''
         procmeansdecl : PROC MEANS EOL
+                      | PROC MEANS procoptions EOL
+        '''
+
+    def p_proc_options(self, p):
+        '''
+        procoptions : procoptions procoption
+                    | procoption
+        '''
+
+    def p_proc_option(self, p):
+        '''
+        procoption : dataoption
+        '''
+
+    def p_data_option(self, p):
+        '''
+        dataoption : DATA EQUALS DATASETNAME
         '''
 
     def p_proc_end(self, p):
