@@ -687,7 +687,7 @@ class StringUtil:
         return '{0:{fill}{align}{width}}'.format(my_str, fill=fill_str, align=align, width=fill_width)
 
 """
-This class accmulates lines (say, for a log).
+This class accumulates lines (say, for a log).
 """
 
 class LineAccmulator:

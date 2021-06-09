@@ -11,20 +11,10 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=loggin
 logger = logging.getLogger(__name__)
 
 class SasParser(ParserUtil):
-    _curr_proc_type = None
 
     def __init__(self):
         super(SasParser, self).__init__()
         self._scu = SasCompilerUtil()
-
-    @property
-    def curr_proc_type(self):
-        return self._curr_proc_type
-
-    @curr_proc_type.setter
-    def curr_proc_type(self, proc_type: str):
-        logger.debug(f'Starting PROC {proc_type}')
-        self._curr_proc_type = proc_type
 
     # All keywords must be uppercase
     # Helpful to have the following tuple end in an extra comma.
