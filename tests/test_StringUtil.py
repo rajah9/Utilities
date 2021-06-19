@@ -1,9 +1,11 @@
-import unittest
 import logging
+import unittest
+
+from pandas import DataFrame
+
+from CollectionUtil import CollectionUtil
 from LogitUtil import logit
 from StringUtil import StringUtil, LineAccmulator
-from pandas import DataFrame
-from CollectionUtil import CollectionUtil
 
 _SINGLE_QUOTE = "'"
 
@@ -552,5 +554,5 @@ class TestLineAccmulator(unittest.TestCase):
 
 
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
-# if __name__ == '__main__':
-#     unittest.main()
+if __name__ == '__main__':
+    unittest.main()

@@ -1,11 +1,11 @@
 import logging
+import time
 import unittest
 from datetime import timedelta, datetime
-import time
-from LogitUtil import logit
-from DateUtil import DateUtil
-import pytz
 from random import randint
+
+from DateUtil import DateUtil
+from LogitUtil import logit
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)

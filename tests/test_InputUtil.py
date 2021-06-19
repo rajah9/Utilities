@@ -1,5 +1,7 @@
 from unittest import TestCase
+
 from InputUtil import MouseUtil
+
 
 class TestMouseUtil(TestCase):
     def setUp(self) -> None:

@@ -1,10 +1,12 @@
-import unittest
 import logging
+import unittest
+
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+
 from LogitUtil import logit
 from PlotUtil import PlotUtil
-import pandas as pd
-import numpy as np
-from matplotlib import pyplot as plt
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)

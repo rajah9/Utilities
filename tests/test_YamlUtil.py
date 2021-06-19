@@ -1,8 +1,9 @@
+import logging
 from collections import namedtuple
+
+from LogitUtil import logit
 from YamlUtil import YamlUtil
 from tests.test_FileUtil import Test_FileUtil
-import logging
-from LogitUtil import logit
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)

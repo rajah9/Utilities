@@ -1,7 +1,7 @@
-import sys
-from pathlib import Path
 import logging
-from unittest import mock, TestCase, main
+import sys
+from unittest import TestCase
+
 from GuiUtil import GuiUtil
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)

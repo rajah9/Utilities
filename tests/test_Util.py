@@ -1,5 +1,6 @@
 import logging
 from unittest import TestCase
+
 from Util import Util
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)

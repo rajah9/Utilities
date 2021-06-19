@@ -1,10 +1,11 @@
+import logging
 import sys
 from pathlib import Path
-import logging
 from unittest import mock, TestCase, main
+
 from ExecUtil import ExecUtil
-from LogitUtil import logit
 from FileUtil import FileUtil
+from LogitUtil import logit
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)

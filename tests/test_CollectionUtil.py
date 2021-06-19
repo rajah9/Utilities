@@ -1,12 +1,14 @@
 import logging
-from unittest import TestCase
-from CollectionUtil import CollectionUtil, NumpyUtil
 from _collections import OrderedDict
-from operator import getitem
-import numpy as np
-from copy import deepcopy
-from pandas import Series
 from collections import namedtuple
+from copy import deepcopy
+from operator import getitem
+from unittest import TestCase
+
+import numpy as np
+from pandas import Series
+
+from CollectionUtil import CollectionUtil, NumpyUtil
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)

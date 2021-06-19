@@ -1,12 +1,14 @@
-import unittest
-from ApplicationUtil import ApplicationUtil
-import platform
-from FileUtil import FileUtil
 import logging
-from LogitUtil import logit
-from PandasUtil import PandasUtil
+import platform
+import unittest
+
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
+
+from ApplicationUtil import ApplicationUtil
+from FileUtil import FileUtil
+from LogitUtil import logit
+from PandasUtil import PandasUtil
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
