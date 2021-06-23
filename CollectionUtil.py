@@ -130,6 +130,14 @@ class CollectionUtil(Util):
         lst.sort(reverse=is_descending)
         return lst
 
+    def sorted_set(self, s: set) -> list:
+        """
+        Convert the set to a list and return the sorted list.
+        :param s: Set to be sorted
+        :return: a sorted list
+        """
+        return sorted(s)
+
     def list_max_and_min(self, lst: Union[Series, list]) -> Tuple[float, float]:
         """
         Return the min and max of the list.
