@@ -159,6 +159,25 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {csv_file_name}.')
         return True
 
+    def write_df_to_parquet(self, df: pd.DataFrame = None, parquet_file_name: str = 'test.parquet', engine: str='auto', compression: str = 'snappy', index: bool = None):
+        """
+        Write the given file using a parquet format.
+        :param df: dataframe to write
+        :param parquet_file_name: str of file name (but could be a file-like object that handles write() )
+        :param engine: ‘auto’, ‘pyarrow’, ‘fastparquet’
+        :param compression: ‘snappy’, ‘gzip’, ‘brotli’, None
+        :param index: If True, include the dataframe’s index(es) in the file output.
+        :return: how many bytes (if no path argument) else None.
+        """
+        if not df.empty:
+            self._df = df
+        else:
+            logger.warning('Empty dataframe will not be written.')
+            return False
+        ans = df.to_parquet(path=parquet_file_name, engine=engine, compression=compression, index=index)
+        logger.debug(f'Successfully wrote to {parquet_file_name}.')
+        return ans
+
     def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col:int=-1) -> pd.DataFrame:
         """
         Read an Excel file.
@@ -213,6 +232,23 @@ class PandasUtil:
         ans = pd.read_csv(**param_dict)
         return ans
 
+    def read_df_from_parquet(self, parquet_file_name: str, engine: str='auto', columns: list = None):
+        """
+        Read from the parquet_file_name and return its data in a dataframe.
+        :param parquet_file_name: str of file name (but could be a file-like object that handles write() )
+        :param engine: ‘auto’, ‘pyarrow’, ‘fastparquet’
+        :param columns: if None, read all columns. If a list, only read these columns.
+        :return: corresponding dataframe.
+        """
+        if parquet_file_name:
+            self.filename = parquet_file_name
+        logger.debug(f'Will read from the parquet file: {self.filename}.')
+        if self._fu.file_exists(self.filename):
+            ans_df = pd.read_parquet(path=parquet_file_name, engine=engine, columns=columns)
+            return ans_df
+        else:
+            logger.error(f'Cannot find parquet file: {self.filename}. Returning empty df.')
+            return PandasUtil.empty_df()
 
     def get_df_headers(self, df:pd.DataFrame=_EMPTY_DF) -> list:
         """

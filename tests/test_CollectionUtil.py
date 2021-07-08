@@ -147,12 +147,16 @@ class Test_CollectionUtil(TestCase):
         self.assertListEqual(exp2, self._cu.sorted_list(unsorted_list, is_descending=is_reversed), "Fail test 2")
 
     def test_sorted_set(self):
-        # Test 1
+        # Test 1. Normal, ascending.
         mySet = {"a", "Rajah", "z", "Google"}
         exp1 = list(mySet)
         exp1.sort()
         act1 = self._cu.sorted_set(mySet)
-        self.assertListEqual(exp1, act1)
+        self.assertListEqual(exp1, act1, "Fail test 1")
+        # Test 2. Descending.
+        exp1.sort(reverse=True)
+        act2 = self._cu.sorted_set(mySet, is_descending=True)
+        self.assertListEqual(exp1, act2, "Fail test 2")
 
     def test_list_max_and_min(self):
         # Test 1, ascending

@@ -312,6 +312,20 @@ class Test_PandasUtil(unittest.TestCase):
             self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
 
     @logit()
+    def test_write_df_to_parquet(self):
+        df = self.my_test_df()
+        parquet_file = self.spreadsheet_name + '.parquet'
+        # parquet creates an index named index. Set an index of that name.
+        idx = pd.Index(df.index.array, dtype=df.index.dtype, name='index')
+        exp_df = df.set_index(idx, inplace=False)
+
+        self.pu.write_df_to_parquet(df=df, parquet_file_name=parquet_file, compression=None)
+        df2 = self.pu.read_df_from_parquet(parquet_file_name=parquet_file)
+        assert_frame_equal(exp_df, df2)
+        fu = FileUtil()
+        fu.delete_file(parquet_file)
+
+    @logit()
     def test_read_df_from_csv(self):
         df = self.my_test_df()
         self.pu.write_df_to_csv(df=df, csv_file_name=self.csv_name, write_index=False)

@@ -123,20 +123,21 @@ class CollectionUtil(Util):
     def sorted_list(self, lst: list, is_descending: bool = False) -> list:
         """
         Sort the list. Note: This does a sort in place, so the l passed in is sorted as a side-effect.
-        :param lst:
-        :param is_descending:
+        :param lst: list to sort
+        :param is_descending: True if you want it in reverse order.
         :return:
         """
         lst.sort(reverse=is_descending)
         return lst
 
-    def sorted_set(self, s: set) -> list:
+    def sorted_set(self, s: set, is_descending: bool = False) -> list:
         """
         Convert the set to a list and return the sorted list.
         :param s: Set to be sorted
+        :param is_descending: True if you want it in reverse order.
         :return: a sorted list
         """
-        return sorted(s)
+        return sorted(s, reverse=is_descending)
 
     def list_max_and_min(self, lst: Union[Series, list]) -> Tuple[float, float]:
         """
