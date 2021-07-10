@@ -24,13 +24,18 @@ class Simple(object):
     def my_value(self, v):
         self._hidden_value = v
 
-class LongInit(object):
+class LongInit(Simple):
     def __init__(self):
-        _delay = 2
-        logger.debug('start init of LongInit')
+        logger.debug('in LongInit __init__')
         self._hidden_value = None
+
+    def __new__(cls, *args, **kwargs):
+        logger.debug('in LongInit __new__')
+        _delay = 1
+        logger.debug(f'starting {_delay} second delay')
         sleep(_delay)
-        logger.debug('finished init of LongInit after {_delay} seconds')
+        logger.debug(f'finished init of LongInit after {_delay} seconds')
+        return super(LongInit, cls).__new__(cls)
 
     @property
     def my_value(self):
@@ -69,6 +74,56 @@ class Test_LockingSingleton(TestCase):
 
         # Test 2, new object should have the first value.
         second = LockingSingleton(LongInit)
+        self.assertEqual(first_value, second.my_value, "Fail test 2")
+
+        # Test 3, both objects are actually the same singleton.
+        new_value = 21
+        first.my_value = new_value
+        self.assertEqual(first, second, "Fail test 3")
+
+"""
+Following are from RefactorGuru.
+"""
+
+class RefactorGuruSingleton(metaclass=SingletonMeta):
+    def __init__(self, instance):
+        logger.debug(f'Entering RefactorGuruSingleton with an instance of type {instance}')
+
+class Test_SingletonMeta(TestCase):
+    @logit()
+    def test_singleton_meta(self):
+        # Test 1, single object
+        first = RefactorGuruSingleton(Simple()) # Creating a naive singleton with a Simple instance.
+        first_value = 42
+        first.my_value = first_value
+        self.assertEqual(first_value, first.my_value, "Fail test 1")
+
+        # Test 2, new object should have the first value.
+        second = RefactorGuruSingleton(Simple())
+        self.assertEqual(first_value, second.my_value, "Fail test 2")
+
+        # Test 3, both objects are actually the same singleton.
+        new_value = 21
+        first.my_value = new_value
+        self.assertEqual(first, second, "Fail test 3")
+
+class RefactorGuruTSSingleton(metaclass=TS_SingletonMeta):
+    def __init__(self, instance):
+        logger.debug(f'Entering RefactorGuruTSSingleton with an instance of type {instance}')
+
+class Test_TS_SingletonMeta(TestCase):
+    @logit()
+    def test_ts_singleton_meta(self):
+        # Test 1, single object
+        first = RefactorGuruTSSingleton(LongInit()) # Creating a locking singleton with a LongInit instance.
+        first_value = 42
+        first.my_value = first_value
+        self.assertEqual(first_value, first.my_value, "Fail test 1")
+
+        # Test 2, new object should have the first value.
+        logger.debug('Attempting to create second Thread-Safe object')
+        second = RefactorGuruTSSingleton(LongInit())
+        logger.debug('Second Thread-Safe object created.')
         self.assertEqual(first_value, second.my_value, "Fail test 2")
 
         # Test 3, both objects are actually the same singleton.
