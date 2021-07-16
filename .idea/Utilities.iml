@@ -9,11 +9,9 @@
     <orderEntry type="module" module-name="RtsConversion" />
   </component>
   <component name="PackageRequirementsSettings">
-    <option name="requirementsPath" value="" />
+    <option name="requirementsPath" value="C:\Users\Owner\PycharmProjects\Utilities\requirements.txt" />
   </component>
   <component name="PyDocumentationSettings">
-    <option name="format" value="REST" />
-    <option name="myDocStringFormat" value="reStructuredText" />
     <option name="renderExternalDocumentation" value="true" />
   </component>
 </module>

@@ -1,6 +1,4 @@
 import logging
-import ftfy
-import phonenumbers
 from typing import List, Union, Callable
 from re import match, search, sub, split
 from string import ascii_letters
@@ -253,16 +251,6 @@ class StringUtil:
             ans = ans + 's'
         return ans + ')'
 
-    def fix_text(self, my_string:str=None) -> str:
-        """
-        Fixes the text with funny characters.
-        Documentation at https://ftfy.readthedocs.io/en/latest
-        :param my_string:
-        :return:
-        """
-        ans = ftfy.fix_text(my_string)
-        return ans
-
 
     def split_on_delimiter(self, my_string: str = None, delim: str = ' ') -> list:
         """
@@ -307,18 +295,6 @@ class StringUtil:
         :return: List of the occurrences of my_string within my_lsit.
         """
         return [s for s in my_list if my_string in s]
-
-    def parse_phone(self, phone:str, should_remove_blanks:bool = True) -> str:
-        try:
-            num = phonenumbers.parse(phone, "US")
-            formatted_num = phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.NATIONAL)
-            if should_remove_blanks:
-                return self.replace_all(old=" ", new="", myString=formatted_num)
-            else:
-                return formatted_num
-        except phonenumbers.phonenumberutil.NumberParseException:
-            logger.warning(f'could not parse number <{phone}>. Returning blank.')
-            return ""
 
     def truncate(self, field:str, max:int=255) -> str:
         """
@@ -685,6 +661,8 @@ class StringUtil:
             align = align_dict['center']
 
         return '{0:{fill}{align}{width}}'.format(my_str, fill=fill_str, align=align, width=fill_width)
+
+
 
 """
 This class accumulates lines (say, for a log).

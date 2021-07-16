@@ -1,12 +1,13 @@
-from os.path import abspath, join, dirname
-from pathlib import Path
-from inspect import getfile, currentframe
-import sys
-import platform
-from subprocess import Popen, PIPE
 import logging
-from LogitUtil import logit
+import platform
+from inspect import getfile, currentframe
+from os.path import abspath, join, dirname
+from pathlib import Path, PurePath
+from subprocess import Popen, PIPE
+from sys import path
+
 from FileUtil import FileUtil
+from LogitUtil import logit
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -57,13 +58,15 @@ class ExecUtil:
         :param newPath: gets added temporarily to the PYTHONPATH.
         :return: updated string
         """
-        if newPath in sys.path:
+        strPath = str(newPath) if isinstance(newPath, PurePath) else newPath
+
+        if strPath in path:
             logger.warning(f'path: {newPath} is already on sys.path. (No action taken.)')
-            return sys.path
+            return path
         else:
-            logger.debug(f'Adding new path: {newPath} to sys.path.')
-            sys.path.append(newPath)
-        return sys.path
+            logger.debug(f'Adding new path: {strPath} to sys.path.')
+            path.append(strPath)
+        return path
 
     def parent_folder(self):
         """

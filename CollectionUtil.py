@@ -1,10 +1,12 @@
 from collections import defaultdict, namedtuple, OrderedDict
-from typing import Union, List, Tuple
-from itertools import compress, repeat, chain
-import numpy as np
-from Util import Util
 from copy import copy
+from itertools import compress, repeat, chain
+from typing import Union, List, Tuple
+
+import numpy as np
 from pandas import Series
+
+from Util import Util
 
 Ints = List[int]
 Bools = List[bool]

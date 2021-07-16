@@ -1,10 +1,10 @@
 """
-This script provides some date utilties.
+This script provides some date utilities.
 """
 import logging
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from LogitUtil import logit
+from .LogitUtil import logit
 from pytz import timezone
 from typing import Union, Tuple
 

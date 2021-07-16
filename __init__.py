@@ -1,7 +1,12 @@
-import sys
-from inspect import currentframe, getfile
-from os.path import realpath, abspath, split
+import glob
+from os.path import dirname, basename, isfile
 
-curr_folder = realpath(abspath(split(getfile(currentframe()))[0])) # Should be this Utilities dir
-if curr_folder not in sys.path:
-    sys.path.insert(0, curr_folder)
+from .LogitUtil import logit
+from .DateUtil import DateUtil
+from .FileUtil import FileUtil
+from .StringUtil import StringUtil, LineAccmulator
+
+__version__ = "0.1.0"
+
+modules = glob.glob(dirname(__file__)+"/*.py")
+__all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]

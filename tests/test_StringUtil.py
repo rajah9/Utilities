@@ -1,10 +1,10 @@
 import logging
-import unittest
-
+from unittest import TestCase, main
 from pandas import DataFrame
-
-from CollectionUtil import CollectionUtil
+from Add_path import Add_path
+Add_path.add_parent()
 from LogitUtil import logit
+from CollectionUtil import CollectionUtil
 from StringUtil import StringUtil, LineAccmulator
 
 _SINGLE_QUOTE = "'"
@@ -19,7 +19,7 @@ Interesting Python features:
 * Binds a class function in test_capitalize_func. See answer at https://stackoverflow.com/a/114289/509840
 """
 
-class TestStringUtil(unittest.TestCase):
+class TestStringUtil(TestCase):
     def setUp(self):
         logger.debug('Starting TestStringUtil')
         self.su = StringUtil()
@@ -148,11 +148,6 @@ class TestStringUtil(unittest.TestCase):
         self.assertEqual('(?i)', su.regex_prefix())
         self.assertEqual('(?is)', su.regex_prefix(is_case_insensitive=True, is_single_line_mode=True))
 
-    @logit()
-    def test_fix_text(self):
-        base = '\ufeffParty like it&rsquo;s 1999!'
-        expected = "Party like it's 1999!"
-        self.assertEqual(expected, self.su.fix_text(base))
 
     def test_split_on_delimiter(self):
         # Test 1. Split on blanks by default.
@@ -192,14 +187,6 @@ class TestStringUtil(unittest.TestCase):
         actual = StringUtil.find_substring_occurrences_in_list(my_string=find_me, my_list=l)
         expected = []
         self.assertListEqual(expected, actual)
-
-    @logit()
-    def test_parse_phone(self):
-        phones = ['800-328-1452', '8774467746', '-   -   0']
-        expected = ['(800)328-1452', '(877)446-7746', '']
-        for i, phone in enumerate(phones):
-            self.assertEqual(expected[i], self.su.parse_phone(phone))
-        self.assertEqual('(800) 328-1452', self.su.parse_phone('800-328-1452', should_remove_blanks=False))
 
     @logit()
     def test_leading_2_places(self):
@@ -512,8 +499,7 @@ class TestStringUtil(unittest.TestCase):
         self.assertEqual(exp_val_3, act3.value)
         self.assertEqual(exp_type_3, act3.cellType)
 
-
-class TestLineAccmulator(unittest.TestCase):
+class TestLineAccmulator(TestCase):
     def setUp(self):
         logger.debug('Starting TestLineAccmulator')
         self.la = LineAccmulator()
@@ -552,7 +538,6 @@ class TestLineAccmulator(unittest.TestCase):
         self.assertEqual(len(test2), self.la.contents_len())
 
 
-
 # Use the following to run standalone. In PyCharm, you try Run -> Unittests in test_StringUtil.py.
 if __name__ == '__main__':
-    unittest.main()
+    main()
