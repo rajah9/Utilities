@@ -787,7 +787,7 @@ class ExcelRewriteUtil(ExcelUtil):
             end_row = ws_source.max_row
             end_col = ws_source.max_column
         else:
-            raise NotImplementedError('not implemented yet')
+            raise NotImplementedError('must set range to None. Partial ranges not implemented yet.')
         source_range = self.row_col_to_A1(row=start_row, col=start_col) + ":" + self.row_col_to_A1(row=end_row, col=end_col)
         for row in ws_source[source_range]:
             for cell in row:
@@ -864,13 +864,12 @@ class ExcelRewriteUtil(ExcelUtil):
 
         self.init_workbook_to_read(filename=template_excel_file_name)
         template_ws = self._wb[template_excel_worksheet]
-        # Probably need a self.copy_ws_to_ws()
-        self.init_workbook_to_write() # Switching wb to the output.
-        output_ws = self._wb.create_sheet(output_excel_worksheet)
+        self.copy_ws_to_ws(ws_source=template_ws, ws_source_name=template_excel_worksheet, ws_target_name=output_excel_worksheet)
+        self.save_workbook(filename=output_excel_file_name)
 
-        # Following fails. probably needs a self._rwu.init_workbook_to_write()
-        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws_source
-        wc.copy_worksheet() # copy the requested worksheet
+        # Following fails.
+#        wc = WorksheetCopy(template_ws, output_ws) # Create the copy object, providing source and target ws_source
+#        wc.copy_worksheet() # copy the requested worksheet
         return True
 
 
@@ -960,7 +959,6 @@ class PdfToExcelUtil(ExcelUtil):
         super().__init__()
         self.logger.info('starting PdfToExcelUtil')
         self._cu = CollectionUtil()
-        self._su = StringUtil()
 
     def read_pdf_table(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
                        read_many_tables_per_page=False) -> Dataframes:
@@ -1119,12 +1117,11 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
             for i, pg in enumerate(scanned_pages):
                 tbl = scanned_pages[i].extract_tables(table_settings=self.table_settings)
                 df = self._pu.convert_list_to_dataframe(tbl[0])
-                self._pu.replace_col_names_by_pattern(df, is_in_place=True)
+                pg_str = f'pg{i}col'
+                self._pu.replace_col_names_by_pattern(df, prefix=pg_str, is_in_place=True)
                 ans.append(df)
                 self.logger.info(f'Table i {i} has {len(df)} records')
         return ans
-
-
 
     def summarize_pdf_tables(self, pdf_filename: str, pages: Union[Ints, str] = 'all', make_NaN_blank: bool = True,
                         read_many_tables_per_page:bool=False, how_many_summarized: int = 10) -> Strings:

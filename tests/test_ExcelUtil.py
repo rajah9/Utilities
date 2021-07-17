@@ -525,7 +525,6 @@ class TestExcelRewriteUtil(TestExcelUtil):
         self._pu.coerece_to_int(actual_df, 'Year') # was float; make it int64
         self._pu.coerece_to_int(df, 'Year')        # was int32; make it int64
         assert_frame_equal(df, actual_df)
-        self.fail('in progress') # TODO
 
     def test_copy_ws_to_ws(self):
         # Test 1, normal
