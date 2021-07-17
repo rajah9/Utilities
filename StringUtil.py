@@ -668,7 +668,7 @@ class StringUtil:
 This class accumulates lines (say, for a log).
 """
 
-class LineAccmulator:
+class LineAccumulator:
     def __init__(self):
         self._contents = []
 

@@ -33,7 +33,7 @@ from DateUtil import DateUtil
 from FileUtil import FileUtil
 from LogitUtil import logit
 from PandasUtil import PandasUtil
-from StringUtil import StringUtil, LineAccmulator
+from StringUtil import StringUtil, LineAccumulator
 from Util import Util
 
 _SUBPERIOD_DIVIDED = 'divided'
@@ -292,7 +292,7 @@ class ExcelCompareUtil(ExcelUtil):
             self._epsilon = _EPSILON
 
         self.logger.info('starting ExcelCompareUtil with ' + epsilon_str)
-        self._compare_log = LineAccmulator()
+        self._compare_log = LineAccumulator()
 
     # Getters and setters for epsilon
     @property
@@ -1027,7 +1027,7 @@ class PdfToExcelUtil(ExcelUtil):
         :param read_many_tables_per_page:
         :return:
         """
-        ans = LineAccmulator()
+        ans = LineAccumulator()
         dfs = self.read_pdf_table(pdf_filename, pages, make_NaN_blank, read_many_tables_per_page)
         for i, df in enumerate(dfs):
             header = self._su.fill_string(my_str=f'Table {i} contains {len(df)} records.')
@@ -1138,7 +1138,7 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         :param how_many_summarized:
         :return:
         """
-        ans = LineAccmulator()
+        ans = LineAccumulator()
         with pdfplumber.open(pdf_filename) as pdf:
             scanned_pages = pdf.pages
             for i, pg in enumerate(scanned_pages):
@@ -1158,7 +1158,7 @@ class PdfToExcelUtilPdfPlumber(PdfToExcelUtil):
         :param tables: [ [ ['one column'] ['another column'] ]]
         :return:
         """
-        ans = LineAccmulator()
+        ans = LineAccumulator()
         tbl = tables[0]
         for lst in tbl:
             if ans.contents_len() >= how_many_summarized:

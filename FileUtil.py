@@ -17,8 +17,8 @@ from typing import Dict, Tuple
 
 from yaml import safe_load, YAMLError, dump
 
-from .DateUtil import DateUtil
-from .LogitUtil import logit
+from DateUtil import DateUtil
+from LogitUtil import logit
 
 _IS_PROD = True
 

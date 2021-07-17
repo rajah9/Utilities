@@ -5,7 +5,7 @@ from Add_path import Add_path
 Add_path.add_parent()
 from LogitUtil import logit
 from CollectionUtil import CollectionUtil
-from StringUtil import StringUtil, LineAccmulator
+from StringUtil import StringUtil, LineAccumulator
 
 _SINGLE_QUOTE = "'"
 
@@ -499,10 +499,10 @@ class TestStringUtil(TestCase):
         self.assertEqual(exp_val_3, act3.value)
         self.assertEqual(exp_type_3, act3.cellType)
 
-class TestLineAccmulator(TestCase):
+class TestLineAccumulator(TestCase):
     def setUp(self):
-        logger.debug('Starting TestLineAccmulator')
-        self.la = LineAccmulator()
+        logger.debug('Starting TestLineAccumulator')
+        self.la = LineAccumulator()
 
     def test_add_line(self):
         first_line = 'hello, world'
