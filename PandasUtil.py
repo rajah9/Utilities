@@ -66,6 +66,7 @@ def generate_col_names(prefix: str) -> str:
     for i in nums:
         yield f'{prefix}{i:02d}'
 
+
 class PandasUtil:
     _EMPTY_DF = pd.DataFrame()
 
@@ -85,21 +86,21 @@ class PandasUtil:
         return self._filename
     # Setter for filename.
     @filename.setter
-    def filename(self, fn:str):
+    def filename(self, fn: str):
         self._filename = fn
 
     @property
     def worksheetName(self):
         return self._worksheetName
     @worksheetName.setter
-    def worksheetName(self, wks:str):
+    def worksheetName(self, wks: str):
         self._worksheetName = wks
 
     @property
     def df(self):
         return self._df
     @df.setter
-    def df(self, myDf:pd.DataFrame):
+    def df(self, myDf: pd.DataFrame):
         self._df = myDf
 
     @classmethod
@@ -108,21 +109,22 @@ class PandasUtil:
 
     def pandas_version(self):
         """
-        Return the panas version as three ints
+        Return the pandas version as three ints
         :return: maj, minor, sub
         """
         v = pd.__version__
-        majMinSub = [int(x) for x in v.split('.')]
-        return majMinSub[0], majMinSub[1], majMinSub[2]
+        maj_min_sub = [int(x) for x in v.split('.')]
+        return maj_min_sub[0], maj_min_sub[1], maj_min_sub[2]
 
-    def write_df_to_excel(self, df:pd.DataFrame=None, excelFileName:str=None, excelWorksheet:str=None, write_index=False) -> bool:
+    def write_df_to_excel(self, df: pd.DataFrame = None, excelFileName: str = None, excelWorksheet: str = None, write_index = False) -> bool:
         """
         Write the given df to the excel file name and worksheet (unless
         they have already been provided and then are optional).
         Caller is responsible to catch any I/O errors.
         :param df:
-        :param excelFileName:
-        :param excelWorksheet:
+        :param excelFileName: Full path to Excel filename.
+        :param excelWorksheet: Excel worksheet
+        :param write_index: True to write the index to Excel.
         :return: True if Excel file written, False if df is empty.
         """
         if not df.empty:
@@ -131,14 +133,14 @@ class PandasUtil:
             logger.warning('Empty dataframe will not be written.')
             return False
         fn = excelFileName or self.filename
-        wks = excelWorksheet or self.worksheetname
+        wks = excelWorksheet or self.worksheetName
         writer = pd.ExcelWriter(fn)
         self._df.to_excel(writer, wks, index=write_index)
         writer.save()
         logger.debug(f'Successfully wrote to {fn}.')
         return True
 
-    def write_df_to_csv(self, df:pd.DataFrame=None, csv_file_name:str=None, write_header:bool=True, write_index:bool=False, enc:str= 'utf-8') -> bool:
+    def write_df_to_csv(self, df: pd.DataFrame=None, csv_file_name: str = None, write_header: bool = True, write_index: bool = False, enc: str = 'utf-8') -> bool:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
@@ -178,7 +180,7 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {parquet_file_name}.')
         return ans
 
-    def read_df_from_excel(self,excelFileName:str=None, excelWorksheet:str='Sheet1', header:int=0, index_col:int=-1) -> pd.DataFrame:
+    def read_df_from_excel(self, excelFileName: str = None, excelWorksheet: str = 'Sheet1', header: int = 0, index_col: int = -1) -> pd.DataFrame:
         """
         Read an Excel file.
         :param excelFileName:
@@ -218,7 +220,6 @@ class PandasUtil:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
-        :param df:
         :param csv_file_name:
         :param header: Where the headers live (0 means first line of the file)
         :param enc: try 'latin-1' or 'ISO-8859-1' if you are getting encoding errors

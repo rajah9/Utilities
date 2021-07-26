@@ -417,6 +417,7 @@ class TestExcelRewriteUtil(TestExcelUtil):
         path = r'c:\temp' if ExecUtil.which_platform() == 'Windows' else '/tmp'
         logger.warning(f'Did not delete {cls.spreadsheet_name}')
         fu.delete_file(fu.qualified_path(path, cls.fmt_spreadsheet_name))
+        fu.delete_file(fu.qualified_path(path, cls.node_excel_name))
 
     def format_test_df(self):
         df = pd.DataFrame({'Year': [2018, 2019, 2020, 2021],
