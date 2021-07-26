@@ -71,7 +71,7 @@ class Test_PandasUtil(unittest.TestCase):
 
     @logit()
     def test_pandas_verson(self):
-        major, minor, sub = self.pu.pandas_version()
+        major, minor, sub = PandasUtil.pandas_version()
         logger.debug(f'You are running Pandas version {major}.{minor}.{sub}')
         self.assertTrue(((major>0) and (minor>=1) or ((major==0) and (minor>=21))))
 
@@ -288,7 +288,8 @@ class Test_PandasUtil(unittest.TestCase):
     def test_write_df_to_excel(self):
         df = self.my_test_df()
         self.pu.write_df_to_excel(df=df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True)
-        df2 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name, index_col=0)
+        df2 = self.pu.read_df_from_excel(excel_file_name=self.spreadsheet_name, excel_worksheet=self.worksheet_name,
+                                         index_col=0)
         logger.debug(f'my test df: {df.head()}')
         logger.debug(f'returned from read_df: {df2.head()}')
         assert_frame_equal(df,df2)
@@ -343,15 +344,15 @@ class Test_PandasUtil(unittest.TestCase):
     def test_read_df_from_excel(self):
         df = self.my_test_df()
         self.pu.write_df_to_excel(df=df, excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name)
-        df2 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet=self.worksheet_name)
+        df2 = self.pu.read_df_from_excel(excel_file_name=self.spreadsheet_name, excel_worksheet=self.worksheet_name)
         assert_frame_equal(df, df2, "Test 1 fail.")
         # Test 2
-        df3 = self.pu.read_df_from_excel(excelFileName=self.spreadsheet_name, excelWorksheet='noSuchWorksheet')
+        df3 = self.pu.read_df_from_excel(excel_file_name=self.spreadsheet_name, excel_worksheet='noSuchWorksheet')
         assert_frame_equal(PandasUtil.empty_df(), df3, "Test 2 fail.")
         # Test 3. Test for missing spreadsheet
         expected_log_message = 'Cannot find Excel file'
         with self.assertLogs(level=logging.WARN) as cm:
-            df4 = self.pu.read_df_from_excel(excelFileName='NoSuchSpreadsheet.xls', excelWorksheet='noSuchWorksheet')
+            df4 = self.pu.read_df_from_excel(excel_file_name='NoSuchSpreadsheet.xls', excel_worksheet='noSuchWorksheet')
             self.assertTrue(next((True for line in cm.output if expected_log_message in line), False), "Test 3 fail: couldn't find message.")
             self.assertTrue(self.pu.is_empty(df4), "Test 3 fail: df isn't empty.")
 
@@ -760,7 +761,7 @@ class Test_PandasUtil(unittest.TestCase):
         # The majority of this is tested elsewhere, so just test for missing filename.
         expected_log_message = 'Cannot find Excel file'
         with self.assertLogs(PandasUtil.__name__, level='DEBUG') as cm:
-            self.pu.get_worksheets(excelFileName='NoSuchFile.xlsx')
+            self.pu.get_worksheets(excel_file_name='NoSuchFile.xlsx')
             self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
 
     @logit()
@@ -787,7 +788,7 @@ class Test_PandasUtil(unittest.TestCase):
         extra_df = self.pu.convert_dict_to_dataframe(list_with_dups)
         actual = self.pu.drop_duplicates(extra_df)
         assert_frame_equal(original_df, actual)
-        actual2 = self.pu.drop_duplicates(extra_df, fieldList=['name'])
+        actual2 = self.pu.drop_duplicates(extra_df, field_list=['name'])
         assert_frame_equal(original_df, actual2)
 
     @logit()
@@ -1006,7 +1007,7 @@ class Test_PandasDateUtil(unittest.TestCase):
     def my_pdu_test_df(self, start_day:int = 1, end_day:int = 10, start_hr:int = 9, end_hr:int = 17, myFormat:str = "%Y-%m-%dT%H:%M:%S") -> pd.DataFrame:
         dicts = self.list_of_dicts_with_datetime_str(start_day, end_day, start_hr, end_hr, myFormat)
         df = self.pdu.convert_dict_to_dataframe(dicts)
-        self.pdu.set_index(df=df, format=self.isoFormat, columns=self._DATETIME)
+        self.pdu.set_index(df=df, str_format=self.isoFormat, columns=self._DATETIME)
         return df
 
     def wfm_df(self):

@@ -56,7 +56,7 @@ class ApplicationUtil:
         input_file = self._d.asdict[input_file_yaml_entry]
         self.logger.debug(f'Reading {worksheet} file: {input_file}')
         if self.fu.file_exists(input_file):
-            df = self.pu.read_df_from_excel(excelFileName=input_file, excelWorksheet=worksheet, header=0)
+            df = self.pu.read_df_from_excel(excel_file_name=input_file, excel_worksheet=worksheet, header=0)
             self.pu.get_rowCount_colCount(df)
             return df
         else:

@@ -122,7 +122,8 @@ class TestExcelUtil(TestCase):
         area1 = self._eu.get_excel_rectangle_start_to(first, last)
         exp_df = self.my_test_df()
         exp1 = list(exp_df['Weight'])
-        df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name)
+        df = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                         excel_worksheet=self.worksheet_name)
         self._pu.drop_row_if_nan(df)
         act1 = self._eu.get_values(df=df, rectangle=area1)
         self.assertListEqual(exp1, act1, "fail normal case 1")
@@ -437,7 +438,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
         df = self.format_test_df()
         self._rwu.init_workbook_to_write() # Avoids AttributeError: 'NoneType' object has no attribute 'sheetnames'
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True)
-        df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+        df_act = self._pu.read_df_from_excel(excel_file_name=self.formatting_spreadsheet_name,
+                                             excel_worksheet=self.worksheet_name, header=0, index_col=0)
         # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
         ok_mask = self._pu.mark_isnull(df_act, 'Year')
         df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
@@ -449,7 +451,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
         # Test 2, formatting.
         self._rwu.init_workbook_to_write() # Keeps from having a second copy of the table
         self._rwu.write_df_to_excel(df, excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, write_index=True, write_header=True, attempt_formatting=True)
-        df_act = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0, index_col=0)
+        df_act = self._pu.read_df_from_excel(excel_file_name=self.formatting_spreadsheet_name,
+                                             excel_worksheet=self.worksheet_name, header=0, index_col=0)
         # The rwu.write_df_to_excel put out a blank row after the headers. Delete it.
         ok_mask = self._pu.mark_isnull(df_act, 'Year')
         df_act = self._pu.masked_df(df_act, ok_mask, invert_mask=True)
@@ -507,7 +510,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
                                               sourceWorksheet=self.worksheet_name, destWorksheet=ws_copy_name, header=0,
                                               write_header=True)
         self._rwu.save_workbook(filename=self.formatting_spreadsheet_name)
-        actual_df = self._pu.read_df_from_excel(excelFileName=self.formatting_spreadsheet_name, excelWorksheet=ws_copy_name, header=0)
+        actual_df = self._pu.read_df_from_excel(excel_file_name=self.formatting_spreadsheet_name,
+                                                excel_worksheet=ws_copy_name, header=0)
         assert_frame_equal(df_expected, actual_df)
 
     def test_init_template(self):
@@ -520,7 +524,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
                                 template_excel_worksheet=self.worksheet_name,
                                 output_excel_file_name=self.parent_spreadsheet_name,
                                 output_excel_worksheet=ws_copy_name)
-        actual_df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=ws_copy_name, index_col=0)
+        actual_df = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                                excel_worksheet=ws_copy_name, index_col=0)
         self._pu.drop_row_if_nan(actual_df, is_in_place=True) # delete the blank row after the header
         actual_df.index = actual_df.index.astype(int) # index was float; make it an int
         self._pu.coerece_to_int(actual_df, 'Year') # was float; make it int64
@@ -538,7 +543,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
         self._rwu.copy_ws_to_ws(ws_source=source_ws, ws_source_name=ws_copy_name )
         self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
 
-        actual_df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=ws_copy_name, index_col=0)
+        actual_df = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                                excel_worksheet=ws_copy_name, index_col=0)
         self._pu.replace_col_names(actual_df, {'Unnamed: 1': 'Year', 'Unnamed: 2':'Era', 'Unnamed: 3':'Income', 'Unnamed: 4': 'Margin'}, is_in_place=True)
         self._pu.drop_row_if_nan(actual_df, is_in_place=True) # delete the blank row after the header
         actual_df.index = actual_df.index.astype(int) # index was float; make it an int
@@ -560,7 +566,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
         ranges = ['d3:d6']
         self._rwu.rewrite_worksheet(excel_filename=self.parent_spreadsheet_name, excel_worksheet=self.worksheet_name, ranges=ranges, vals=values)
         self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
-        df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0,index_col=0)
+        df = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                         excel_worksheet=self.worksheet_name, header=0, index_col=0)
         self._pu.drop_row_if_nan(df)
         exp = [float(x) for x in values]
         self.assertListEqual(exp, list(df['Income']), "Failing test 1")
@@ -574,7 +581,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
         ranges = ['d3:d6', 'e3:e6']
         self._rwu.rewrite_worksheet(excel_filename=self.parent_spreadsheet_name, excel_worksheet=self.worksheet_name, ranges=ranges, vals=values)
         self._rwu.save_workbook(filename=self.parent_spreadsheet_name)
-        df = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=0,index_col=0)
+        df = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                         excel_worksheet=self.worksheet_name, header=0, index_col=0)
         self._pu.drop_row_if_nan(df)
         exp_d = [float(x) for x in col_d]
         self.assertListEqual(exp_d, list(df['Income']), "Failing test 2 (column d)")
@@ -602,7 +610,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
 
         self._rwu.load_and_write(in_file_dict, out_file_dict)
         # the following reads in years 2018..2021 as the index.
-        df2 = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=None, index_col=0)
+        df2 = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                          excel_worksheet=self.worksheet_name, header=None, index_col=0)
         # df2.index.tolist() should be [2018, 2019, 2020, 2021, 2, 3]. The end (2 and 3) was left over from before.
 
         for act, exp in zip(df2.index.tolist(), df['Year']):
@@ -613,7 +622,8 @@ class TestExcelRewriteUtil(TestExcelUtil):
 
         self._rwu.load_and_write(in_file_dict, out_file_dict)
         # the following reads in years 201800..202100 as the index.
-        df3 = self._pu.read_df_from_excel(excelFileName=self.parent_spreadsheet_name, excelWorksheet=self.worksheet_name, header=None, index_col=0)
+        df3 = self._pu.read_df_from_excel(excel_file_name=self.parent_spreadsheet_name,
+                                          excel_worksheet=self.worksheet_name, header=None, index_col=0)
         # df3.index.tolist() should be [201800, 201900, 202000, 202100, 2, 3]. The end (2 and 3) was left over from before.
         scaled = [x * 100 for x in df['Year']]
 

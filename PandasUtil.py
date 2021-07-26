@@ -5,7 +5,7 @@ import logging
 from LogitUtil import logit
 from FileUtil import FileUtil
 from scipy.stats import linregress
-from io import StringIO, TextIOWrapper, BufferedWriter
+from io import StringIO
 from datetime import datetime
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
@@ -15,7 +15,6 @@ Strings = List[str]
 Bools = List[bool]
 Dataframes = List[pd.DataFrame]
 Dates = List[datetime]
-
 
 """
 Interesting Python features:
@@ -84,7 +83,7 @@ class PandasUtil:
     @property
     def filename(self):
         return self._filename
-    # Setter for filename.
+
     @filename.setter
     def filename(self, fn: str):
         self._filename = fn
@@ -92,6 +91,7 @@ class PandasUtil:
     @property
     def worksheetName(self):
         return self._worksheetName
+
     @worksheetName.setter
     def worksheetName(self, wks: str):
         self._worksheetName = wks
@@ -99,6 +99,7 @@ class PandasUtil:
     @property
     def df(self):
         return self._df
+
     @df.setter
     def df(self, myDf: pd.DataFrame):
         self._df = myDf
@@ -107,7 +108,8 @@ class PandasUtil:
     def empty_df(cls) -> pd.DataFrame:
         return pd.DataFrame()
 
-    def pandas_version(self):
+    @staticmethod
+    def pandas_version():
         """
         Return the pandas version as three ints
         :return: maj, minor, sub
@@ -116,7 +118,8 @@ class PandasUtil:
         maj_min_sub = [int(x) for x in v.split('.')]
         return maj_min_sub[0], maj_min_sub[1], maj_min_sub[2]
 
-    def write_df_to_excel(self, df: pd.DataFrame = None, excelFileName: str = None, excelWorksheet: str = None, write_index = False) -> bool:
+    def write_df_to_excel(self, df: pd.DataFrame = None, excelFileName: str = None, excelWorksheet: str = None,
+                          write_index=False) -> bool:
         """
         Write the given df to the excel file name and worksheet (unless
         they have already been provided and then are optional).
@@ -140,7 +143,8 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {fn}.')
         return True
 
-    def write_df_to_csv(self, df: pd.DataFrame=None, csv_file_name: str = None, write_header: bool = True, write_index: bool = False, enc: str = 'utf-8') -> bool:
+    def write_df_to_csv(self, df: pd.DataFrame = None, csv_file_name: str = None, write_header: bool = True,
+                        write_index: bool = False, enc: str = 'utf-8') -> bool:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
@@ -161,7 +165,8 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {csv_file_name}.')
         return True
 
-    def write_df_to_parquet(self, df: pd.DataFrame = None, parquet_file_name: str = 'test.parquet', engine: str='auto', compression: str = 'snappy', index: bool = None):
+    def write_df_to_parquet(self, df: pd.DataFrame = None, parquet_file_name: str = 'test.parquet',
+                            engine: str = 'auto', compression: str = 'snappy', index: bool = None):
         """
         Write the given file using a parquet format.
         :param df: dataframe to write
@@ -180,27 +185,28 @@ class PandasUtil:
         logger.debug(f'Successfully wrote to {parquet_file_name}.')
         return ans
 
-    def read_df_from_excel(self, excelFileName: str = None, excelWorksheet: str = 'Sheet1', header: int = 0, index_col: int = -1) -> pd.DataFrame:
+    def read_df_from_excel(self, excel_file_name: str = None, excel_worksheet: str = 'Sheet1', header: int = 0,
+                           index_col: int = -1) -> pd.DataFrame:
         """
         Read an Excel file.
-        :param excelFileName:
-        :param excelWorksheet:
+        :param excel_file_name:
+        :param excel_worksheet:
         :param header: 0-offset location of header (0=row 1 in Excel)
         :param index_col:
         :return: dataframe result
         """
         param_dict = {'header': header}
-        if excelFileName:
-            self.filename = excelFileName
+        if excel_file_name:
+            self.filename = excel_file_name
         logger.debug(f'Will read from the Excel file: {self.filename}.')
         param_dict['io'] = self.filename
         if self._fu.file_exists(self.filename):
-            if excelWorksheet:
-                self.worksheetName = excelWorksheet
+            if excel_worksheet:
+                self.worksheetName = excel_worksheet
             wks = self.worksheetName
             major, minor, _ = self.pandas_version()
             logger.debug(f'Will read from the worksheet: {wks}. Pandas minor version is {minor}.')
-            if wks not in self.get_worksheets(excelFileName):
+            if wks not in self.get_worksheets(excel_file_name):
                 logger.warning(f'Cannot find Excel worksheet: {self.worksheetName}. Returning empty df.')
                 return PandasUtil.empty_df()
             if ((major == 0) & (minor > 21)) | (major >= 1):
@@ -216,16 +222,19 @@ class PandasUtil:
             logger.error(f'Cannot find Excel file: {self.filename}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def read_df_from_csv(self, csv_file_name:str=None, header:int=0, enc:str= 'utf-8', index_col:int=None, sep:str = None) -> pd.DataFrame:
+    def read_df_from_csv(self, csv_file_name: str = None, header: int = 0, enc: str = 'utf-8', index_col: int = None,
+                         sep: str = None) -> pd.DataFrame:
         """
         Write the given df to the file name and worksheet (unless
         they have already been provided and then are optional).
         :param csv_file_name:
         :param header: Where the headers live (0 means first line of the file)
         :param enc: try 'latin-1' or 'ISO-8859-1' if you are getting encoding errors
+        :param index_col:
+        :param sep: Separator (like '\t' or ',')
         :return:
         """
-        param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding':enc,}
+        param_dict = {'filepath_or_buffer': csv_file_name, 'header': header, 'encoding': enc, }
         if sep:
             param_dict['sep'] = sep
         if index_col is not None:
@@ -233,7 +242,7 @@ class PandasUtil:
         ans = pd.read_csv(**param_dict)
         return ans
 
-    def read_df_from_parquet(self, parquet_file_name: str, engine: str='auto', columns: list = None):
+    def read_df_from_parquet(self, parquet_file_name: str, engine: str = 'auto', columns: list = None):
         """
         Read from the parquet_file_name and return its data in a dataframe.
         :param parquet_file_name: str of file name (but could be a file-like object that handles write() )
@@ -251,7 +260,7 @@ class PandasUtil:
             logger.error(f'Cannot find parquet file: {self.filename}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def get_df_headers(self, df:pd.DataFrame=_EMPTY_DF) -> list:
+    def get_df_headers(self, df: pd.DataFrame = _EMPTY_DF) -> list:
         """
         Get a list of the headers. This provides a list of the column NAMES.
         :param df:
@@ -274,7 +283,7 @@ class PandasUtil:
         """
         df.columns = new_headers
 
-    def get_rowCount_colCount(self, df:pd.DataFrame):
+    def get_rowCount_colCount(self, df: pd.DataFrame) -> Tuple[int, int]:
         """
         Return the row and column_name count of the df.
         :param df:
@@ -284,14 +293,14 @@ class PandasUtil:
         logger.debug(f'df has {rows} rows and {cols} columns.')
         return rows, cols
 
-    def get_basic_data_analysis(self, df:pd.DataFrame) -> str:
+    def get_basic_data_analysis(self, df: pd.DataFrame) -> str:
         buffer = StringIO()
         df.info(buf=buffer)
         ans = buffer.getvalue()
         logger.info(f'info:\n{ans}')
         return ans
 
-    def get_quartiles(self, df:pd.DataFrame, percentiles: list = [.25, .50, .75]) -> pd.DataFrame:
+    def get_quartiles(self, df: pd.DataFrame, percentiles: list = [.25, .50, .75]) -> pd.DataFrame:
         """
         Return basic statistics about the dataframe.
         :param df:
@@ -303,9 +312,9 @@ class PandasUtil:
         return ans
 
     @logit(showRetVal=True)
-    def get_worksheets(self, excelFileName=None):
-        if excelFileName:
-            self.filename = excelFileName
+    def get_worksheets(self, excel_file_name=None):
+        if excel_file_name:
+            self.filename = excel_file_name
         fu = FileUtil()
         if fu.file_exists(self.filename):
             xl = pd.ExcelFile(self.filename)
@@ -314,34 +323,33 @@ class PandasUtil:
             logger.error(f'Cannot find Excel file {self.filename}.')
             return None
 
-    def duplicate_rows(self, df:pd.DataFrame, fieldList:list=None, keep:str='first') -> pd.DataFrame:
+    def duplicate_rows(self, df: pd.DataFrame, field_list: list = None, keep: str = 'first') -> pd.DataFrame:
         """
         Return a dataframe with the duplicates as specified by the columns in fieldList.
         If fieldList is missing or None, then return the exactly duplicated rows.
         :param df: dataframe to scan for duplicates
-        :param fieldList: fields in df to examine for duplicates.
+        :param field_list: fields in df to examine for duplicates.
         :param keep: 'first' or 'last' to keep the first dupe or the last.
         :return: df of the duplicates
         """
-        if fieldList:
-            ans = df[df.duplicated(fieldList, keep=keep)]
+        if field_list:
+            ans = df[df.duplicated(field_list, keep=keep)]
         else:
             ans = df[df.duplicated(keep=keep)]
         return ans
 
-
-    def drop_duplicates(self, df:pd.DataFrame, fieldList:list=None, keep:str='first') -> pd.DataFrame:
+    def drop_duplicates(self, df: pd.DataFrame, field_list: list = None, keep: str = 'first') -> pd.DataFrame:
         """
         Drop the duplicates as specified by the columns in fieldList.
         If fieldList is missing or None, then return the exactly duplicated rows.
         :param df: dataframe to scan for duplicates
-        :param fieldList: fields in df to examine for duplicates.
+        :param field_list: fields in df to examine for duplicates.
         :param keep: 'first' or 'last' to keep the first dupe or the last.
         :return: df without the duplicates
         """
         param_dict = {'keep': keep, 'inplace': False}
-        if fieldList:
-            param_dict['subset'] = fieldList
+        if field_list:
+            param_dict['subset'] = field_list
         return df.drop_duplicates(**param_dict)
 
     def convert_dict_to_dataframe(self, list_of_dicts: list) -> pd.DataFrame:
@@ -374,7 +382,7 @@ class PandasUtil:
         """
         return pd.DataFrame(data=lists)
 
-    def convert_dataframe_to_matrix(self, df:pd.DataFrame) -> np.ndarray:
+    def convert_dataframe_to_matrix(self, df: pd.DataFrame) -> np.ndarray:
         """
         Convert all of the values to a numpy ndarray.
 
@@ -391,7 +399,7 @@ class PandasUtil:
         """
         cols = self.get_df_headers(df)
         if len(cols) == 1:
-            return df.to_numpy().reshape(-1,)
+            return df.to_numpy().reshape(-1, )
         logger.warning(f'Dataframe should have exactly one column, but contains {len(cols)}. Returning None.')
         return None
 
@@ -404,7 +412,7 @@ class PandasUtil:
         """
         return df[column_name].values.tolist()
 
-    def without_null_rows(self, df:pd.DataFrame, column_name:str) -> pd.DataFrame:
+    def without_null_rows(self, df: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """
         Return a DataFrame without the rows that are null in the given column_name.
         :param df: source DataFrame
@@ -418,7 +426,7 @@ class PandasUtil:
             logger.error(f'Unable to find column_name name: {column_name}. Returning empty df.')
             return PandasUtil.empty_df()
 
-    def select(self, df:pd.DataFrame, column_name:str, match_me:Union[str, int]) -> pd.DataFrame:
+    def select(self, df: pd.DataFrame, column_name: str, match_me: Union[str, int]) -> pd.DataFrame:
         """
         Return a DataFrame that selects on the column_name that is equal to match_me.
         Similar to a SELECT * WHERE clause in SQL.
@@ -429,7 +437,7 @@ class PandasUtil:
         """
         return df.loc[df[column_name] == match_me]
 
-    def mask_blanks(self, df:pd.DataFrame, column_name:str) -> list:
+    def mask_blanks(self, df: pd.DataFrame, column_name: str) -> list:
         """
         Return a boolean list with a True in the rows that have a blank column_name.
         :param df:
@@ -440,10 +448,10 @@ class PandasUtil:
         ans = df[column_name] == ''
         return ans
 
-    def select_blanks(self, df:pd.DataFrame, column_name:str) -> list:
+    def select_blanks(self, df: pd.DataFrame, column_name: str) -> list:
         return df[self.mask_blanks(df, column_name)]
 
-    def mask_non_blanks(self, df:pd.DataFrame, column_name:str) -> list:
+    def mask_non_blanks(self, df: pd.DataFrame, column_name: str) -> list:
         """
         Return a boolean list with a True in the rows that have a nonblank column_name.
         :param df:
@@ -457,7 +465,7 @@ class PandasUtil:
     def select_non_blanks(self, df: pd.DataFrame, column_name: str) -> list:
         return df[self.mask_non_blanks(df, column_name)]
 
-    def unique_values(self, df:pd.DataFrame, column_name:str) -> list:
+    def unique_values(self, df: pd.DataFrame, column_name: str) -> list:
         """
         Return a list of the unique values in column_name.
         :param df:
@@ -466,7 +474,7 @@ class PandasUtil:
         """
         return self.drop_duplicates(df=df[column_name]).tolist()
 
-    def count_by_column(self, df:pd.DataFrame, column_name:str=None) -> pd.DataFrame:
+    def count_by_column(self, df: pd.DataFrame, column_name: str = None) -> pd.DataFrame:
         """
         Return a count by value of the given column.
         :param df:
@@ -475,7 +483,7 @@ class PandasUtil:
         """
         return df[column_name].value_counts()
 
-    def add_new_col_with_func(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> pd.DataFrame:
+    def add_new_col_with_func(self, df: pd.DataFrame, column_name: str, func: Callable[[], list]) -> pd.DataFrame:
         """
         Call the func with no args to assign a new column_name to the dataframe.
         func should return a list comprehension.
@@ -497,7 +505,7 @@ class PandasUtil:
         df[column_name] = func()
         return df
 
-    def add_new_col_from_array(self, df:pd.DataFrame, column_name:str, new_col:np.array) -> pd.DataFrame:
+    def add_new_col_from_array(self, df: pd.DataFrame, column_name: str, new_col: np.array) -> pd.DataFrame:
         """
         Use the values in new_col to create a new column.
         Limitations: this is not as sophisticated as https://stackoverflow.com/questions/12555323/adding-new-column-to-existing-dataframe-in-python-pandas .
@@ -510,8 +518,7 @@ class PandasUtil:
         df[column_name] = new_col
         return df
 
-
-    def mark_rows_by_func(self, df:pd.DataFrame, column_name:str, func: Callable[[], list]) -> Bools:
+    def mark_rows_by_func(self, df: pd.DataFrame, column_name: str, func: Callable[[], list]) -> Bools:
         """
         Return a list of bools depending on the func.
         Here's a func (which takes a list as a parameter):
@@ -528,7 +535,7 @@ class PandasUtil:
         mask = func(df[column_name])
         return mask
 
-    def mark_rows_by_criterion(self, df:pd.DataFrame, column_name:str, criterion:Union[str,int,float]) -> Bools:
+    def mark_rows_by_criterion(self, df: pd.DataFrame, column_name: str, criterion: Union[str, int, float]) -> Bools:
         """
         Return a list of bools when column_name meets the criterion.
         :param df:
@@ -539,18 +546,18 @@ class PandasUtil:
         mask = df[column_name] == criterion
         return mask
 
-    def mark_isnull(self, df:pd.DataFrame, column_name:str) -> Bools:
+    def mark_isnull(self, df: pd.DataFrame, column_name: str) -> Bools:
         mask = df[column_name].isnull()
         return mask
 
-    def masked_df(self, df:pd.DataFrame, mask:Bools, invert_mask:bool=False):
+    def masked_df(self, df: pd.DataFrame, mask: Bools, invert_mask: bool = False):
         if not invert_mask:
             return df[mask]
         else:
             my_mask = [not x for x in mask]
             return df[my_mask]
 
-    def slice_df(self, df:pd.DataFrame, start_index: int = 0, end_index: int = None, step: int = 1):
+    def slice_df(self, df: pd.DataFrame, start_index: int = 0, end_index: int = None, step: int = 1):
         """
         Slice the df by the given start, end, and step.
         NOTE: this does row slicing only.
@@ -564,7 +571,7 @@ class PandasUtil:
         ans = df.iloc[start_index:end_idx:step]
         return ans
 
-    def set_index(self, df:pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
+    def set_index(self, df: pd.DataFrame, columns: Union[Strings, str], is_in_place: bool = True) -> pd.DataFrame:
         """
         Set the index of df.
 
@@ -575,7 +582,7 @@ class PandasUtil:
         """
         return df.set_index(columns, inplace=is_in_place)
 
-    def reset_index(self, df:pd.DataFrame, is_in_place:bool = True, is_dropped:bool = False) -> pd.DataFrame:
+    def reset_index(self, df: pd.DataFrame, is_in_place: bool = True, is_dropped: bool = False) -> pd.DataFrame:
         """
         Reset the index.
         :param df:
@@ -585,17 +592,16 @@ class PandasUtil:
         """
         return df.reset_index(drop=is_dropped, inplace=is_in_place)
 
-    def drop_index(self, df:pd.DataFrame, is_in_place:bool = True) -> pd.DataFrame:
+    def drop_index(self, df: pd.DataFrame, is_in_place: bool = True) -> pd.DataFrame:
         """
         Drop the index
         :param df:
         :param is_in_place:
-        :param is_dropped:
         :return:
         """
         return self.reset_index(df=df, is_in_place=is_in_place, is_dropped=True)
 
-    def drop_col(self, df:pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
+    def drop_col(self, df: pd.DataFrame, columns: Union[Strings, str], is_in_place: bool = True) -> pd.DataFrame:
         """
         Drop the given column_name.
         :param df:
@@ -611,7 +617,8 @@ class PandasUtil:
         return df.drop(columns=columns, inplace=is_in_place)
 
     @logit()
-    def drop_col_keeping(self, df:pd.DataFrame, cols_to_keep: Union[Strings, str], is_in_place:bool = True) -> pd.DataFrame:
+    def drop_col_keeping(self, df: pd.DataFrame, cols_to_keep: Union[Strings, str],
+                         is_in_place: bool = True) -> pd.DataFrame:
         """
         Keep the given columns and drop the rest.
         :param df:
@@ -628,7 +635,8 @@ class PandasUtil:
             headers_to_drop.remove(col)
         return self.drop_col(df=df, columns=headers_to_drop, is_in_place=is_in_place)
 
-    def drop_row_by_criterion(self, df:pd.DataFrame, column_name: str, criterion: Union[int, str], is_in_place:bool = True) -> pd.DataFrame:
+    def drop_row_by_criterion(self, df: pd.DataFrame, column_name: str, criterion: Union[int, str],
+                              is_in_place: bool = True) -> pd.DataFrame:
         """
         Drop the rows that have criterion in the given column.
         :param df:
@@ -639,7 +647,7 @@ class PandasUtil:
         """
         return df.drop(df[df[column_name] == criterion].index, inplace=is_in_place)
 
-    def drop_row_if_nan(self, df:pd.DataFrame, column_names: Strings = None, is_in_place:bool = True) -> pd.DataFrame:
+    def drop_row_if_nan(self, df: pd.DataFrame, column_names: Strings = None, is_in_place: bool = True) -> pd.DataFrame:
         """
         Drop a row if the given column name is NaN.
         :param df:
@@ -651,7 +659,7 @@ class PandasUtil:
             return df.dropna(axis='index', subset=column_names, inplace=is_in_place)
         return df.dropna(axis='index', inplace=is_in_place, how='all')
 
-    def reorder_cols(self, df:pd.DataFrame, columns: Strings) -> pd.DataFrame:
+    def reorder_cols(self, df: pd.DataFrame, columns: Strings) -> pd.DataFrame:
         """
         Using the columns, return a new df.
         :param df:
@@ -660,7 +668,7 @@ class PandasUtil:
         """
         return df[columns]
 
-    def replace_col(self, df:pd.DataFrame, column: str, replace_dict: dict) -> pd.DataFrame:
+    def replace_col(self, df: pd.DataFrame, column: str, replace_dict: dict) -> pd.DataFrame:
         """
         Replace the values of column_name using replace_dict.
         This will will replace the column VALUES.
@@ -672,11 +680,12 @@ class PandasUtil:
         try:
             df[column] = df[column].map(replace_dict)
         except KeyError:
-            logger.warning(f'Value found outside of: {replace_dict.keys()} or column_name {column} not found. Returning empty df.')
+            logger.warning(
+                f'Value found outside of: {replace_dict.keys()} or column_name {column} not found. Returning empty df.')
             return self.empty_df()
         return df
 
-    def replace_col_using_func(self, df:pd.DataFrame, column_name: str, func: Callable[[], list]) -> pd.DataFrame:
+    def replace_col_using_func(self, df: pd.DataFrame, column_name: str, func: Callable[[], list]) -> pd.DataFrame:
         """
         Replace the column contents by each element's value, as determined by func.
         This will will replace the column VALUES.
@@ -688,7 +697,8 @@ class PandasUtil:
         df[column_name] = df[column_name].apply(func)
         return df
 
-    def replace_col_using_mult_cols(self, df:pd.DataFrame, column_to_replace: str, cols: Strings, func: Callable[[], list]) -> pd.DataFrame:
+    def replace_col_using_mult_cols(self, df: pd.DataFrame, column_to_replace: str, cols: Strings,
+                                    func: Callable[[], list]) -> pd.DataFrame:
         """
         Replace column_to_replace, using the given func.
         This will will replace the column VALUES.
@@ -701,7 +711,8 @@ class PandasUtil:
         df[column_to_replace] = df[cols].apply(func, axis=1)
         return df
 
-    def replace_col_with_scalar(self, df:pd.DataFrame, column_name: str, replace_with: Union[str, int], mask: Bools=None) -> pd.DataFrame:
+    def replace_col_with_scalar(self, df: pd.DataFrame, column_name: str, replace_with: Union[str, int],
+                                mask: Bools = None) -> pd.DataFrame:
         """
         Replace the all column_name with replace_with. If a mask of bools is used, only replace those elements with a True.
         Helpful reference at https://kanoki.org/2019/07/17/pandas-how-to-replace-values-based-on-conditions/
@@ -715,14 +726,14 @@ class PandasUtil:
             df[column_name] = replace_with
         elif isinstance(mask, pd.Series):
             df[column_name].mask(mask.tolist(), replace_with, inplace=True)
-        elif isinstance(mask, list) :
+        elif isinstance(mask, list):
             # df[column_name].mask(mask, replace_with, inplace=True) # Method 1 and works
-            df.loc[mask, column_name] = replace_with                 # Method 2 at kanoki.
+            df.loc[mask, column_name] = replace_with  # Method 2 at kanoki.
         else:
             logger.warning(f'mask must be None, a series, or a list, but it is: {type(mask)}')
             return self.empty_df()
 
-    def join_two_dfs_on_index(self, df1:pd.DataFrame, df2:pd.DataFrame) -> pd.DataFrame:
+    def join_two_dfs_on_index(self, df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
         """
         return a column-wise join of these two dataframes on their mutual index.
         :param df1:
@@ -751,7 +762,7 @@ class PandasUtil:
         """
         return pd.concat(dfs, axis='rows', ignore_index=True)
 
-    def dummy_var_df(self, df:pd.DataFrame, columns: Union[Strings, str], drop_first:bool=True) -> pd.DataFrame:
+    def dummy_var_df(self, df: pd.DataFrame, columns: Union[Strings, str], drop_first: bool = True) -> pd.DataFrame:
         """
         Do a one-hot encoding.
         Create a dummy variable based on the given column.
@@ -766,15 +777,15 @@ class PandasUtil:
         df = pd.get_dummies(data=df, columns=my_columns, drop_first=drop_first)
         return df
 
-    def replace_col_names(self, df:pd.DataFrame, replace_dict: dict, is_in_place:bool = True) -> pd.DataFrame:
+    def replace_col_names(self, df: pd.DataFrame, replace_dict: dict, is_in_place: bool = True) -> pd.DataFrame:
         """
         :param replace_dict: {'origColA':'replColA', 'origColB':'replColB'}
 
         """
         return df.rename(columns=replace_dict, inplace=is_in_place)
 
-
-    def replace_col_names_by_pattern(self, df: pd.DataFrame, prefix: str = "col", is_in_place: bool = True) -> pd.DataFrame:
+    def replace_col_names_by_pattern(self, df: pd.DataFrame, prefix: str = "col",
+                                     is_in_place: bool = True) -> pd.DataFrame:
         """
         Replace the column names with col1, col2....
         :param df:
@@ -787,12 +798,11 @@ class PandasUtil:
         replacement_dict = {k: next(gen) for k in cur_names}
         return self.replace_col_names(df, replacement_dict, is_in_place)
 
-
-    def coerce_to_string(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
+    def coerce_to_string(self, df: pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
         """
         Coerce the given column_name name to a string.
         :param df:
-        :param column_name:
+        :param columns:
         :return: new df with column_name coerced to str.
         """
         if isinstance(columns, str):
@@ -804,7 +814,7 @@ class PandasUtil:
             df[col] = df[col].apply(str)
         return df
 
-    def coerce_to_numeric(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
+    def coerce_to_numeric(self, df: pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
         """
         Coerce the given column_name name to ints or floats.
         :param df:
@@ -819,7 +829,7 @@ class PandasUtil:
         df[cols_as_list] = df[cols_as_list].apply(pd.to_numeric)
         return df
 
-    def coerece_to_int(self, df:pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
+    def coerece_to_int(self, df: pd.DataFrame, columns: Union[Strings, str]) -> pd.DataFrame:
         """
         Coerce the given column name(s) to an int.
         :param df:
@@ -829,8 +839,7 @@ class PandasUtil:
         df[columns] = df[columns].astype(int)
         return df
 
-
-    def round(self, df:pd.DataFrame, rounding_dict:dict) -> pd.DataFrame:
+    def round(self, df: pd.DataFrame, rounding_dict: dict) -> pd.DataFrame:
         """
         Round the columns given in rounding_dict to the given number of decimal places.
         Unexpected result found in testing: python function round(4.55, 2) yields 4.5 BUT this function returns 4.6
@@ -840,7 +849,7 @@ class PandasUtil:
         """
         return df.round(rounding_dict)
 
-    def replace_vals(self, df:pd.DataFrame, replace_me:str, new_val:str, is_in_place:bool = True) -> pd.DataFrame:
+    def replace_vals(self, df: pd.DataFrame, replace_me: str, new_val: str, is_in_place: bool = True) -> pd.DataFrame:
         """
         Replace the values of replace_me with the new_val.
 
@@ -851,7 +860,7 @@ class PandasUtil:
         """
         return df.replace(to_replace=replace_me, value=new_val, inplace=is_in_place)
 
-    def replace_vals_by_mask(self, df:pd.DataFrame, mask:Bools, col_to_change:str, new_val:Union[str, int, float]):
+    def replace_vals_by_mask(self, df: pd.DataFrame, mask: Bools, col_to_change: str, new_val: Union[str, int, float]):
         """
         Replace the values in the col_to_change with the new_val
         :param df:
@@ -863,7 +872,7 @@ class PandasUtil:
         ans = df.loc[mask, col_to_change] = new_val
         return ans
 
-    def is_empty(self, df:pd.DataFrame) -> bool:
+    def is_empty(self, df: pd.DataFrame) -> bool:
         """
         Return true if the df is empty.
         :param df: Dataframe to inspect
@@ -871,12 +880,13 @@ class PandasUtil:
         """
         return df.empty
 
-    def aggregates(self, df:pd.DataFrame, group_by:Strings, col:str) -> pd.DataFrame:
+    def aggregates(self, df: pd.DataFrame, group_by: Strings, col: str) -> pd.DataFrame:
         """
         Return the average, min, max, and sum of the dataframe when grouped by the given strings.
         Reference: https://jamesrledoux.com/code/group-by-aggregate-pandas .
         :param df:
         :param group_by:
+        :param col:
         :return:
         """
         grouped_multiple = df.groupby(group_by).agg({col: ['mean', 'min', 'max', 'sum']})
@@ -895,11 +905,11 @@ class PandasUtil:
         slope, intercept, r, p, epsilon = linregress(df[xlabel_col_name], df[ylabel_col_name])
         logger.info('Main equation: y = %.3f x + %.3f' % (slope, intercept))
         logger.info('r^2 = %.4f' % (r * r))
-        logger.info('p = %.4f' % (p))
-        logger.info('std err: %.4f' % (epsilon))
+        logger.info('p = %.4f' % p)
+        logger.info('std err: %.4f' % epsilon)
         return slope, intercept, r
 
-    def head(self, df: pd.DataFrame, how_many_rows:int=10) -> pd.DataFrame:
+    def head(self, df: pd.DataFrame, how_many_rows: int = 10) -> pd.DataFrame:
         """
         Return the first how_many_rows. This works well if called as the last line of an immediate, as in:
           pu.head(df)
@@ -910,7 +920,7 @@ class PandasUtil:
         self.df = df
         return self.df.head(how_many_rows)
 
-    def head_as_string(self, df: pd.DataFrame, how_many_rows:int=10) -> str:
+    def head_as_string(self, df: pd.DataFrame, how_many_rows: int = 10) -> str:
         """
         Return the first how_many_rows as a string, separated by \n.
         :param df:
@@ -921,7 +931,7 @@ class PandasUtil:
         logger.debug(f'First {how_many_rows} are:\n{ans}')
         return ans
 
-    def tail_as_string(self, df: pd.DataFrame, how_many_rows:int=10) -> str:
+    def tail_as_string(self, df: pd.DataFrame, how_many_rows: int = 10) -> str:
         """
         Return the last how_many_rows as a string, separated by \n.
         :param df:
@@ -932,8 +942,7 @@ class PandasUtil:
         logger.debug(f'Last {how_many_rows} are:\n{ans}')
         return ans
 
-
-    def tail(self, df: pd.DataFrame, how_many_rows:int=10) -> pd.DataFrame:
+    def tail(self, df: pd.DataFrame, how_many_rows: int = 10) -> pd.DataFrame:
         """
         Return the last how_many_rows. This works well if called as the last line of an immediate, as in:
           pu.tail(df)
@@ -944,7 +953,7 @@ class PandasUtil:
         self.df = df
         return self.df.tail(how_many_rows)
 
-    def sort(self, df: pd.DataFrame, columns: Union[Strings, str], is_in_place:bool = True, is_asc: bool = True):
+    def sort(self, df: pd.DataFrame, columns: Union[Strings, str], is_in_place: bool = True, is_asc: bool = True):
         """
         Sort the given dataFrame by the given column(s).
         :param df:
@@ -977,11 +986,14 @@ class PandasUtil:
 """
 DataFrameSplit is a one-off to help split a dataframe into an even number of records. 
 """
+
+
 class DataFrameSplit():
     """
     Class to implement an iterator to divide a dataframe.
     """
-    def __init__(self, my_df:pd.DataFrame, interval:int = 500):
+
+    def __init__(self, my_df: pd.DataFrame, interval: int = 500):
         logger.debug(f'Initializing with df of length {len(my_df)} and interval of {interval}.')
         self.df = my_df
         self.interval = interval
@@ -1011,6 +1023,8 @@ class DataFrameSplit():
 PandasDateUtil is a child of PandasUtil.
 It implements some date-related indices. 
 """
+
+
 class PandasDateUtil(PandasUtil):
     def __init__(self):
         super(PandasDateUtil, self).__init__()
@@ -1018,21 +1032,22 @@ class PandasDateUtil(PandasUtil):
     def to_Datetime_index(self, data: Dates) -> pd.DatetimeIndex:
         return pd.DatetimeIndex(data)
 
-    def set_index(self, df:pd.DataFrame, columns: str, is_in_place:bool = True, format:str = '%Y-%m-%d') -> pd.DataFrame:
+    def set_index(self, df: pd.DataFrame, columns: str, is_in_place: bool = True,
+                  str_format: str = '%Y-%m-%d') -> pd.DataFrame:
         """
         Set the Datetime index to the column name given in columns. Format it into a datetime object according to format.
         The columns parameter now takes only a single string, not a list.
         :param df:
         :param columns: This is a single string of the column that contains the datetime
         :param is_in_place: True if it gets changed in place
-        :param format: str of the format. See https://strftime.org.
+        :param str_format: str of the format. See https://strftime.org.
         :return: df with newly set index.
         """
-        df[columns] = pd.to_datetime(df[columns], format=format)
+        df[columns] = pd.to_datetime(df[columns], format=str_format)
         return super().set_index(df, columns, is_in_place=is_in_place)
 
     def read_df_from_csv(self, csv_file_name: str = None, header: int = 0, enc: str = 'utf-8', index_col: str = 'Date',
-                         sep: str = None, format:str = '%Y-%m-%d') -> pd.DataFrame:
+                         sep: str = None, str_format: str = '%Y-%m-%d') -> pd.DataFrame:
         """
         Read in the given CSV file, but make the index_col into a date according to the given format.
         :param csv_file_name:
@@ -1040,11 +1055,11 @@ class PandasDateUtil(PandasUtil):
         :param enc:
         :param index_col:
         :param sep:
-        :param format:
+        :param str_format:
         :return:
         """
         df = super().read_df_from_csv(csv_file_name=csv_file_name, header=header, enc=enc, sep=sep)
-        self.set_index(df=df, format=format, columns=index_col)
+        self.set_index(df=df, str_format=str_format, columns=index_col)
         return df
 
     def resample(self, df: pd.DataFrame, column: str, rule: str = 'B') -> pd.core.series.Series:
@@ -1089,7 +1104,8 @@ class PandasDateUtil(PandasUtil):
             return self.rolling(df[col_name_to_average], window=window).mean()
         return self.rolling(df=df, window=window).mean()
 
-    def add_sma(self, df: pd.DataFrame, length: int = 20, column_name: str = 'close', ma_column: str = 'SMA') -> pd.DataFrame:
+    def add_sma(self, df: pd.DataFrame, length: int = 20, column_name: str = 'close',
+                ma_column: str = 'SMA') -> pd.DataFrame:
         """
         Add a simple moving average named ma_column to the existing df.
         :param df: dataframe to add to
@@ -1101,7 +1117,6 @@ class PandasDateUtil(PandasUtil):
         sma = np.array(self.sma(df=df, col_name_to_average=column_name, window=length), dtype=float)
         self.add_new_col_from_array(df, ma_column, sma)
         return df
-
 
     def bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close'):
         """
@@ -1116,7 +1131,8 @@ class PandasDateUtil(PandasUtil):
         lower = np.array(sma - 2 * (df[column_name].rolling(window).std()))
         return sma, upper, lower
 
-    def add_bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close', ma_column: str = 'SMA', upper_colname: str = 'Upper BB', lower_colname: str = 'Lower BB'):
+    def add_bollinger(self, df: pd.DataFrame, window: int = 20, column_name: str = 'close', ma_column: str = 'SMA',
+                      upper_colname: str = 'Upper BB', lower_colname: str = 'Lower BB'):
         """
         Add a SMA column and an upper and lower BB Column to the existing df.
         :param df:

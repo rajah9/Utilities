@@ -13,12 +13,14 @@ from datetime import datetime, time
 from os import remove, makedirs, sep, stat, listdir, error, getcwd
 from os.path import isfile, split, join, normpath, isdir, getctime, getmtime
 from shutil import copy2, rmtree
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 from yaml import safe_load, YAMLError, dump
 
 from DateUtil import DateUtil
 from LogitUtil import logit
+
+Strings = List[str]
 
 _IS_PROD = True
 
@@ -35,6 +37,7 @@ Interesting Python facets:
 * Uses Tuple to return two values
 * Uses _IS_PROD to create either a regular logger or a null logger.
 """
+
 
 class FileUtil:
     def __init__(self):
@@ -55,26 +58,25 @@ class FileUtil:
             return '\\'
         return '/'
 
-
-    def current_directory(self) -> str:
+    @staticmethod
+    def current_directory() -> str:
         """
         Get the current working directory.
         :return:
         """
         return getcwd()
 
-    def read_text_file(self, filename:str, encoding='utf8') -> None:
+    def read_text_file(self, filename: str, encoding='utf8') -> Strings:
         """
         Read the given file and return its lines as a list, one per line.
         """
-        lines = []
         try:
             with open(filename, 'r', encoding=encoding) as f:
-                lines = f.readlines()
-            return lines
+                return f.readlines()
         except (UnicodeDecodeError, IOError) as err:
             self.logger.error('Exception type: {typ}'.format(typ=type))
             self.logger.error('Exception message: {msg}'.format(msg=err))
+            return []
 
     @logit()
     def read_generator(self, filename: str) -> str:
@@ -102,55 +104,55 @@ class FileUtil:
             for line in lines:
                 f.write(f'{line}\n')
 
-    def getList(self, dirPath: str) -> list:
+    def get_list(self, dir_path: str) -> list:
         """
         Return a list of files and directories in the given dirPath. This is not recursive.
-        :param dirPath:
+        :param dir_path:
         :return: list of files and dirs.
         """
-        return listdir(dirPath)
+        return listdir(dir_path)
 
-    def get_files(self, dirPath: str) -> list:
+    def get_files(self, dir_path: str) -> list:
         """
         Return a list of files in a directory.
         """
-        all = self.getList(dirPath)
-        for f in all:
-            fullpath = self.fully_qualified_path(dirPath, f)
+        all_files_and_dirs = self.get_list(dir_path)
+        for f in all_files_and_dirs:
+            fullpath = self.fully_qualified_path(dir_path, f)
             self.logger.debug(f'checking out {fullpath}')
             resp = 'is a file' if isfile(fullpath) else 'is not a file'
             self.logger.debug(f'{f} {resp}')
-        return [f for f in self.getList(dirPath) if isfile(self.fully_qualified_path(dirPath, f))]
+        return [f for f in self.get_list(dir_path) if isfile(self.fully_qualified_path(dir_path, f))]
 
-    def get_dirs(self, dirPath: str) -> list:
+    def get_dirs(self, dir_path: str) -> list:
         """
         Return a list of subdirs in a directory.
         """
-        return [f for f in self.getList(dirPath) if isdir(self.fully_qualified_path(dirPath, f))]
+        return [f for f in self.get_list(dir_path) if isdir(self.fully_qualified_path(dir_path, f))]
 
-    def getRecursiveList(self, dirPath: str) -> list:
+    def get_recursive_list(self, dir_path: str) -> list:
         """
         For the given path, get the list of all files in the directory tree.
         The list is a qualified path, for example,
           ['\\C:\\Users\\Owner\\PycharmProjects\\Utilities\\filea.txt', '\\C:\\Users\\Owner\\PycharmProjects\\Utilities\\fileb.txt' ]
         """
         # Create a list of file and subdirectory names in the given directory
-        if not self.dir_exists(dirPath):
+        if not self.dir_exists(dir_path):
             return []
 
-        listOfFiles = self.getList(dirPath)
-        allFiles = list()
+        list_of_files = self.get_list(dir_path)
+        all_files = list()
 
-        for entry in listOfFiles:
-            fullPath = self.fully_qualified_path(dirPath, entry)
-            if self.dir_exists(fullPath):
-                allFiles = allFiles + self.getRecursiveList(fullPath)
+        for entry in list_of_files:
+            full_path = self.fully_qualified_path(dir_path, entry)
+            if self.dir_exists(full_path):
+                all_files = all_files + self.get_recursive_list(full_path)
             else:
-                allFiles.append(fullPath)
-        return allFiles
+                all_files.append(full_path)
+        return all_files
 
     @logit(showArgs=True, showRetVal=False)
-    def load_logs_and_subdir_names(self, rootPath=str, requiredPrefix=None, requiredSuffix=None) -> list:
+    def load_logs_and_subdir_names(self, root_path=str, required_prefix=None, required_suffix=None) -> list:
         """
         Given the rootPath, traverse the subdirectories and return a list with the
         given prefix (if any) and suffix (if any).
@@ -158,30 +160,28 @@ class FileUtil:
         The list is a qualified path, for example,
           ['\\C:\\Users\\Owner\\PycharmProjects\\Utilities\\filea.txt', '\\C:\\Users\\Owner\\PycharmProjects\\Utilities\\fileb.txt' ]
         """
-        qualified_files = self.getRecursiveList(rootPath)
+        qualified_files = self.get_recursive_list(root_path)
         ans = []
 
         for full_path in qualified_files:
             _, fn = self.split_qualified_path(full_path)
             include = True
-            if requiredPrefix and not fn.startswith(requiredPrefix):
+            if required_prefix and not fn.startswith(required_prefix):
                 include = False
-            if requiredSuffix and not fn.endswith(requiredSuffix):
+            if required_suffix and not fn.endswith(required_suffix):
                 include = False
             if include:
                 ans.append(full_path)
         return sorted(ans)  # This sorts logfiles chronologically
 
-    def cull_existing_files(self, fileList: list) -> list:
+    def cull_existing_files(self, file_list: list) -> list:
         """
         Cull the given fileList (containing full paths) and return only the existing files.
         This is useful if some of the files in the list have been deleted.
         """
-        return [f for f in fileList if self.file_exists(f)]
+        return [f for f in file_list if self.file_exists(f)]
 
-
-    # @logit(showArgs=True, showRetVal=False)
-    def qualified_path(self, dirPath: str, filename: str, dir_path_is_array: bool = False) -> str:
+    def qualified_path(self, dir_path: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
         From the given dir and filename, return the qualified path.
         11Dec18 Fixed a problem that was making the dirPath longer by creating a deepcopy.
@@ -200,25 +200,25 @@ class FileUtil:
             return join(*file_component_array) # The * (splat) helps os.path.join treat the args as one arg.
 
         if dir_path_is_array:
-            r = copy.deepcopy(dirPath)
+            r = copy.deepcopy(dir_path)
             r.append(filename)
             return combined_file_components(r)
         else:
             # dirPath is a string; simply join it.
             # return join(dirPath, filename) Doesn't work if testing Linux in a Windows env!
-            return dirPath + self.separator + filename
+            return dir_path + self.separator + filename
 
-    def fully_qualified_path(self, dirPath: str, filename: str, dir_path_is_array: bool = False) -> str:
+    def fully_qualified_path(self, dir_path: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
         From the given dir and filename, return a qualified path. Prepend a / for Linux systems.
         """
-        ans = self.qualified_path(dirPath, filename, dir_path_is_array)
+        ans = self.qualified_path(dir_path, filename, dir_path_is_array)
         if not self.is_Windows and (ans[0] != self.separator):
             return self.separator + ans
         return ans
 
     @logit(showArgs=True, showRetVal=True)
-    def split_qualified_path(self, qualified_path:str, makeArray=False):
+    def split_qualified_path(self, qualified_path: str, make_array=False):
         """
         From the given qualified path, return the dir and filename.
         if makeArray is False, make the path a string, like '/users/owner/'
@@ -226,7 +226,7 @@ class FileUtil:
         return a tuple of (path string, filename).
         """
         path, filename = split(qualified_path)
-        if makeArray:
+        if make_array:
             path = normpath(path)
             path_array = path.split(sep)
             return path_array, filename
@@ -235,7 +235,7 @@ class FileUtil:
             return path, filename
 
     @logit()
-    def split_file_name(self, path_or_fn:str) -> Tuple[str, str]:
+    def split_file_name(self, path_or_fn: str) -> Tuple[str, str]:
         """
         Takes a full path name like /home/a137078/file.ext or a filename like file.ext and returns file and .ext.
         :param path_or_fn:
@@ -246,7 +246,8 @@ class FileUtil:
         ext = posixpath.splitext(fn)[1]
         return f, ext
 
-    def file_exists(self, qualifiedPath: str) -> bool:
+    @staticmethod
+    def file_exists(qualifiedPath: str) -> bool:
         """
         Return true if the file exists.
         """
@@ -286,7 +287,7 @@ class FileUtil:
         """
         return isdir(dir_path)
 
-    def rmdir_and_files(self, dir_path:str):
+    def rmdir_and_files(self, dir_path: str):
         """
         Delete any files within the dir_path and remove the dir itself.
         """
@@ -303,7 +304,7 @@ class FileUtil:
             copy2(source_file, destination)
             self.logger.debug(f'Copied file {source_file} to {destination}.')
             return True
-        except (FileNotFoundError) as err:
+        except FileNotFoundError as err:
             self.logger.error('Exception message: {msg}'.format(msg=err))
             self.logger.error(f'File {source_file} not found.')
             return False
@@ -341,13 +342,12 @@ class FileUtil:
         return ans
 
     @logit(showArgs=True, showRetVal=True)
-    def file_modify_time2(self, filename: str) -> datetime:
+    def file_modify_time2(self, filename: str) -> float:
         """
         mtime returns a timestamp (float).
         :param filename:
         :return: the datetime (timezone unaware!)
         """
-        du = DateUtil()
         statinfo = stat(filename)
         return statinfo.st_mtime
 

@@ -115,16 +115,16 @@ class Test_FileUtil(TestCase):
     def test_dump_yaml(self):
         yaml_fn = self._fu.qualified_path(self.path, self.yaml)
         self._fu.dump_yaml(yaml_fn, self.features_dict)
-        self.assertTrue(self._fu.file_exists(yaml_fn))
+        self.assertTrue(FileUtil.file_exists(yaml_fn))
         actual = self._fu.read_yaml(yaml_fn)
         self.assertDictEqual(self.features_dict, actual)
 
     @logit()
     def test_current_directory(self):
-        logger.debug(f'current working dir is really {self._fu.current_directory()}')
+        logger.debug(f'current working dir is really {FileUtil.current_directory()}')
         my_mock_dir = r'\synthesys\testing'
         with mock.patch('FileUtil.getcwd', return_value=my_mock_dir):
-            actual = self._fu.current_directory()
+            actual = FileUtil.current_directory()
             self.assertEqual(actual, my_mock_dir)
 
     def test_read_text_file(self):
@@ -190,7 +190,7 @@ class Test_FileUtil(TestCase):
         with mock.patch('platform.system') as mocked_platform:
             mocked_platform.return_value = 'Windows'
             mocked_fu = FileUtil()
-            actual =  mocked_fu.qualified_path(dirPath=exp3_array, filename=self.fn, dir_path_is_array=True)
+            actual = mocked_fu.qualified_path(dir_path=exp3_array, filename=self.fn, dir_path_is_array=True)
             self.assertEqual(test3, actual, "Test 3 fail")
 
     @logit()
@@ -201,7 +201,7 @@ class Test_FileUtil(TestCase):
             mocked_platform.return_value = 'Windows'
             mocked_fu = FileUtil()
             exp1 = path1 + mocked_fu.separator + self.fn
-            self.assertEqual(exp1, mocked_fu.fully_qualified_path(dirPath=path1, filename=self.fn), 'Test 1 fail')
+            self.assertEqual(exp1, mocked_fu.fully_qualified_path(dir_path=path1, filename=self.fn), 'Test 1 fail')
         # Test 2, Linux without the leading /
         test2 = r'dir/to/path'
 
@@ -210,10 +210,12 @@ class Test_FileUtil(TestCase):
             mocked_platform.return_value = 'Linux'
             mocked_fu = FileUtil()
             exp2 = mocked_fu.separator + test2 + mocked_fu.separator + self.fn
-            self.assertEqual(exp2, mocked_fu.fully_qualified_path(dirPath=test2, filename=self.fn, dir_path_is_array=False), "Test 2 fail")
+            self.assertEqual(exp2,
+                             mocked_fu.fully_qualified_path(dir_path=test2, filename=self.fn, dir_path_is_array=False), "Test 2 fail")
             test3 = mocked_fu.separator + test2
             exp3 = test3 + mocked_fu.separator + self.fn
-            self.assertEqual(exp3, mocked_fu.fully_qualified_path(dirPath=test3, filename=self.fn, dir_path_is_array=False), "Test 3 fail")
+            self.assertEqual(exp3,
+                             mocked_fu.fully_qualified_path(dir_path=test3, filename=self.fn, dir_path_is_array=False), "Test 3 fail")
 
 
     @logit()
@@ -222,19 +224,19 @@ class Test_FileUtil(TestCase):
         qpath = self._fu.qualified_path(self.path, fn)
         # Test 1. c:\temp for Windows or /tmp for Linux.
         which_test = 1
-        splitpath, splitfn = self._fu.split_qualified_path(qpath, makeArray=False)
+        splitpath, splitfn = self._fu.split_qualified_path(qpath, make_array=False)
         self.assertEqual(splitpath, self.path, f'Test {which_test}. Paths should be equal.')
         self.assertEqual(splitfn, fn, f'Test {which_test}. File names should be equal.')
         # Test 2. Split paths into arrays.
         which_test = 2
-        pathArray, splitfn = self._fu.split_qualified_path(qpath, makeArray=True)
+        pathArray, splitfn = self._fu.split_qualified_path(qpath, make_array=True)
         expected = self.path.split(sep)
         self.assertEqual(pathArray, expected, f'Test {which_test}. Paths should be equal.')
         self.assertEqual(splitfn, fn, f'Test {which_test}. File names should be equal.')
         # Test 3. Try a more complex path.
         which_test = 3
         complex_path = r'C:\Users\Owners\Documents\Tickers.csv' if platform.system() == 'Windows' else r'/tmp/parent/child/Tickers.csv'
-        pathArray, splitfn = self._fu.split_qualified_path(complex_path, makeArray=True)
+        pathArray, splitfn = self._fu.split_qualified_path(complex_path, make_array=True)
         expected = complex_path.split(sep)
         expected.pop() # Pop off the last el, which is the file name.
         self.assertEqual(pathArray, expected, f'Test {which_test}. Paths should be equal.')
@@ -259,9 +261,9 @@ class Test_FileUtil(TestCase):
     def test_file_exists(self):
         self.create_csv()
         qualifiedPath = self._fu.qualified_path(self.path, self.fn)
-        self.assertTrue(self._fu.file_exists(qualifiedPath))
+        self.assertTrue(FileUtil.file_exists(qualifiedPath))
         qualifiedPath = self._fu.qualified_path(self.path, 'noSuchFile.xxd')
-        self.assertFalse(self._fu.file_exists(qualifiedPath))
+        self.assertFalse(FileUtil.file_exists(qualifiedPath))
 
     @logit()
     def test_ensure_dir(self):
@@ -296,8 +298,8 @@ class Test_FileUtil(TestCase):
         copied_file = self._fu.qualified_path(self.path, copy_fn)
         source_path = self._fu.qualified_path(self.path, self.fn)
         self._fu.copy_file(source_path, copied_file)
-        self.assertTrue(self._fu.file_exists(source_path))
-        self.assertTrue(self._fu.file_exists(copied_file))
+        self.assertTrue(FileUtil.file_exists(source_path))
+        self.assertTrue(FileUtil.file_exists(copied_file))
         self._fu.delete_file(copied_file)
 
     @logit()
@@ -314,7 +316,7 @@ class Test_FileUtil(TestCase):
     @logit()
     def test_getList(self):
         dir_name = r'c:\temp'
-        flist = self._fu.getList(dir_name)
+        flist = self._fu.get_list(dir_name)
         logger.debug(f'All list is: {flist}')
 
 
@@ -357,10 +359,10 @@ class Test_FileUtil(TestCase):
         self.assertListEqual(expected, actual)
 
     @logit()
-    def test_getRecursiveList(self):
+    def test_get_recursive_list(self):
         dir_name = r'\nosuchdir'
         file_list = ['filea.txt', 'fileb.txt', 'filec.txt']
-        actual = self._fu.getRecursiveList(dir_name)
+        actual = self._fu.get_recursive_list(dir_name)
         self.assertListEqual(actual, [])  # Since no such dir, should be empty list
         eu = ExecUtil()
         exec_file = eu.exec_file_path()
@@ -368,8 +370,8 @@ class Test_FileUtil(TestCase):
         logger.debug(f'dir name is: {dir_name}')
 
         with mock.patch('FileUtil.listdir', return_value=file_list):
-            actual = self._fu.getRecursiveList(dir_name)
-            expected = [self._fu.fully_qualified_path(dirPath=dir_name, filename=f) for f in file_list]
+            actual = self._fu.get_recursive_list(dir_name)
+            expected = [self._fu.fully_qualified_path(dir_path=dir_name, filename=f) for f in file_list]
             self.assertListEqual(expected, actual)
 
     @logit()
@@ -385,17 +387,17 @@ class Test_FileUtil(TestCase):
         with mock.patch('FileUtil.listdir', return_value=file_list):
             # Test with neither prefix nor suffix
             actual = self._fu.load_logs_and_subdir_names(dir_name)
-            expected = [self._fu.fully_qualified_path(dirPath=dir_name, filename=f) for f in file_list]
+            expected = [self._fu.fully_qualified_path(dir_path=dir_name, filename=f) for f in file_list]
             self.assertListEqual(expected, actual)
             # Test for suffixes ending in .txt
             suffix = '.txt'
-            actual = self._fu.load_logs_and_subdir_names(dir_name, requiredSuffix=suffix)
-            txt_only = [self._fu.fully_qualified_path(dirPath=dir_name, filename=f) for f in file_list if f.endswith(suffix)]
+            actual = self._fu.load_logs_and_subdir_names(dir_name, required_suffix=suffix)
+            txt_only = [self._fu.fully_qualified_path(dir_path=dir_name, filename=f) for f in file_list if f.endswith(suffix)]
             self.assertListEqual(txt_only, actual)
             # Test for prefixes starting with 'file'
             prefix = 'file'
-            actual = self._fu.load_logs_and_subdir_names(dir_name, requiredPrefix=prefix)
-            file_only = [self._fu.fully_qualified_path(dirPath=dir_name, filename=f) for f in file_list if f.startswith(prefix)]
+            actual = self._fu.load_logs_and_subdir_names(dir_name, required_prefix=prefix)
+            file_only = [self._fu.fully_qualified_path(dir_path=dir_name, filename=f) for f in file_list if f.startswith(prefix)]
             self.assertListEqual(file_only, actual)
 
     @logit()
@@ -406,7 +408,7 @@ class Test_FileUtil(TestCase):
         file_list = ['filea.txt', 'fileb.txt', 'filec.txt', 'somedir']
         mock_listdir.return_value = file_list
         mock_isfile.side_effect = self.isFile_side_effect
-        qualified_file_list = [self._fu.qualified_path(dirPath=dir_name, filename=f) for f in file_list]
+        qualified_file_list = [self._fu.qualified_path(dir_path=dir_name, filename=f) for f in file_list]
         actual = self._fu.cull_existing_files(qualified_file_list)
         expected = [f for f in qualified_file_list if mock_is_file(f)] # Condition must match isFile_side_effect
         self.assertListEqual(expected, actual)

@@ -74,7 +74,7 @@ class Test_ApplicationUtil(unittest.TestCase):
 
     @logit()
     def test_missing_yaml(self):
-        qualified_path = self.fu.qualified_path(dirPath=self.path, filename='noSuchFile.yaml')
+        qualified_path = self.fu.qualified_path(dir_path=self.path, filename='noSuchFile.yaml')
         app = MyApplication(qualified_path)
         self.assertDictEqual(app._d.asdict, {})
 
@@ -116,7 +116,7 @@ class Test_ApplicationUtil(unittest.TestCase):
         app = MyApplication(Test_ApplicationUtil.excel_qual_path)
         app.write_excel(df=df, output_file_yaml_entry='outputFile', worksheet=self.worksheet_name)
 
-        actual = pu.read_df_from_excel(excelFileName=fn, excelWorksheet=self.worksheet_name)
+        actual = pu.read_df_from_excel(excel_file_name=fn, excel_worksheet=self.worksheet_name)
         assert_frame_equal(df, actual)
 
 

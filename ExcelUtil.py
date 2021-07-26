@@ -167,7 +167,7 @@ class ExcelUtil(Util):
 
     @functools.lru_cache(maxsize=4)
     def load_spreadsheet(self, excelFileName: str = None, excelWorksheet: str = None) -> pd.DataFrame:
-        df = self._pu.read_df_from_excel(excelFileName = excelFileName, excelWorksheet=excelWorksheet)
+        df = self._pu.read_df_from_excel(excel_file_name=excelFileName, excel_worksheet=excelWorksheet)
         return df
 
     def get_excel_filename_and_worksheet(self, excel_file_dict: dict) -> Tuple[str, str]:
@@ -820,7 +820,7 @@ class ExcelRewriteUtil(ExcelUtil):
         :return: copied worksheet
         """
         # 1. Read the existing sourceWorksheet.
-        df = self._pu.read_df_from_excel(excelFileName=sourceFileName, excelWorksheet=sourceWorksheet, header=header)
+        df = self._pu.read_df_from_excel(excel_file_name=sourceFileName, excel_worksheet=sourceWorksheet, header=header)
         if len(df):
             self.logger.debug(f'Read in {len(df)} records from file {sourceFileName} and worksheet {sourceWorksheet}.')
             worksheet_name = destWorksheet or sourceWorksheet
