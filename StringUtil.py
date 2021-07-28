@@ -122,15 +122,28 @@ class StringUtil:
         return myString.lower()
 
     @classmethod
-    def find(cls, my_string: str, find_me: str) -> int:
+    def find(cls, my_string: str, find_me: str, case_sensitive: bool = True) -> int:
         """
         Find find_me within my_string. If not found, return -1.
         :param my_string: (possibly empty) string to search
         :param find_me:
         :return: integer position (0-offset) of find_me, or -1 if not found.
         """
-        ans = my_string.find(find_me) if my_string else -1
+        haystack = my_string if case_sensitive else my_string.lower()
+        needle = find_me if case_sensitive else find_me.lower()
+        ans = haystack.find(needle) if haystack else -1
         return ans
+
+    @classmethod
+    def starts_with(cls, my_string: str, find_me: str, case_sensitive: bool = True) -> bool:
+        """
+        Return true if my_string starts with find_me.
+        :param my_string:
+        :param find_me:
+        :return:
+        """
+        pos = StringUtil.find(my_string, find_me)
+        return pos == 0
 
     @classmethod
     def reverse_find(cls, my_string: str, find_me: str, left_most: int = 0) -> int:
@@ -277,7 +290,7 @@ class StringUtil:
             return list(filter(None, trimmed))
         return ans
 
-    def find_first_substring_in_list(self, my_string:str, my_list:list) -> str:
+    def find_first_substring_in_list(self, my_string: str, my_list: list) -> str:
         """
         Search through my_list and return the first element containing my_string.
         :param my_string: string to search for
@@ -285,6 +298,19 @@ class StringUtil:
         :return: first el containing my_string or None if not found.
         """
         return next((s for s in my_list if my_string in s), None)
+
+    def find_first_prefix_in_list(self, my_string: str, my_list: list, default: str = 'Default', case_sensitive: bool = False) -> str:
+        """
+        Search through my_list and return the first element prefixed by my_string.
+        :param my_string:
+        :param my_list:
+        :return:
+        """
+        for s in my_list:
+            if StringUtil.starts_with(my_string=my_string, find_me=s, case_sensitive=case_sensitive):
+                return s
+
+        return default
 
     @staticmethod
     def find_substring_occurrences_in_list(my_string:str, my_list:List) -> List:
@@ -662,7 +688,24 @@ class StringUtil:
 
         return '{0:{fill}{align}{width}}'.format(my_str, fill=fill_str, align=align, width=fill_width)
 
+    def get_prefix_in_list(self, my_str: str, allowed_prefix: Strings = ['PRE', 'POST'], default: str = 'Other',
+                           case_sensitive=False, must_cap_ret_val: bool = False) -> str:
+        """
+        Take a string (like Postal) and a list of prefixes like ['PRE', 'POST'] and return the matching prefix (or default)
+        :param my_str:
+        :param allowed_prefix:
+        :param default:
+        :param case_sensitive:
+        :param must_cap_ret_val:
+        :return:
+        """
+        ans = self.find_first_prefix_in_list(my_str, allowed_prefix, None, case_sensitive)
+        if not ans:
+            return default
+        if must_cap_ret_val:
+            return ans.upper()
 
+        return ans
 
 """
 This class accumulates lines (say, for a log).

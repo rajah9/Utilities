@@ -174,6 +174,23 @@ class TestStringUtil(TestCase):
         self.assertEqual(l[2], self.su.find_first_substring_in_list('abc4', l))
 
     @logit()
+    def test_find_first_prefix_in_list(self):
+        # Test 1, normal
+        l = ['abc', 'def', 'ghi']
+        test1 = 'definition'
+        exp1 = 'def'
+        self.assertEqual(exp1, self.su.find_first_prefix_in_list(my_string=test1, my_list=l, case_sensitive=False), "fail test 1")
+        # Test 2, case sensitive, should succeed.
+        test2 = 'definition'
+        exp2 = 'def'
+        self.assertEqual(exp2, self.su.find_first_prefix_in_list(my_string=test2, my_list=l, case_sensitive=True), "fail test 2")
+        # Test 3, case sensitive, should fail.
+        test3 = 'Definition'
+        exp3 = 'def'
+        other_val = 'oops'
+        self.assertEqual(other_val, self.su.find_first_prefix_in_list(my_string=test3, my_list=l, default=other_val, case_sensitive=False), "fail test 3")
+
+    @logit()
     def test_find_substring_occurrences_in_list(self):
         l = ['abc123', 'def234', 'abc456']
         # Test 1, normal case
@@ -275,6 +292,33 @@ class TestStringUtil(TestCase):
         find_me = "NotHere"
         exp2 = -1
         self.assertEqual(exp2, StringUtil.find(test1, find_me), "failed test 2")
+        # Test 3. Case sensitivity turned on.
+        test3 = "YES"
+        find_me = "Yes"
+        exp3 = -1 # Should NOT find when we're case sensitive.
+        self.assertEqual(exp3, StringUtil.find(test3, find_me, case_sensitive=True), "failed test 3")
+        # Test 4, Case sensitivity turned off.
+        exp4 = 0 # SHOULD find when we have case sensitivity off.
+        self.assertEqual(exp4, StringUtil.find(test3, find_me, case_sensitive=False), "failed test 4")
+
+    def test_starts_with(self):
+        # Test 1, normal.
+        test_string = 'Parsimonious'
+        test1 = 'Pars'
+        self.assertTrue(StringUtil.starts_with(test_string, test1), "failed test 1")
+        # Test 2, not at the start
+        test2 = 'ious'
+        self.assertFalse(StringUtil.starts_with(test_string, test2), "failed test 2")
+        # Test 3, Correct start and matching case
+        test3 = 'Parsi'
+        self.assertTrue(StringUtil.starts_with(test_string, test3, case_sensitive=False), "failed test 3")
+        # Test 4, Correct start and matching case with case sensitivity True
+        self.assertTrue(StringUtil.starts_with(test_string, test3, case_sensitive=True), "failed test 4")
+        # Test 5, Correct start but wrong case
+        test5 = "PARS"
+        self.assertFalse(StringUtil.starts_with(test_string, test5, case_sensitive=True), "failed test 5")
+        # Test 6, Correct start but case sensitivity False
+        self.assertFalse(StringUtil.starts_with(test_string, test5, case_sensitive=False), "failed test 5")
 
     def test_substrings_between_tokens(self):
         # Test 1. Normal.
@@ -498,6 +542,32 @@ class TestStringUtil(TestCase):
         act3 = self.su.convert_string_append_type(test3)
         self.assertEqual(exp_val_3, act3.value)
         self.assertEqual(exp_type_3, act3.cellType)
+
+    def test_get_prefix_in_list(self):
+        # Test 1, normal.
+        my_prefixes = ['Pre', 'Post', 'Anything']
+        test1 = 'Anything goes!'
+        exp1 = 'Anything'
+        self.assertEqual(exp1,
+                         self.su.get_prefix_in_list(my_str=test1, allowed_prefix=my_prefixes, must_cap_ret_val=False), "fail test 1")
+        # Test 2, with case differences.
+        test2 = 'poster child'
+        exp2 = 'Post'
+        other_val = 'Oops'
+        self.assertEqual(other_val,
+                         self.su.get_prefix_in_list(my_str=test2, allowed_prefix=my_prefixes, default=other_val, case_sensitive=True), "fail test 2")
+        # Test 3, not in list.
+        test3 = 'xyzzy'
+        self.assertEqual(other_val,
+                         self.su.get_prefix_in_list(my_str=test3, allowed_prefix=my_prefixes, default=other_val,
+                                                    must_cap_ret_val=False), "fail test 3")
+        # Test 4, capitalize prefix
+        my_prefixes = ['Pre', 'Post', 'Anything']
+        test4 = 'Poster child'
+        exp4 = 'POST'
+        self.assertEqual(exp4,
+                         self.su.get_prefix_in_list(my_str=test4, allowed_prefix=my_prefixes, must_cap_ret_val=True), "fail test 4")
+
 
 class TestLineAccumulator(TestCase):
     def setUp(self):
