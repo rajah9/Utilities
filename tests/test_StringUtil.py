@@ -568,7 +568,6 @@ class TestStringUtil(TestCase):
         self.assertEqual(exp4,
                          self.su.get_prefix_in_list(my_str=test4, allowed_prefix=my_prefixes, must_cap_ret_val=True), "fail test 4")
 
-
 class TestLineAccumulator(TestCase):
     def setUp(self):
         logger.debug('Starting TestLineAccumulator')
@@ -589,6 +588,16 @@ class TestLineAccumulator(TestCase):
         self.la.add_lines(both_lines)
         exp = [first_line, second_line]
         self.assertListEqual(exp, self.la.contents)
+
+    def test_add_line_or_lines(self):
+        first_line = 'hello, world'
+        second_line = "How's it going?"
+        self.la.add_line(first_line)
+        self.la.add_line(second_line)
+        both_lines = [first_line, second_line]
+        la2 = LineAccumulator()
+        la2.add_lines(both_lines)
+        self.assertListEqual(self.la.contents, la2.contents)
 
     def test_add_df(self):
         cu = CollectionUtil()

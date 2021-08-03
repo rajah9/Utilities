@@ -11,6 +11,7 @@ Cell = CollectionUtil.named_tuple('Cell', ['value', 'cellType'])
 
 _DOUBLE_QUOTE = '"'
 _SINGLE_QUOTE = "'"
+_BACKSLASH = "\\"
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -133,6 +134,10 @@ class StringUtil:
         needle = find_me if case_sensitive else find_me.lower()
         ans = haystack.find(needle) if haystack else -1
         return ans
+
+    @classmethod
+    def is_found(cls, my_string: str, find_me: str, case_sensitive: bool = True) -> bool:
+        return StringUtil.find(my_string, find_me, case_sensitive) >= 0
 
     @classmethod
     def starts_with(cls, my_string: str, find_me: str, case_sensitive: bool = True) -> bool:
@@ -539,6 +544,24 @@ class StringUtil:
             return 0
         return as_float
 
+    def surround_with_quotes(self, my_string: str) -> str:
+        """
+        Surround the string with (preferably) single quotes, possibly double.
+          hello => 'hello'
+          don't => "don't"
+          I said, "don't do it." => I said, "don\'t do it."
+        :param my_string:
+        :return:
+        """
+        if not StringUtil.is_found(my_string, _SINGLE_QUOTE):
+            # No single quotes found, so surround with single quotes
+            return _SINGLE_QUOTE + my_string + _SINGLE_QUOTE
+        elif not StringUtil.is_found(my_string, _DOUBLE_QUOTE):
+            return _DOUBLE_QUOTE + my_string + _DOUBLE_QUOTE
+        else:
+            ans = self.replace_all(my_string=my_string, old=_SINGLE_QUOTE, new=_BACKSLASH+_SINGLE_QUOTE)
+            return _SINGLE_QUOTE + ans + _SINGLE_QUOTE
+
     def convert_string_append_type(self, my_string: str = None) -> Cell:
         """
         Decide to leave the string as a string, or convert it to a number (or percentage).
@@ -718,17 +741,26 @@ class LineAccumulator:
     # Getter for content
     @property
     def contents(self):
-        return self._contents
+        return self._contents if self._contents else []
 
     @contents.setter
     def contents(self, lines: Strings):
         self._contents = lines
 
     def add_line(self, line: str):
-        self.contents.append(line)
+        self._contents.append(line)
 
     def add_lines(self, lines: Strings):
-        self.contents.extend(lines)
+        self._contents.extend(lines)
+
+    def add_line_or_lines(self, l: Union[str, Strings]):
+        if isinstance(l, list):
+            self.add_lines(l)
+        elif isinstance(l, str):
+            self.add_line(l)
+        else:
+            logger.warning(f'Only str or list of strings accepted, but got {type(l)}')
+        return
 
     def add_df(self, df:DataFrame, how_many_rows: int = 10):
         ans = str(df.head(how_many_rows))

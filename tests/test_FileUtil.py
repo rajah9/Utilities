@@ -5,7 +5,7 @@ from os import sep
 from random import randrange
 from typing import List
 from unittest import TestCase, mock, main
-
+from pathlib import Path, PurePath
 from yaml import YAMLError
 
 from DateUtil import DateUtil
@@ -24,8 +24,9 @@ Interesting Python features:
 * Uses tearDownClass (classmethod) to delete test files.
 * Generates lines of a given width in generate_text_lines using some formatting magic.
 * Uses mocking.
-** with mock.patch('FileUtil.getcwd', return_value=my_mock_dir):
-** Note that the part within quotes is FileUtil and just getcwd (not os.cwd), because that's how I call it in FileUtil.
+** with mock.patch('FileUtil.Path', return_value=my_mock_dir):
+** Note that the part within quotes is FileUtil and just Path (not pathlib.Path), because that's how I call it in FileUtil.
+** Also had to change my_mock_dir to point to a Path, not a string. 
 ** also with @mock.patch decorator. Tests NameError and open errors.
 ** Uses self.assertLogs to ensure that an error message is logged in the calling routine.
 ** Has a nested mock.patch in test_get_files, which uses a local side effect function to yield 
@@ -122,8 +123,8 @@ class Test_FileUtil(TestCase):
     @logit()
     def test_current_directory(self):
         logger.debug(f'current working dir is really {FileUtil.current_directory()}')
-        my_mock_dir = r'\synthesys\testing'
-        with mock.patch('FileUtil.getcwd', return_value=my_mock_dir):
+        my_mock_dir = Path(r'c:\synthesys\testing')
+        with mock.patch('FileUtil.Path', return_value=my_mock_dir):
             actual = FileUtil.current_directory()
             self.assertEqual(actual, my_mock_dir)
 
@@ -167,7 +168,7 @@ class Test_FileUtil(TestCase):
     @logit()
     def test_qualified_path(self):
         # Test 1. Normal case.
-        expected = self.path + sep + self.fn
+        expected = Path(self.path) / self.fn
         actual = self._fu.qualified_path(self.path, self.fn)
         self.assertEqual(actual, expected, "Test 1 fail")
         # Test 2. Using an array and a Linux mock.
@@ -177,21 +178,26 @@ class Test_FileUtil(TestCase):
             mocked_fu = FileUtil()
             dir_to_path = mocked_fu.separator.join(['C:', 'dir', 'to', 'path'])  # should be C:\dir\to\path for Windows
             pathArray = dir_to_path.split(mocked_fu.separator)
-            expected = dir_to_path + mocked_fu.separator + self.fn
-            self.assertEqual(expected, mocked_fu.fully_qualified_path(pathArray, self.fn, dir_path_is_array=True), "Test 2 fail")
+            pathArray[0] += _BACKSLASH # I need to add the backslash back in for the array version.
+            expected = Path(dir_to_path + mocked_fu.separator + self.fn)
+            act2 = mocked_fu.fully_qualified_path(pathArray, self.fn, dir_path_is_array=True)
+            self.assertEqual(expected, act2, "Test 2 fail")
 
         # Test 3, using a windows path with a drive
         exp3 = r'c:\temp\subdir\subsubdir'
         exp3_array = exp3.split(_BACKSLASH)
+        exp3_array[0] += _BACKSLASH  # I need to add the backslash back in for the array version.
+
         test3_with_fn = deepcopy(exp3_array)
         test3_with_fn.append(self.fn)
         test3 = _BACKSLASH.join(test3_with_fn)
+        exp3_as_Path = Path(test3)
 
         with mock.patch('platform.system') as mocked_platform:
             mocked_platform.return_value = 'Windows'
             mocked_fu = FileUtil()
             actual = mocked_fu.qualified_path(dir_path=exp3_array, filename=self.fn, dir_path_is_array=True)
-            self.assertEqual(test3, actual, "Test 3 fail")
+            self.assertEqual(exp3_as_Path, actual, "Test 3 fail")
 
     @logit()
     def test_fully_qualified_path(self):
@@ -200,7 +206,7 @@ class Test_FileUtil(TestCase):
         with mock.patch('platform.system') as mocked_platform:
             mocked_platform.return_value = 'Windows'
             mocked_fu = FileUtil()
-            exp1 = path1 + mocked_fu.separator + self.fn
+            exp1 = Path(path1 + mocked_fu.separator + self.fn)
             self.assertEqual(exp1, mocked_fu.fully_qualified_path(dir_path=path1, filename=self.fn), 'Test 1 fail')
         # Test 2, Linux without the leading /
         test2 = r'dir/to/path'
@@ -209,11 +215,11 @@ class Test_FileUtil(TestCase):
         with mock.patch('platform.system') as mocked_platform:
             mocked_platform.return_value = 'Linux'
             mocked_fu = FileUtil()
-            exp2 = mocked_fu.separator + test2 + mocked_fu.separator + self.fn
+            exp2 = Path(mocked_fu.separator + test2 + mocked_fu.separator + self.fn)
             self.assertEqual(exp2,
                              mocked_fu.fully_qualified_path(dir_path=test2, filename=self.fn, dir_path_is_array=False), "Test 2 fail")
             test3 = mocked_fu.separator + test2
-            exp3 = test3 + mocked_fu.separator + self.fn
+            exp3 = Path(test3 + mocked_fu.separator + self.fn)
             self.assertEqual(exp3,
                              mocked_fu.fully_qualified_path(dir_path=test3, filename=self.fn, dir_path_is_array=False), "Test 3 fail")
 

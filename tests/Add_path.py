@@ -11,17 +11,16 @@ class Add_path():
           parent = Path('..').resolve() # to add the parent dir
           Add_path.add_path(parent)
         :param newPath:  str or pathlib.PurePath of new path
-        :return: full sys.path array
+        :return: newly added path (or None)
         """
         strPath = str(newPath) if isinstance(newPath, PurePath) else newPath
 
         if strPath in path:
             print(f'path: {newPath} is already on sys.path. (No action taken.)')
-            return path
         else:
             print(f'Adding new path: {strPath} to sys.path.')
             path.append(strPath)
-        return path
+        return strPath
 
     @classmethod
     def add_parent(cls):
@@ -84,3 +83,22 @@ class Add_path():
             Add_path.add_path(q)
         else:
             print('child_dir does not exist')
+
+    @classmethod
+    def find_ancestor_with_child(cls, child: Union[str, PurePath], base_path: Union[str, PurePath] = None, search_from_leaf: bool = True):
+        """
+        Find the ancestor with the given child. Search from the current dir toward the root if search_from_leaf is True.
+        :param child: PurePath or string of child to look for
+        :param base_path: if None, use cwd. Otherwise, search from this path.
+        :param search_from_leaf:
+        :return:
+        """
+        p = Path(base_path) if base_path else Path().resolve()
+        parents = p.parents
+        parents_in_order = parents if search_from_leaf else parents.__reversed__()
+        for parent in parents_in_order:
+            test_dir = parent / child
+            if test_dir.is_dir():
+                return parent
+        print(f'unable to find {child} in path of {p.resolve()}. Returning None')
+        return None

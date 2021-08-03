@@ -13,8 +13,8 @@ from datetime import datetime, time
 from os import remove, makedirs, sep, stat, listdir, error, getcwd
 from os.path import isfile, split, join, normpath, isdir, getctime, getmtime
 from shutil import copy2, rmtree
-from typing import Dict, Tuple, List
-
+from typing import Dict, Tuple, List, Union
+from pathlib import Path, PurePath
 from yaml import safe_load, YAMLError, dump
 
 from DateUtil import DateUtil
@@ -64,7 +64,7 @@ class FileUtil:
         Get the current working directory.
         :return:
         """
-        return getcwd()
+        return Path().resolve()
 
     def read_text_file(self, filename: str, encoding='utf8') -> Strings:
         """
@@ -104,7 +104,7 @@ class FileUtil:
             for line in lines:
                 f.write(f'{line}\n')
 
-    def get_list(self, dir_path: str) -> list:
+    def get_list(self, dir_path: Union[str, Path]) -> list:
         """
         Return a list of files and directories in the given dirPath. This is not recursive.
         :param dir_path:
@@ -181,7 +181,7 @@ class FileUtil:
         """
         return [f for f in file_list if self.file_exists(f)]
 
-    def qualified_path(self, dir_path: str, filename: str, dir_path_is_array: bool = False) -> str:
+    def qualified_path_old(self, dir_path: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
         From the given dir and filename, return the qualified path.
         11Dec18 Fixed a problem that was making the dirPath longer by creating a deepcopy.
@@ -208,13 +208,28 @@ class FileUtil:
             # return join(dirPath, filename) Doesn't work if testing Linux in a Windows env!
             return dir_path + self.separator + filename
 
+    def qualified_path(self, dir_path: str, filename: str, dir_path_is_array: bool = False) -> Path:
+        """
+        From the given dir and filename, return the qualified path.
+        Refactored qualified_path to use pathlib.
+        :param dir_path:
+        :param filename:
+        :param dir_path_is_array:
+        :return:
+        """
+        p = Path(*dir_path) if dir_path_is_array else Path(dir_path)
+        return p.joinpath(filename)
+
     def fully_qualified_path(self, dir_path: str, filename: str, dir_path_is_array: bool = False) -> str:
         """
         From the given dir and filename, return a qualified path. Prepend a / for Linux systems.
         """
         ans = self.qualified_path(dir_path, filename, dir_path_is_array)
-        if not self.is_Windows and (ans[0] != self.separator):
-            return self.separator + ans
+        if not self.is_Windows:
+            parts = ans.parts
+            if parts[0] != ans.root:
+                q = '/' / ans
+                return q
         return ans
 
     @logit(showArgs=True, showRetVal=True)
