@@ -78,7 +78,6 @@ class DateUtil:
         et_now = datetime.now(self.my_tz)
         return self.intsToDateTime(myYYYY=et_now.year, myMM=et_now.month, myDD=et_now.day)
 
-    @logit(showArgs=False, showRetVal=True)
     def intsToDateTime(self, myYYYY: int, myMM: int, myDD: int, myHH: int = 0, myMin: int = 0,
                        mySec: int = 0) -> datetime:
         """
@@ -215,3 +214,47 @@ class DateUtil:
             return int((duration.seconds - 3600 * hrs) / 60) # 60 seconds in a minute
 
         return days(), hours(), minutes()
+
+    def is_after(self, the_date: datetime, start_date: datetime) -> bool:
+        """
+        return True if the_date is after start_date (by at least 1 ms);
+        :param the_date: Date under examination.
+        :param start_date: start date to compare the_date to
+        :return: the_date > start_date
+        """
+        ans = the_date > start_date
+        return ans
+
+    def is_before(self, the_date: datetime, end_date: datetime) -> bool:
+        """
+        Return True if the_date is before end_date.
+        :param the_date: Date under examination.
+        :param end_date: end date to compare the_date to
+        :return:
+        """
+        return the_date < end_date
+
+
+    def is_between(self, the_date: datetime, start_date: datetime = None, end_date: datetime = None) -> bool:
+        """
+        Return True if start_date < the_date < end_date (strict inequality).
+        If start_date is None, use is_before.
+        If end_date is None, use is_after.
+        If both start_date and end_date are None, return True.
+        Raise an error in start_date > end_date.
+        :param the_date:
+        :param start_date: earlier than end_date
+        :param end_date: later than start_date
+        :return:
+        """
+        if start_date and end_date:
+            if start_date < end_date:
+                return self.is_before(the_date=the_date, end_date=end_date) and self.is_after(the_date=the_date, start_date=start_date)
+            else:
+                raise ValueError(f'start_date must precede end_date')
+        elif start_date:
+            return self.is_after(the_date=the_date, start_date=start_date)
+        elif end_date:
+            return self.is_before(the_date=the_date, end_date=end_date)
+        else:
+            return True

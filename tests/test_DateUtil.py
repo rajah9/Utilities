@@ -1,8 +1,8 @@
 import logging
-import time
 import unittest
 from datetime import timedelta, datetime
 from random import randint
+from time import sleep, mktime
 
 from DateUtil import DateUtil
 from LogitUtil import logit
@@ -69,7 +69,7 @@ class Test_DateUtil(unittest.TestCase):
         self.assertEqual('2018-11-20', yyyy_mm_dd)
         mmSlddSlyy = self.du.asFormattedStr(testDate, '%m/%d/%Y')
         self.assertEqual('11/20/2018', mmSlddSlyy)
-        timestamp_float = time.mktime(testDate.timetuple())
+        timestamp_float = mktime(testDate.timetuple())
         self.assertEqual(self.du.asFormattedStr(testDate), self.du.asFormattedStr(timestamp_float))
 
     @logit()
@@ -114,6 +114,7 @@ class Test_DateUtil(unittest.TestCase):
         first = self.du.as_timestamp()
         second = self.du.as_timestamp(first)
         self.assertEqual(first, second)
+
     @logit()
     def test_duration(self):
         now = self.du.now()
@@ -126,6 +127,64 @@ class Test_DateUtil(unittest.TestCase):
         self.assertEqual(exp_days, act_days)
         self.assertEqual(exp_hours, act_hours)
         self.assertEqual(exp_minutes, act_minutes)
+
+    @logit()
+    def test_is_after(self):
+        # Test 1, one day later.
+        yy, mm, dd = 2021, 8, 25
+        the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
+        start_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD= dd - 1)
+        self.assertTrue(self.du.is_after(the_date=the_date, start_date=start_date), 'Fail test 1')
+        # Test 2, the same time (should return False)
+        start_date = self.du.now(tz_str='EST')
+        self.assertFalse(self.du.is_after(start_date, start_date), 'Fail test 2')
+        # Test 3, the_date is slightly after (should return True)
+        sleep(0.05)
+        the_date = self.du.now(tz_str='EST')
+        self.assertTrue(self.du.is_after(the_date, start_date), 'Fail test 3')
+
+    @logit()
+    def test_is_before(self):
+        # Test 1, one day later.
+        yy, mm, dd = 2021, 8, 25
+        the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
+        end_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd + 1)
+        self.assertTrue(self.du.is_before(the_date=the_date, end_date=end_date), 'Fail test 1')
+        # Test 2, the same time (should return False)
+        the_date = self.du.now(tz_str='EST')
+        self.assertFalse(self.du.is_before(the_date, the_date), 'Fail test 2')
+        # Test 3, end_date is slightly after (should return True)
+        from time import sleep
+        sleep(0.05)
+        end_date = self.du.now(tz_str='EST')
+        self.assertTrue(self.du.is_before(the_date, end_date), 'Fail test 3')
+
+    @logit()
+    def test_is_between(self):
+        # Test 1, one day later. (Almost the same as test_is_after.)
+        yy, mm, dd = 2021, 8, 25
+        the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
+        start_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD= dd - 1)
+        self.assertTrue(self.du.is_between(the_date=the_date, start_date=start_date), 'Fail test 1')
+        # Test 2, the same time (should return False)
+        start_date = self.du.now(tz_str='EST')
+        self.assertFalse(self.du.is_between(start_date, start_date), 'Fail test 2')
+        # Test 3, the_date is slightly after (should return True)
+        sleep(0.05)
+        the_date = self.du.now(tz_str='EST')
+        self.assertTrue(self.du.is_between(the_date, start_date), 'Fail test 3')
+        # Test 4, one day later. (Almost the same as test_is_before.)
+        start_date = None
+        the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
+        end_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd + 1)
+        self.assertTrue(self.du.is_between(the_date=the_date, end_date=end_date), 'Fail test 4')
+        # Test 5, the same time (should return False)
+        the_date = self.du.now(tz_str='EST')
+        self.assertFalse(self.du.is_between(the_date=the_date, end_date=the_date), 'Fail test 5')
+        # Test 6, end_date is slightly after (should return True)
+        sleep(0.05)
+        end_date = self.du.now(tz_str='EST')
+        self.assertTrue(self.du.is_between(the_date, end_date=end_date), 'Fail test 6')
 
 if __name__ == "__main__":
     unittest.main(argv=['first-arg-ignored'], exit=False)
