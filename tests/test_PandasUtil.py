@@ -112,7 +112,7 @@ class Test_PandasUtil(unittest.TestCase):
             df.index = index_
             return df
         df2 = my_test_df2()
-        actual = self.pu.join_two_dfs_on_index(df1, df2)
+        actual = self.pu.join_two_dfs_on_index(df1, df2, 'inner')
         for index, row in actual.iterrows():
             self.assertEqual(row["Shoe_size"], df2.iloc[index]["Shoe_size"])
             self.assertEqual(row["Name"], df1.iloc[index]["Name"])
@@ -422,6 +422,58 @@ class Test_PandasUtil(unittest.TestCase):
         new_vals = [x for x in range(94,115,5)] # also len 5
         actual = self.pu.add_new_col_from_array(df, 'IQ', new_vals)
         self.assertListEqual(new_vals, actual.IQ.tolist())
+
+    @logit()
+    def test_add_new_col_by_shift(self):
+        start = 10
+        end = 50
+        incr = 5
+        arr = [*range(start, end, incr)]
+        float_arr = [x * 1.0 for x in arr]
+        def shift_and_nan(a: list, shift: int) -> list:
+            def add_nans(a: list, how_many: int, blank = nan):
+                for i in range(how_many):
+                    a.append(blank)
+            ans = []
+            neg_shift = 0 - shift
+            if shift > 0:
+                # Shift right
+                add_nans(ans, shift)
+                ans.extend(a[:neg_shift])
+            else:
+                # Shift left
+                ans.extend(a[neg_shift:])
+                add_nans(ans, neg_shift)
+            return ans
+        # Test 1. Normal. Shift right (or down)
+        shift1 = 1
+        exp1 = shift_and_nan(float_arr, shift1)
+        orig_col_name = 'A'
+        new_col_name = 'shifted'
+        df1 = pd.DataFrame(float_arr, columns=[orig_col_name])
+        act1_df = self.pu.add_new_col_by_shift(df=df1, column_name=orig_col_name, new_col_name=new_col_name, rows=shift1)
+        act1 = list(act1_df[new_col_name])
+        # We will have to use numpy.testing.assert_equal because nan != nan otherwise
+        try:
+            np.testing.assert_equal(exp1, act1)
+            logger.debug('passed test 1')
+        except:
+            self.fail('Fail test 1')
+        # Test 2. Normal. Shift left (or up)
+        shift2 = -2
+
+        exp2 = shift_and_nan(float_arr, shift2)
+        orig_col_name = 'A'
+        new_col_name = 'shifted'
+        df2 = pd.DataFrame(float_arr, columns=[orig_col_name])
+        act2_df = self.pu.add_new_col_by_shift(df=df2, column_name=orig_col_name, new_col_name=new_col_name, rows=shift2)
+        act2 = list(act2_df[new_col_name])
+        # We will have to use numpy.testing.assert_equal because nan != nan otherwise
+        try:
+            np.testing.assert_equal(exp2, act2)
+            logger.debug('passed test 2')
+        except:
+            self.fail('Fail test 2')
 
     @logit()
     def test_drop_col(self):

@@ -26,6 +26,7 @@ class DateUtil:
 
         # define eastern timezone
         self.my_tz = timezone(tz)
+        self.quarter_to_month = {1: 1, 2: 4, 3: 7, 4: 10}
 
     @logit()
     def now(self, tz_str:str=None) -> datetime:
@@ -258,3 +259,48 @@ class DateUtil:
             return self.is_before(the_date=the_date, end_date=end_date)
         else:
             return True
+
+    def four_digit_year(self, year: int = None) -> int:
+        """
+        Take a two- or four-digit year and return a four digit year.
+        :param year  if None, return current year. If 1-99, return 20nn. If >1901, return self.
+        """
+        def century(year: int = None) -> int:
+            """
+            Return the first two digits of the year. In the year 2021, return 2000.
+            """
+            if year:
+                return year if year % 100 == 0 else 100 * (year // 100)
+            else:
+                # No year given; use this year's millennial prefix.
+                this_year = self.today().year
+                return century(this_year)
+
+        if not year:
+            return self.today().year  # Return this year
+        elif 0 <= year < 100:
+            # We have a two digit year; add the century prefix (20xx as of this writing)
+            return century() + year
+        elif year > 1900:
+            return year
+        else:
+            logger.warning(f'Year must be None or two digits or greater than 1900; got {year}. Returning None.')
+            return None
+
+    def first_of_month(self, year: int, month: int) -> datetime:
+        """
+        Return the datetime corresponding to this year and month.
+        """
+        yyyy = self.four_digit_year(year)
+        return self.intsToDateTime(myYYYY=yyyy, myMM=month, myDD=1)
+
+    def first_of_quarter(self, year: int, quarter: int) -> datetime:
+        """
+        """
+        try:
+            month = self.quarter_to_month[quarter]
+            return self.first_of_month(year=year, month=month)
+        except KeyError:
+            logger.warning(f'quarter must be 1, 2, 3, or 4, but was {quarter}. Returning None.')
+            return None
+

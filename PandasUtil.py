@@ -518,6 +518,18 @@ class PandasUtil:
         df[column_name] = new_col
         return df
 
+    def add_new_col_by_shift(self, df: pd.DataFrame, column_name: str, new_col_name: str, rows: int = 1) -> pd.DataFrame:
+        """
+        Add a new column by shifting column_name up (rows > 0) or down (rows < 0)
+        :param df:
+        :param column_name: source column name to be shifted.
+        :param new_col_name: new column name containing shifted column
+        :param rows: how many rows to shift up or down
+        :return: df with shifted column
+        """
+        df[new_col_name] = df[column_name].shift(rows)
+        return df
+
     def mark_rows_by_func(self, df: pd.DataFrame, column_name: str, func: Callable[[], list]) -> Bools:
         """
         Return a list of bools depending on the func.
@@ -733,14 +745,15 @@ class PandasUtil:
             logger.warning(f'mask must be None, a series, or a list, but it is: {type(mask)}')
             return self.empty_df()
 
-    def join_two_dfs_on_index(self, df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
+    def join_two_dfs_on_index(self, df1: pd.DataFrame, df2: pd.DataFrame, join: str = 'inner') -> pd.DataFrame:
         """
         return a column-wise join of these two dataframes on their mutual index.
-        :param df1:
-        :param df2:
+        :param df1: left table
+        :param df2: right table
+        :param join: type of join (str like 'inner' or 'outer')
         :return:
         """
-        return pd.concat([df1, df2], axis=1, ignore_index=False)
+        return pd.concat([df1, df2], axis=1, ignore_index=False, join=join)
 
     def join_dfs_by_column(self, dfs: Dataframes) -> pd.DataFrame:
         """

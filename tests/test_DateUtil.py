@@ -186,5 +186,54 @@ class Test_DateUtil(unittest.TestCase):
         end_date = self.du.now(tz_str='EST')
         self.assertTrue(self.du.is_between(the_date, end_date=end_date), 'Fail test 6')
 
+    @logit()
+    def test_four_digit_year(self):
+        # Test 1, normal.
+        exp1 = 2015
+        act1 = self.du.four_digit_year(exp1)
+        self.assertEqual(exp1, act1, 'Fail test 1')
+        # Test 2, two digits for the year. 0 means use the current year.
+        test2 = 0
+        exp2 = datetime.today().year
+        act2 = self.du.four_digit_year(test2)
+        self.assertEqual(exp2, act2, 'Fail test 2')
+        # Test 3, regular two digits. 21 means 2015.
+        test3 = 15
+        exp3 = 2015
+        act3 = self.du.four_digit_year(test3)
+        self.assertEqual(exp3, act3, 'Fail test 3')
+        # Test 4, None for year should return this year.
+        test4 = None
+        exp4 = datetime.today().year
+        act4 = self.du.four_digit_year(test4)
+        self.assertEqual(exp4, act4, 'Fail test 4')
+
+    @logit()
+    def test_first_of_month(self):
+        # Test 1, normal.
+        yyyy1, mm1 = 1981, 2
+        exp1 = self.du.intsToDateTime(myYYYY=yyyy1, myMM=mm1, myDD=1)
+        act1 = self.du.first_of_month(yyyy1, mm1)
+        self.assertEqual(exp1, act1, 'Fail test 1')
+        # Test 2, two-digit year.
+        yyyy2, mm2 = 2021, 3
+        yy2 = yyyy2 % 100
+        exp2 = self.du.intsToDateTime(myYYYY=yyyy2, myMM=mm2, myDD=1)
+        act2 = self.du.first_of_month(year=yy2, month=mm2)
+        self.assertEqual(exp2, act2, 'Fail test 2')
+
+    @logit()
+    def test_first_of_quarter(self):
+        # Test 1, normal
+        yyyy1, qq1, mm1 = 1981, 2, 4 # first-of-quarter 2 should be April
+        exp1 = self.du.intsToDateTime(myYYYY=yyyy1, myMM=mm1, myDD=1)
+        act1 = self.du.first_of_quarter(year=yyyy1, quarter=qq1)
+        self.assertEqual(exp1, act1, 'Fail test 1')
+        # Test 2, normal
+        yyyy2, qq2, mm2 = 2021, 4, 10 # first-of-quarter 4 should be Oct
+        exp1 = self.du.intsToDateTime(myYYYY=yyyy2, myMM=mm2, myDD=1)
+        act1 = self.du.first_of_quarter(year=yyyy2, quarter=qq2)
+        self.assertEqual(exp1, act1, 'Fail test 2')
+
 if __name__ == "__main__":
     unittest.main(argv=['first-arg-ignored'], exit=False)
