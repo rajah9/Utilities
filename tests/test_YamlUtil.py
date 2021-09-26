@@ -28,9 +28,19 @@ class TestYamlUtil(Test_FileUtil):
 
     @logit()
     def test_asdict(self):
+        # Test 1, normal
         qualifiedPath = self._fu.qualified_path(self.path, self.yaml)
         d = YamlUtil(qualifiedPath)
-        self.assertEqual(d.asdict, self.expected_dict)
+        self.assertEqual(d.asdict, self.expected_dict, "Fail test 1")
+        # Test 2, two dictionaries
+        d_1 = {'pie': 'apple'}
+        d_2 = {'muffin': 'blueberry'}
+        test_1 = [d_1, d_2]
+        exp1 = d_1.copy()
+        exp1.update(d_2)
+        d.asdict = exp1
+        act1 = d.asdict
+        self.assertEqual(exp1, act1, "Fail test 2")
 
     @logit()
     def test_asnamedtuple(self):

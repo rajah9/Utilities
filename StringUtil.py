@@ -769,8 +769,3 @@ class LineAccumulator:
 
     def contents_len(self):
         return len(self._contents)
-
-
-
-
-

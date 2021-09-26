@@ -16,6 +16,9 @@ Interesting Python features.
 import logging
 from collections import namedtuple
 from FileUtil import FileUtil
+from typing import Union, List
+
+Dictionaries = List[dict]
 
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -25,7 +28,7 @@ class YamlUtil(FileUtil):
     def __init__(self, yaml_file:str):
         if self.file_exists(yaml_file):
             d = self.read_yaml(yaml_file)
-            self._yaml_dict = d
+            self.asdict = d
         else:
             logger.warning(f'Unable to find file {yaml_file}. Leaving dictionary empty.')
 
@@ -33,8 +36,16 @@ class YamlUtil(FileUtil):
     def asdict(self):
         return self._yaml_dict
     @asdict.setter
-    def asdict(self, d):
-        self._yaml_dict = d
+    def asdict(self, d: Union[dict, Dictionaries]):
+        if isinstance(d, dict):
+            ans = d
+        else:
+            ans = {}
+            for a_dict in d:
+                for k, v in a_dict.items():
+                    ans[k] = v
+
+        self._yaml_dict = ans
 
     @property
     def asnamedtuple(self):

@@ -10,11 +10,12 @@ import logging
 import platform
 import posixpath
 from datetime import datetime, time
-from os import remove, makedirs, sep, stat, listdir, error, getcwd
-from os.path import isfile, split, join, normpath, isdir, getctime, getmtime
+from os import remove, makedirs, sep, stat, listdir, error
+from os.path import split, join, normpath, isdir, getctime, getmtime
+from pathlib import Path
 from shutil import copy2, rmtree
 from typing import Dict, Tuple, List, Union
-from pathlib import Path, PurePath
+
 from yaml import safe_load, YAMLError, dump
 
 from DateUtil import DateUtil
@@ -96,11 +97,11 @@ class FileUtil:
             self.logger.error('Exception message: {msg}'.format(msg=err))
             yield None
 
-    def write_text_file(self, filename: str, lines: list) -> None:
+    def write_text_file(self, filename: str, lines: list, encoding: str = 'utf8') -> None:
         """
         Write the given lines to the given filename, one per line.
         """
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding=encoding) as f:
             for line in lines:
                 f.write(f'{line}\n')
 
@@ -110,25 +111,69 @@ class FileUtil:
         :param dir_path:
         :return: list of files and dirs.
         """
-        return listdir(dir_path)
+        p = dir_path if isinstance(dir_path, Path) else Path(dir_path)
+        all = [f for f in p.iterdir()]
+        ans = [x.name for x in all]
+        return ans
+    """
+    TODO: working area 
+    """
 
-    def get_files(self, dir_path: str) -> list:
+    def generate_path(self, dir_path: Union[str, Path] = '.', filename: str = None) -> Path:
+        """
+        Ensure a dir exists for the given dir_path.
+        It does NOT create the file if one is given.
+        :param dir_path: Path to file or dir. If omitted, use the current working dir.
+        :param filename: (optional)
+        :return: Path to dir_path.
+        """
+        dir_path = Path(dir_path).resolve()
+        path = dir_path / filename if filename else dir_path
+        if dir_path.exists():
+            self.logger.debug(f'Path (or file) {dir_path} exists.')
+            return dir_path
+        else:
+            if path.is_file():
+                parent = path.parent
+                self.logger.debug(f'Creating parent dir: {parent}')
+                parent.mkdir(exist_ok=True, parents=True)
+                return parent
+        self.logger.debug(f'Creating path {dir_path}')
+        dir_path.mkdir(exist_ok=True, parents=True)
+        return dir_path
+
+    def get_files_and_dirs(self,  dir_path: Union[str, Path]) -> list:
+        """
+        Given a directory path, return a list of files and directories.
+        """
+        p = dir_path if isinstance(dir_path, Path) else Path(dir_path)
+        return [f for f in p.iterdir()]
+
+    def file_or_dir_exists(self, dir_or_file_path: Path) -> bool:
+        """
+        Return True if this dir or file exists.
+        :param dir_or_file_path:
+        :return:
+        """
+        return dir_or_file_path.exists()
+
+    def get_files(self, dir_path: Union[str, Path]) -> list:
         """
         Return a list of files in a directory.
         """
-        all_files_and_dirs = self.get_list(dir_path)
-        for f in all_files_and_dirs:
-            fullpath = self.fully_qualified_path(dir_path, f)
-            self.logger.debug(f'checking out {fullpath}')
-            resp = 'is a file' if isfile(fullpath) else 'is not a file'
-            self.logger.debug(f'{f} {resp}')
-        return [f for f in self.get_list(dir_path) if isfile(self.fully_qualified_path(dir_path, f))]
+        p = dir_path if isinstance(dir_path, Path) else Path(dir_path)
+        all = [f for f in p.iterdir() if f.is_file()]
+        ans = [f.name for f in all]
+        return ans
 
     def get_dirs(self, dir_path: str) -> list:
         """
         Return a list of subdirs in a directory.
         """
-        return [f for f in self.get_list(dir_path) if isdir(self.fully_qualified_path(dir_path, f))]
+        p = dir_path if isinstance(dir_path, Path) else Path(dir_path)
+        all = [d for d in p.iterdir() if d.is_dir()]
+        ans = [d.name for d in all]
+        return ans
 
     def get_recursive_list(self, dir_path: str) -> list:
         """
@@ -262,11 +307,20 @@ class FileUtil:
         return f, ext
 
     @staticmethod
-    def file_exists(qualifiedPath: str) -> bool:
+    def file_exists(qualifiedPath: Union[str, Path]) -> bool:
         """
         Return true if the file exists.
         """
-        return isfile(qualifiedPath)
+        test_me = qualifiedPath if isinstance(qualifiedPath, Path) else Path(qualifiedPath)
+        return test_me.exists()
+
+    @staticmethod
+    def is_file(qualifiedPath: Union[str, Path]) -> bool:
+        """
+        Return true if this is a file (as opposed to a directory).
+        """
+        test_me = qualifiedPath if isinstance(qualifiedPath, Path) else Path(qualifiedPath)
+        return test_me.is_file()
 
     def delete_file(self, qualified_path: str) -> bool:
         """

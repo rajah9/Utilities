@@ -132,6 +132,21 @@ class Test_CollectionUtil(TestCase):
         act3 = self._cu.remove_key(d, key_to_remove, default=new_default)
         self.assertEqual(new_default, act3, 'Test 3 fail')
 
+    def test_list_of_dicts_to_dict(self):
+        # Test 1, normal.
+        d_1 = {'pie': 'apple'}
+        d_2 = {'muffin': 'blueberry'}
+        test_1 = [d_1, d_2]
+        exp1 = d_1.copy()
+        exp1.update(d_2)
+        act1 = self._cu.list_of_dicts_to_dict(test_1)
+        self.assertEqual(exp1, act1, "Fail test 1")
+        # Test 2, border: 1 dictionary
+        test_2 = [d_2]
+        exp2 = d_2.copy()
+        act2 = self._cu.list_of_dicts_to_dict(test_2)
+        self.assertEqual(exp2, act2, "Fail test 2")
+
     def test_sorted_list(self):
         # Test 1, ascending
         unsorted_list = [5, 7, 3, 1, 10, 0]

@@ -1,12 +1,14 @@
 import logging
 import platform
 from copy import deepcopy
-from os import sep
+from os import sep, getcwd, chdir
 from random import randrange
-from typing import List
+from typing import List, Union
 from unittest import TestCase, mock, main
-from pathlib import Path, PurePath
+from pathlib import Path, PureWindowsPath, WindowsPath, PosixPath
 from yaml import YAMLError
+from contextlib import contextmanager
+from tempfile import TemporaryDirectory
 
 from DateUtil import DateUtil
 from ExecUtil import ExecUtil
@@ -36,8 +38,8 @@ Interesting Python features:
 """
 
 
-def mock_is_file(file_or_dir:str) -> bool:
-    return '.txt' in file_or_dir
+def mock_is_file(file_or_dir: Union[str, PureWindowsPath]) -> bool:
+    return '.txt' in str(file_or_dir)
 
 def mock_is_dir(file_or_dir: str) -> bool:
     return not mock_is_file(file_or_dir)
@@ -80,6 +82,20 @@ class Test_FileUtil(TestCase):
         filename = self._fu.qualified_path(self.path, self.fn)
         self._fu.write_text_file(filename, lines)
         logger.debug(f'create_csv to {self.path}{sep}{self.fn}.')
+
+    """
+    temporary test dir found from:
+    https://codereview.stackexchange.com/questions/237060/mocking-pathlib-path-i-o-methods-in-a-maintainable-way-which-tests-functionality
+    """
+    @contextmanager
+    def temporary_test_dir():
+        oldpwd = getcwd()
+        with TemporaryDirectory("test-path") as td:
+            try:
+                chdir(td)
+                yield
+            finally:
+                chdir(oldpwd)
 
     def create_yaml(self, keys: list, vals: list):
         writeMe = []
@@ -265,11 +281,35 @@ class Test_FileUtil(TestCase):
 
     @logit()
     def test_file_exists(self):
+        # Test 1, Create a file and ensure it exists.
         self.create_csv()
         qualifiedPath = self._fu.qualified_path(self.path, self.fn)
-        self.assertTrue(FileUtil.file_exists(qualifiedPath))
+        self.assertTrue(FileUtil.file_exists(qualifiedPath), f'Test 1 failure. Cannot find {qualifiedPath} as string.')
+        # Test 2, no such file.
         qualifiedPath = self._fu.qualified_path(self.path, 'noSuchFile.xxd')
-        self.assertFalse(FileUtil.file_exists(qualifiedPath))
+        self.assertFalse(FileUtil.file_exists(qualifiedPath), f'Test 2 fail. Should not be able to find a file from string {qualifiedPath}')
+        # Test 3, using path.
+        p = Path(self.path, self.fn)
+        self.assertTrue(FileUtil.file_exists(p), f'Test 3 fail. Cannot find {p} as Path.')
+
+    @logit()
+    def test_is_file(self):
+        # Test 1, Create a file and ensure it exists.
+        self.create_csv()
+        qualifiedPath = self._fu.qualified_path(self.path, self.fn)
+        self.assertTrue(self._fu.is_file(qualifiedPath), f'Test 1 failure. Cannot find {qualifiedPath} as string.')
+        # Test 2, no such file.
+        qualifiedPath = self._fu.qualified_path(self.path, 'noSuchFile.xxd')
+        self.assertFalse(self._fu.is_file(qualifiedPath), f'Test 2 fail. Should not be able to find a file from string {qualifiedPath}')
+        # Test 3, using path.
+        p = Path(self.path, self.fn)
+        self.assertTrue(FileUtil.file_exists(p), f'Test 3 fail. Cannot find {p} as Path.')
+        # Test 4, a dir should return False for is_file.
+        self.assertFalse(self._fu.is_file(self.path), f'Test 4 failure. is_file should return False for dir {qualifiedPath} as string.')
+        # Test 5, using dir path. Should return False for is_file.
+        p = Path(self.path) # string path only, no file.
+        self.assertFalse(self._fu.is_file(p), f'Test 5 fail. is_file should return False for dir {p} as Path.')
+
 
     @logit()
     def test_ensure_dir(self):
@@ -319,13 +359,10 @@ class Test_FileUtil(TestCase):
             _ = self._fu.copy_file(qualifiedPath, tmp_path)
             self.assertTrue(next((True for line in cm.output if expected_log_message in line), False))
 
-    @logit()
-    def test_getList(self):
-        dir_name = r'c:\temp'
-        flist = self._fu.get_list(dir_name)
-        logger.debug(f'All list is: {flist}')
-
-
+    """
+    Following are some routines to help with mocking
+    TODO: Tests for new FileUtil 
+    """
     def isFile_side_effect(*args, **kwargs) -> bool:
         """
         Side effect for mocking test_get_files.
@@ -334,35 +371,101 @@ class Test_FileUtil(TestCase):
         :param kwargs:
         :return:
         """
-        return mock_is_file(args[1])
+        pass
+        logger.info(f'There are {len(args)} arguments. First is {args[0]}')
+        return mock_is_file()
 
     def isDir_side_effect(*args) -> bool:
         return mock_is_dir(args[1])
 
     @logit()
-    @mock.patch('FileUtil.isfile')
-    @mock.patch('FileUtil.listdir')
-    def test_get_files(self, mock_listdir, mock_isfile):
-        dir_name = r'\nosuchdir'
-        file_list = ['filea.txt', 'fileb.txt', 'filec.txt', 'somedir']
-        mock_listdir.return_value = file_list
-        mock_isfile.side_effect = self.isFile_side_effect
-        actual = self._fu.get_files(dir_name)
-        expected = [f for f in file_list if mock_is_file(f)] # Condition must match isFile_side_effect
-        self.assertListEqual(expected, actual)
-
+    @temporary_test_dir()
+    def test_get_files(self):
+        # Test 1. Files only.
+        files = ['filea.txt', 'fileb.txt', 'filec.txt']
+        path = getcwd()
+        exp1 = []
+        for f in files:
+            p = path / Path(f)
+            exp1.append(p.name)
+            p.touch()
+        # Add a dir
+        newdir_name = 'subdir'
+        p2 = path / Path(newdir_name)
+        p2.mkdir()
+        act1 = self._fu.get_files(dir_path=path)
+        self.assertListEqual(exp1, act1, "Fail test 1")
 
     @logit()
-    @mock.patch('FileUtil.isdir')
-    @mock.patch('FileUtil.listdir')
-    def test_get_dirs(self, mock_listdir, mock_isdir):
-        dir_name = r'\nosuchdir'
-        file_list = ['filea.txt', 'fileb.txt', 'filec.txt', 'somedir']
-        mock_listdir.return_value = file_list
-        mock_isdir.side_effect = self.isDir_side_effect
-        actual = self._fu.get_dirs(dir_name)
-        expected = [f for f in file_list if mock_is_dir(f)] # Condition must match isDir_side_effect
-        self.assertListEqual(expected, actual)
+    @temporary_test_dir()
+    def test_generate_path(self):
+        # Test 1. Normal. Create a temp dir and ensure the dir exists.
+        act1 = self._fu.generate_path(dir_path='.', filename='fake.txt')
+        self.assertTrue(act1.is_dir(), "File test 1")
+        # Test 2. Create a temp dir (no filename) and ensure that it exists.
+        act2 = self._fu.generate_path()
+        self.assertTrue(act2.exists(), "Fail test 2")
+
+    @logit()
+    def test_generate_path2(self):
+        # Test 1, neither dir nor file exist. This should create the dir.
+        test_1_dir = 'doesnotexist'
+        mynew_dir = Path() / test_1_dir
+        try:
+            mynew_dir.rmdir()
+        except FileNotFoundError:
+            pass
+        logger.debug(f'about to call generate_path for new dir, {test_1_dir}')
+        act1 = self._fu.generate_path(dir_path=mynew_dir, filename='fake.txt')
+        self.assertTrue(act1.is_dir(), "Fail test 1")
+        # Test 2. dir exists (created in previous test).
+        logger.debug(f'about to call generate_path for existing dir, {test_1_dir}')
+        act2 = self._fu.generate_path(dir_path=mynew_dir)
+        self.assertTrue(act2.exists(), "Fail test 2")
+        try:
+            mynew_dir.rmdir()
+        except FileNotFoundError:
+            logger.warning(f'Was unable to delete {mynew_dir}')
+
+    @logit()
+    @temporary_test_dir()
+    def test_get_files_and_dirs(self):
+        # Test 1. Files only.
+        files = ['filea.txt', 'fileb.txt', 'filec.txt']
+        path = getcwd()
+        exp1 = []
+        for f in files:
+            p = path / Path(f)
+            exp1.append(p)
+            p.touch()
+        act1 = self._fu.get_files_and_dirs(dir_path=path)
+        self.assertListEqual(exp1, act1, "Fail test 1")
+        # Test 2. Add a dir
+        newdir_name = 'subdir'
+        exp2 = exp1.copy()
+        p2 = path / Path(newdir_name)
+        p2.mkdir()
+        exp2.append(p2)
+        act2 = self._fu.get_files_and_dirs(dir_path=path)
+        self.assertListEqual(exp2, act2, "Fail test 2")
+
+    @logit()
+    @temporary_test_dir()
+    def test_get_dirs(self):
+        # Test 1. Add files
+        files = ['filea.txt', 'fileb.txt', 'filec.txt']
+        path = getcwd()
+        exp1 = []
+        for f in files:
+            p = path / Path(f)
+            p.touch()
+        # Add a dir
+        newdir_name = 'subdir'
+        p2 = path / Path(newdir_name)
+        p2.mkdir()
+        exp1.append(newdir_name)
+        act1 = self._fu.get_dirs(dir_path=path)
+        self.assertListEqual(exp1, act1, "Fail test 1")
 
     @logit()
     def test_get_recursive_list(self):

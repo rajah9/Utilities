@@ -12,7 +12,7 @@ Ints = List[int]
 Bools = List[bool]
 Strings = List[str]
 Floats = List[float]
-
+Dictionaries = List[dict]
 """
 Interesting Python Featuers:
 * implements default dictionary to count words
@@ -120,6 +120,18 @@ class CollectionUtil(Util):
         :return: the key just removed.
         """
         ans = d.pop(key, default)
+        return ans
+
+    def list_of_dicts_to_dict(self, dict_list: Dictionaries) -> dict:
+        """
+        Combine a list of dictionaries into a single dictionary.
+        If two dictionaries have the same key, the last one wins.
+        :param dict_list: List of dictionaries
+        :return: The update of those dictionaries (by pairs, in order of the list).
+        """
+        ans = dict_list.pop() # ans is the first dict (and gets removed).
+        for d in dict_list:
+            ans.update(d)
         return ans
 
     def sorted_list(self, lst: list, is_descending: bool = False) -> list:
