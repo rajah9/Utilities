@@ -109,9 +109,9 @@ class PandasUtil:
         return pd.DataFrame()
 
     @staticmethod
-    def pandas_version():
+    def pandas_version() -> Tuple[int, int, int]:
         """
-        Return the pandas version as three ints
+        Return the pandas version as a tuple of three ints
         :return: maj, minor, sub
         """
         v = pd.__version__
@@ -412,6 +412,15 @@ class PandasUtil:
         """
         return df[column_name].values.tolist()
 
+    def convert_dataframe_col_to_numpy_array(self, df: pd.DataFrame, column_name: str, dtype: Union[str, list] = None) -> np.array:
+        maj, minor, _ = self.pandas_version()
+        if maj >= 1 and minor >= 10:
+            return df[column_name].to_numpy()
+        series_data = df[column_name]
+        if dtype:
+            return np.array(series_data, dtype=dtype)
+        return np.array(series_data)
+
     def without_null_rows(self, df: pd.DataFrame, column_name: str) -> pd.DataFrame:
         """
         Return a DataFrame without the rows that are null in the given column_name.
@@ -612,6 +621,14 @@ class PandasUtil:
         :return:
         """
         return self.reset_index(df=df, is_in_place=is_in_place, is_dropped=True)
+
+    def index_values(self, df: pd.DataFrame):
+        """
+        Return the value of the index.
+        :param df:
+        :return:
+        """
+        return df.index.values
 
     def drop_col(self, df: pd.DataFrame, columns: Union[Strings, str], is_in_place: bool = True) -> pd.DataFrame:
         """

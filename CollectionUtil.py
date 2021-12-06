@@ -2,9 +2,8 @@ from collections import defaultdict, namedtuple, OrderedDict
 from copy import copy
 from itertools import compress, repeat, chain
 from typing import Union, List, Tuple
-
 import numpy as np
-from pandas import Series
+from pandas import Series, __version__
 
 from Util import Util
 
@@ -17,6 +16,15 @@ Dictionaries = List[dict]
 Interesting Python Featuers:
 * implements default dictionary to count words
 """
+
+def pandas_version() -> Tuple[int, int, int]:
+    """
+    Return the Pandas version as a three-int tuple.
+    :return:  (maj, min, sub)
+    """
+    v = __version__
+    maj_min_sub = [int(x) for x in v.split('.')]
+    return maj_min_sub[0], maj_min_sub[1], maj_min_sub[2]
 
 class CollectionUtil(Util):
     def __init__(self):
@@ -322,7 +330,8 @@ class NumpyUtil(Util):
     def __init__(self):
         super(NumpyUtil, self).__init__(null_logger=False)
 
-    def to_numpy_array(self, data: list, dtype: Union[str, list] = None) -> np.array:
+    @classmethod
+    def to_numpy_array(data: list, dtype: Union[str, list] = None) -> np.array:
         """
         Return a numpy array.
         See https://numpy.org/doc/stable/user/basics.types.html for what you can place in dtype.
@@ -334,3 +343,46 @@ class NumpyUtil(Util):
         if dtype:
             return np.array(data, dtype=dtype)
         return np.array(data)
+
+import h5py
+from collections.abc import KeysView
+
+class H5Util(Util):
+    def __init__(self):
+        super(H5Util, self).__init__(null_logger=False)
+
+    def create_group(self, hf: h5py._hl.files.File, group_name: str) -> h5py._hl.group.Group:
+        return hf.create_group(group_name=group_name)
+
+    def write_attributes_to_dataset(self, group: h5py._hl.group.Group, dataset_name: str, attributes: dict) -> h5py._hl.dataset.Dataset:
+        """
+        Create an Empty dataset.
+        Write the dictionary attributes to the given group.
+        :param group:
+        :param dataset_name:
+        :param attributes:
+        :return:
+        """
+        d = group.create_dataset(dataset_name, data=h5py.Empty("f")) # Note use of Empty because we don't need data.
+        for k, v in attributes.items():
+            d.attrs[k] = v
+
+    def get_groups(self, hf: h5py._hl.files.File) -> list:
+        """
+        Given a hf file, provide a list of groups.
+        :param hf: hdf5 file
+        :return: list of dictionary attributes
+        """
+        return hf.keys()
+
+    def get_attributes(self, group: KeysView) -> list:
+        """
+        Given a group, return (as a list of dictionaries) the attributes for that group.
+        :param group:
+        :return:
+        """
+        ans = []
+        for k2, subgroup in group.items():
+            dict_of_attrib = {k2, subgroup.attrs}
+            ans.append(dict_of_attrib)
+        return ans

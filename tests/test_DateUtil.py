@@ -85,23 +85,36 @@ class Test_DateUtil(unittest.TestCase):
         self.assertEqual(expected_end_d1.isoformat(), d1['lt'])
 
     @logit()
+    def test_year_quarter_to_datetime(self):
+        # Test 1, normal
+        test1 = '2021q4'
+        exp1 = datetime(2021, 10, 1)
+        act1 = self.du.year_quarter_to_datetime(test1)
+        self.assertEqual(act1, exp1, 'Failed test 1')
+
+    @logit()
     def test_asDate(self):
         expectedDate1 = datetime(2019, 4, 3)
         yyyy_mm_dd1 = self.du.asFormattedStr(expectedDate1)
         actual1 = self.du.asDate(yyyy_mm_dd1)
-        self.assertEqual(expectedDate1, actual1)
+        self.assertEqual(expectedDate1, actual1, 'Failed test 1')
         actual2 = self.du.asDate(expectedDate1)
-        self.assertEqual(expectedDate1, actual2)
+        self.assertEqual(expectedDate1, actual2, 'Failed test 2')
         # Test 3, timezone naive
         expected3 = self.du.now()
         actual3 = self.du.asDate(expected3, use_localize=False)
-        self.assertEqual(expected3, actual3)
+        self.assertEqual(expected3, actual3, 'Failed test 3')
         # Test 4, timezone
         tz = 'US/Mountain'
         mst_du = DateUtil(tz)
         expected4 = mst_du.now()
         actual4 = mst_du.asDate(expected4, use_localize=True)
-        self.assertEqual(expected4, actual4)
+        self.assertEqual(expected4, actual4, 'Failed test 4')
+        # Test 5, using a quarter format
+        test5 = '2022Q1'
+        expected5 = datetime(2022, 1, 1)
+        actual5 = self.du.asDate(test5)
+        self.assertEqual(expected5, actual5, 'Failed test 5')
 
     @logit()
     def test_today(self):
@@ -135,9 +148,9 @@ class Test_DateUtil(unittest.TestCase):
         the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
         start_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD= dd - 1)
         self.assertTrue(self.du.is_after(the_date=the_date, start_date=start_date), 'Fail test 1')
-        # Test 2, the same time (should return False)
+        # Test 2, the same time (should return True)
         start_date = self.du.now(tz_str='EST')
-        self.assertFalse(self.du.is_after(start_date, start_date), 'Fail test 2')
+        self.assertTrue(self.du.is_after(start_date, start_date), 'Fail test 2')
         # Test 3, the_date is slightly after (should return True)
         sleep(0.05)
         the_date = self.du.now(tz_str='EST')
@@ -150,14 +163,27 @@ class Test_DateUtil(unittest.TestCase):
         the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
         end_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd + 1)
         self.assertTrue(self.du.is_before(the_date=the_date, end_date=end_date), 'Fail test 1')
-        # Test 2, the same time (should return False)
+        # Test 2, the same time (should return True)
         the_date = self.du.now(tz_str='EST')
-        self.assertFalse(self.du.is_before(the_date, the_date), 'Fail test 2')
+        self.assertTrue(self.du.is_before(the_date, the_date), 'Fail test 2')
         # Test 3, end_date is slightly after (should return True)
         from time import sleep
         sleep(0.05)
         end_date = self.du.now(tz_str='EST')
         self.assertTrue(self.du.is_before(the_date, end_date), 'Fail test 3')
+
+    @logit()
+    def test_is_equal(self):
+        # Test 1, normal
+        yy, mm, dd = 2021, 8, 25
+        the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
+        the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD= dd)
+        self.assertTrue(self.du.is_equal(the_date=the_date, test_date=the_date), 'Fail test 1')
+        # Test 2,
+        start_date = self.du.now(tz_str='EST')
+        sleep(0.05)
+        the_date = self.du.now(tz_str='EST')
+        self.assertFalse(self.du.is_equal(start_date, the_date), 'Fail test 2')
 
     @logit()
     def test_is_between(self):
@@ -166,9 +192,9 @@ class Test_DateUtil(unittest.TestCase):
         the_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD=dd)
         start_date = self.du.intsToDateTime(myYYYY=yy, myMM=mm, myDD= dd - 1)
         self.assertTrue(self.du.is_between(the_date=the_date, start_date=start_date), 'Fail test 1')
-        # Test 2, the same time (should return False)
+        # Test 2, the same time (should return True)
         start_date = self.du.now(tz_str='EST')
-        self.assertFalse(self.du.is_between(start_date, start_date), 'Fail test 2')
+        self.assertTrue(self.du.is_between(start_date, start_date), 'Fail test 2')
         # Test 3, the_date is slightly after (should return True)
         sleep(0.05)
         the_date = self.du.now(tz_str='EST')
@@ -180,11 +206,20 @@ class Test_DateUtil(unittest.TestCase):
         self.assertTrue(self.du.is_between(the_date=the_date, end_date=end_date), 'Fail test 4')
         # Test 5, the same time (should return False)
         the_date = self.du.now(tz_str='EST')
-        self.assertFalse(self.du.is_between(the_date=the_date, end_date=the_date), 'Fail test 5')
+        self.assertTrue(self.du.is_between(the_date=the_date, end_date=the_date), 'Fail test 5')
         # Test 6, end_date is slightly after (should return True)
         sleep(0.05)
         end_date = self.du.now(tz_str='EST')
         self.assertTrue(self.du.is_between(the_date, end_date=end_date), 'Fail test 6')
+        # Test 7, both are none (and must return True)
+        self.assertTrue(self.du.is_between(the_date, end_date=None, start_date=None), 'Fail test 7')
+        # Test 8, using quarters
+        test8 = '2021Q4'
+        exp8 = datetime(2021, 10, 1)
+        day_before = datetime(2021, 9, 30)
+        day_after = datetime(2021, 10, 2)
+        self.assertTrue(self.du.is_between(the_date=exp8, start_date=day_before, end_date=day_after), 'Fail test 8')
+
 
     @logit()
     def test_four_digit_year(self):

@@ -87,13 +87,24 @@ class DateUtil:
         ans = datetime(myYYYY, myMM, myDD, myHH, myMin, mySec)
         return ans
 
+    def year_quarter_to_datetime(self, qtr_str: str) -> datetime:
+        """
+        Adapted from https://stackoverflow.com/a/63370956/509840.
+        :param qtr_str: a year and quarter separated by Q or q, like '2019q4'
+        :return: datetime
+        """
+        parts = qtr_str.lower().split('q')
+        return datetime(int(parts[0]), int(parts[1])*3-2, 1)
+
     @logit(showArgs=False, showRetVal=False)
     def asDate(self, date_or_str_or_timestamp:Union[str, float], myFormat: str = '%Y-%m-%d', use_localize:bool=False) -> datetime:
         """
         Convert a date or string or a timestamp (float) into a Python datetime.
         If it's a string or float, use myFormat to format it.
         """
-        if type(date_or_str_or_timestamp) == str:
+        if isinstance(date_or_str_or_timestamp, str):
+            if date_or_str_or_timestamp.lower().find('q') > 0: # Handles '2019q4' as a year and quarter
+                return self.year_quarter_to_datetime(date_or_str_or_timestamp)
             return self.asDateTime(date_or_str_or_timestamp, myFormat, use_localize)
         elif type(date_or_str_or_timestamp) == float:
             return self.timestamp_to_datetime(date_or_str_or_timestamp, myFormat)
@@ -218,45 +229,56 @@ class DateUtil:
 
     def is_after(self, the_date: datetime, start_date: datetime) -> bool:
         """
-        return True if the_date is after start_date (by at least 1 ms);
+        return True if the_date is equal to or after start_date
         :param the_date: Date under examination.
         :param start_date: start date to compare the_date to
         :return: the_date > start_date
         """
-        ans = the_date > start_date
+        ans = the_date >= start_date
         return ans
 
     def is_before(self, the_date: datetime, end_date: datetime) -> bool:
         """
-        Return True if the_date is before end_date.
+        Return True if the_date is equal to or before end_date.
         :param the_date: Date under examination.
         :param end_date: end date to compare the_date to
         :return:
         """
-        return the_date < end_date
+        return the_date <= end_date
 
+    def is_equal(self, the_date: datetime, test_date: Union[str, datetime]) -> bool:
+        """
+        Return True if start_date = test_date.
+        :param the_date: a datetime.
+        :param test_date: a datetime or str like '2021-11-04' or like '2021q4'
+        :return:
+        """
+        test_date2 = self.asDate(test_date)
+        return the_date == test_date2
 
-    def is_between(self, the_date: datetime, start_date: datetime = None, end_date: datetime = None) -> bool:
+    def is_between(self, the_date: datetime, start_date: Union[str, datetime] = None, end_date: Union[str, datetime] = None) -> bool:
         """
         Return True if start_date < the_date < end_date (strict inequality).
         If start_date is None, use is_before.
         If end_date is None, use is_after.
         If both start_date and end_date are None, return True.
         Raise an error in start_date > end_date.
-        :param the_date:
-        :param start_date: earlier than end_date
-        :param end_date: later than start_date
+        :param the_date: a datetime.
+        :param start_date: a datetime or str like '2021-11-04' or like '2021q4'
+        :param end_date: a datetime or str like '2022-01-01' or like '2022q1' (and later than start_date)
         :return:
         """
+        earlier = self.asDate(start_date)
+        later = self.asDate(end_date)
         if start_date and end_date:
-            if start_date < end_date:
-                return self.is_before(the_date=the_date, end_date=end_date) and self.is_after(the_date=the_date, start_date=start_date)
+            if earlier < later:
+                return self.is_before(the_date=the_date, end_date=later) and self.is_after(the_date=the_date, start_date=earlier)
             else:
-                raise ValueError(f'start_date must precede end_date')
+                raise ValueError(f'start_date must precede the end_date')
         elif start_date:
-            return self.is_after(the_date=the_date, start_date=start_date)
+            return self.is_after(the_date=the_date, start_date=earlier)
         elif end_date:
-            return self.is_before(the_date=the_date, end_date=end_date)
+            return self.is_before(the_date=the_date, end_date=later)
         else:
             return True
 

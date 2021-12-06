@@ -240,6 +240,17 @@ class Test_PandasUtil(unittest.TestCase):
         self.assertListEqual(list(expected), self.pu.convert_dataframe_col_to_list(df, col_to_check))
 
     @logit()
+    def test_convert_dataframe_col_to_list(self):
+        df = self.my_test_df()
+        col_to_check = 'Age'
+        exp = np.array(df[col_to_check])
+        act = self.pu.convert_dataframe_col_to_numpy_array(df, col_to_check, dtype=int)
+        for i in range(len(exp)):
+            exp_el = exp[i]
+            act_el = act[i]
+            self.assertEqual(exp_el, act_el, f"Failure test 1, element {i}")
+
+    @logit()
     def test_sort(self):
         df_orig = self.my_test_df()
         df = self.pu.drop_col_keeping(df_orig, cols_to_keep='Weight', is_in_place=False)
@@ -526,7 +537,6 @@ class Test_PandasUtil(unittest.TestCase):
                 self.assertEqual(exp, act, f'Test 2 fail: expected {exp} not equal to actual {act}')
 
 
-
     @logit()
     def test_set_index(self):
         df = self.my_test_df() # this has an index
@@ -546,6 +556,18 @@ class Test_PandasUtil(unittest.TestCase):
         expected = cols_before
         expected.remove(col_to_index_and_reset)
         self.assertListEqual(expected, self.pu.get_df_headers(df=df_no_index))
+
+    def test_index_values(self):
+        df = self.my_test_df() # this has an index
+        # Test 1, single index
+        exp1 = df.index.tolist()
+        act1 = self.pu.index_values(df).tolist() # convert from ndarray to list
+        self.assertListEqual(exp1, act1, "Fail test 1.")
+        # Test 2, multi index
+        self.pu.set_index(df=df, columns=['Age', 'Name'], is_in_place=True)
+        exp2 = df.index.tolist()
+        act2 = self.pu.index_values(df).tolist()
+        self.assertListEqual(exp2, act2, "Fail test 2.")
 
     def test_drop_col_keeping(self):
         df = self.my_test_df()
